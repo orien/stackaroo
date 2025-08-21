@@ -1,6 +1,6 @@
 # 1. Record architectural decisions
 
-Date: 2025-08-25
+Date: 2025-08-21
 
 ## Status
 
