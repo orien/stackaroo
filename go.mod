@@ -1,6 +1,6 @@
 module github.com/orien/stackaroo
 
-go 1.25
+go 1.24
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.38.1
