@@ -190,9 +190,9 @@ func createTestTemplate() string {
 				"Default":     "stackaroo-test",
 			},
 			"Environment": map[string]interface{}{
-				"Type":        "String",
-				"Description": "Environment name",
-				"Default":     "test",
+				"Type":          "String",
+				"Description":   "Environment name",
+				"Default":       "test",
 				"AllowedValues": []string{"dev", "test", "staging", "prod"},
 			},
 		},

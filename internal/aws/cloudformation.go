@@ -18,39 +18,39 @@ import (
 type StackStatus string
 
 const (
-	StackStatusCreateInProgress                     StackStatus = "CREATE_IN_PROGRESS"
-	StackStatusCreateComplete                       StackStatus = "CREATE_COMPLETE"
-	StackStatusCreateFailed                         StackStatus = "CREATE_FAILED"
-	StackStatusDeleteInProgress                     StackStatus = "DELETE_IN_PROGRESS"
-	StackStatusDeleteComplete                       StackStatus = "DELETE_COMPLETE"
-	StackStatusDeleteFailed                         StackStatus = "DELETE_FAILED"
-	StackStatusUpdateInProgress                     StackStatus = "UPDATE_IN_PROGRESS"
-	StackStatusUpdateComplete                       StackStatus = "UPDATE_COMPLETE"
-	StackStatusUpdateFailed                         StackStatus = "UPDATE_FAILED"
-	StackStatusUpdateRollbackInProgress             StackStatus = "UPDATE_ROLLBACK_IN_PROGRESS"
-	StackStatusUpdateRollbackComplete               StackStatus = "UPDATE_ROLLBACK_COMPLETE"
-	StackStatusUpdateRollbackFailed                 StackStatus = "UPDATE_ROLLBACK_FAILED"
-	StackStatusRollbackInProgress                   StackStatus = "ROLLBACK_IN_PROGRESS"
-	StackStatusRollbackComplete                     StackStatus = "ROLLBACK_COMPLETE"
-	StackStatusRollbackFailed                       StackStatus = "ROLLBACK_FAILED"
-	StackStatusReviewInProgress                     StackStatus = "REVIEW_IN_PROGRESS"
-	StackStatusImportInProgress                     StackStatus = "IMPORT_IN_PROGRESS"
-	StackStatusImportComplete                       StackStatus = "IMPORT_COMPLETE"
-	StackStatusImportRollbackInProgress             StackStatus = "IMPORT_ROLLBACK_IN_PROGRESS"
-	StackStatusImportRollbackComplete               StackStatus = "IMPORT_ROLLBACK_COMPLETE"
-	StackStatusImportRollbackFailed                 StackStatus = "IMPORT_ROLLBACK_FAILED"
+	StackStatusCreateInProgress         StackStatus = "CREATE_IN_PROGRESS"
+	StackStatusCreateComplete           StackStatus = "CREATE_COMPLETE"
+	StackStatusCreateFailed             StackStatus = "CREATE_FAILED"
+	StackStatusDeleteInProgress         StackStatus = "DELETE_IN_PROGRESS"
+	StackStatusDeleteComplete           StackStatus = "DELETE_COMPLETE"
+	StackStatusDeleteFailed             StackStatus = "DELETE_FAILED"
+	StackStatusUpdateInProgress         StackStatus = "UPDATE_IN_PROGRESS"
+	StackStatusUpdateComplete           StackStatus = "UPDATE_COMPLETE"
+	StackStatusUpdateFailed             StackStatus = "UPDATE_FAILED"
+	StackStatusUpdateRollbackInProgress StackStatus = "UPDATE_ROLLBACK_IN_PROGRESS"
+	StackStatusUpdateRollbackComplete   StackStatus = "UPDATE_ROLLBACK_COMPLETE"
+	StackStatusUpdateRollbackFailed     StackStatus = "UPDATE_ROLLBACK_FAILED"
+	StackStatusRollbackInProgress       StackStatus = "ROLLBACK_IN_PROGRESS"
+	StackStatusRollbackComplete         StackStatus = "ROLLBACK_COMPLETE"
+	StackStatusRollbackFailed           StackStatus = "ROLLBACK_FAILED"
+	StackStatusReviewInProgress         StackStatus = "REVIEW_IN_PROGRESS"
+	StackStatusImportInProgress         StackStatus = "IMPORT_IN_PROGRESS"
+	StackStatusImportComplete           StackStatus = "IMPORT_COMPLETE"
+	StackStatusImportRollbackInProgress StackStatus = "IMPORT_ROLLBACK_IN_PROGRESS"
+	StackStatusImportRollbackComplete   StackStatus = "IMPORT_ROLLBACK_COMPLETE"
+	StackStatusImportRollbackFailed     StackStatus = "IMPORT_ROLLBACK_FAILED"
 )
 
 // Stack represents a CloudFormation stack with essential information
 type Stack struct {
-	Name         string
-	Status       StackStatus
-	CreatedTime  *time.Time
-	UpdatedTime  *time.Time
-	Description  string
-	Parameters   map[string]string
-	Outputs      map[string]string
-	Tags         map[string]string
+	Name        string
+	Status      StackStatus
+	CreatedTime *time.Time
+	UpdatedTime *time.Time
+	Description string
+	Parameters  map[string]string
+	Outputs     map[string]string
+	Tags        map[string]string
 }
 
 // Parameter represents a CloudFormation stack parameter
@@ -298,8 +298,7 @@ func (cf *CloudFormationOperations) StackExists(ctx context.Context, stackName s
 // isStackNotFoundError checks if the error indicates the stack doesn't exist
 func isStackNotFoundError(err error) bool {
 	// This is a simplified check - in practice you might want to check the specific AWS error codes
-	return err != nil && (
-		contains(err.Error(), "does not exist") ||
+	return err != nil && (contains(err.Error(), "does not exist") ||
 		contains(err.Error(), "ValidationError"))
 }
 

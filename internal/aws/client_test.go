@@ -58,11 +58,11 @@ func TestConfig_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test that config struct can be created and accessed
 			config := tt.config
-			
+
 			// Verify fields are accessible
 			_ = config.Region
 			_ = config.Profile
-			
+
 			// Basic validation - config should have expected values
 			if tt.config.Region != "" {
 				assert.Equal(t, tt.config.Region, config.Region)
@@ -70,7 +70,7 @@ func TestConfig_Validation(t *testing.T) {
 			if tt.config.Profile != "" {
 				assert.Equal(t, tt.config.Profile, config.Profile)
 			}
-			
+
 			assert.True(t, tt.valid) // All our test configs should be valid
 		})
 	}
@@ -79,10 +79,10 @@ func TestConfig_Validation(t *testing.T) {
 func TestNewCloudFormationOperationsWithClient(t *testing.T) {
 	// Test that we can create CloudFormation operations with a mock client
 	// This tests our dependency injection pattern without AWS dependencies
-	
+
 	mockClient := &MockCloudFormationClient{}
 	ops := NewCloudFormationOperationsWithClient(mockClient)
-	
+
 	assert.NotNil(t, ops)
 	assert.Equal(t, mockClient, ops.client)
 }

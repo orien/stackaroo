@@ -179,19 +179,17 @@ func TestConfig_Structure(t *testing.T) {
 	}
 }
 
-
-
 func TestStackConversion_FromAWSTypes(t *testing.T) {
 	// Test helper for converting AWS CloudFormation types to our types
 	createdTime := time.Now().Add(-24 * time.Hour)
 	updatedTime := time.Now().Add(-1 * time.Hour)
 
 	cfnStack := types.Stack{
-		StackName:        aws.String("test-stack"),
-		StackStatus:      types.StackStatusCreateComplete,
-		CreationTime:     &createdTime,
-		LastUpdatedTime:  &updatedTime,
-		Description:      aws.String("Test stack description"),
+		StackName:       aws.String("test-stack"),
+		StackStatus:     types.StackStatusCreateComplete,
+		CreationTime:    &createdTime,
+		LastUpdatedTime: &updatedTime,
+		Description:     aws.String("Test stack description"),
 		Parameters: []types.Parameter{
 			{
 				ParameterKey:   aws.String("Environment"),

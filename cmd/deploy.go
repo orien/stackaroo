@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/orien/stackaroo/internal/deploy"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 	deployer Deployer
 )
 
-// Deployer defines the interface for stack deployment operations  
+// Deployer defines the interface for stack deployment operations
 type Deployer interface {
 	DeployStack(ctx context.Context, stackName, templateFile string) error
 }
@@ -30,10 +30,10 @@ var deployCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
-		
+
 		// Get or create deployer
 		d := getDeployer()
-		
+
 		ctx := context.Background()
 		err := d.DeployStack(ctx, stackName, templateFile)
 		if err != nil {
@@ -49,7 +49,7 @@ func getDeployer() Deployer {
 	if deployer != nil {
 		return deployer
 	}
-	
+
 	// Create default deployer
 	ctx := context.Background()
 	d, err := deploy.NewDefaultDeployer(ctx)
@@ -58,7 +58,7 @@ func getDeployer() Deployer {
 		// we'll handle it in the command execution
 		panic(fmt.Sprintf("failed to create default deployer: %v", err))
 	}
-	
+
 	return d
 }
 
@@ -66,8 +66,6 @@ func getDeployer() Deployer {
 func SetDeployer(d Deployer) {
 	deployer = d
 }
-
-
 
 func init() {
 	rootCmd.AddCommand(deployCmd)

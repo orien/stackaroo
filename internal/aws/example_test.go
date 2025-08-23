@@ -59,7 +59,7 @@ func ExampleClient_extensibleDesign() {
 	fmt.Println("CloudFormation operations available")
 	fmt.Println("Future services could include:")
 	fmt.Println("- S3Operations")
-	fmt.Println("- EC2Operations") 
+	fmt.Println("- EC2Operations")
 	fmt.Println("- IAMOperations")
 	// Output: CloudFormation operations available
 	// Future services could include:
