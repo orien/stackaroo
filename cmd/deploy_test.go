@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
+	"github.com/orien/stackaroo/internal/config"
 )
 
 // MockDeployer is a mock implementation of the Deployer interface
@@ -23,8 +23,8 @@ type MockDeployer struct {
 	mock.Mock
 }
 
-func (m *MockDeployer) DeployStack(ctx context.Context, stackName, templateFile string) error {
-	args := m.Called(ctx, stackName, templateFile)
+func (m *MockDeployer) DeployStack(ctx context.Context, stackConfig *config.StackConfig) error {
+	args := m.Called(ctx, stackConfig)
 	return args.Error(0)
 }
 
@@ -76,7 +76,15 @@ func TestDeployCommand_CallsDeployerCorrectly(t *testing.T) {
 
 	// Set up mock deployer
 	mockDeployer := &MockDeployer{}
-	mockDeployer.On("DeployStack", mock.Anything, "test-stack", templateFile).Return(nil)
+	expectedStackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   make(map[string]string),
+		Tags:         make(map[string]string),
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+	mockDeployer.On("DeployStack", mock.Anything, expectedStackConfig).Return(nil)
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -106,7 +114,15 @@ func TestDeployCommand_HandlesDeployerError(t *testing.T) {
 
 	// Set up mock deployer that returns an error
 	mockDeployer := &MockDeployer{}
-	mockDeployer.On("DeployStack", mock.Anything, "test-stack", templateFile).Return(errors.New("deployment failed"))
+	expectedStackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   make(map[string]string),
+		Tags:         make(map[string]string),
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+	mockDeployer.On("DeployStack", mock.Anything, expectedStackConfig).Return(errors.New("deployment failed"))
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -164,8 +180,24 @@ func TestDeployCommand_AdvancedMockingFeatures(t *testing.T) {
 	mockDeployer := &MockDeployer{}
 
 	// Expect specific calls with exact argument matching
-	mockDeployer.On("DeployStack", mock.Anything, "stack-1", templateFile1).Return(nil).Once()
-	mockDeployer.On("DeployStack", mock.Anything, "stack-2", templateFile2).Return(errors.New("second deployment failed")).Once()
+	expectedStackConfig1 := &config.StackConfig{
+		Name:         "stack-1",
+		Template:     templateFile1,
+		Parameters:   make(map[string]string),
+		Tags:         make(map[string]string),
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+	expectedStackConfig2 := &config.StackConfig{
+		Name:         "stack-2",
+		Template:     templateFile2,
+		Parameters:   make(map[string]string),
+		Tags:         make(map[string]string),
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+	mockDeployer.On("DeployStack", mock.Anything, expectedStackConfig1).Return(nil).Once()
+	mockDeployer.On("DeployStack", mock.Anything, expectedStackConfig2).Return(errors.New("second deployment failed")).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -245,9 +277,12 @@ stacks:
 	
 	// Set up mock deployer that expects config-resolved values
 	mockDeployer := &MockDeployer{}
-	// Use flexible path matching since config system may resolve to absolute paths
-	mockDeployer.On("DeployStack", mock.Anything, "vpc", mock.MatchedBy(func(path string) bool {
-		return path == "templates/vpc.yaml" || filepath.Base(filepath.Dir(path)) == "templates" && filepath.Base(path) == "vpc.yaml"
+	// Expect StackConfig with resolved parameters from dev context
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
+		return stackConfig.Name == "vpc" &&
+			stackConfig.Parameters["VpcCidr"] == "10.1.0.0/16" &&
+			(stackConfig.Template == "templates/vpc.yaml" || 
+			 filepath.Base(filepath.Dir(stackConfig.Template)) == "templates" && filepath.Base(stackConfig.Template) == "vpc.yaml")
 	})).Return(nil)
 	
 	oldDeployer := deployer

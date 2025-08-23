@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 )
 
 // MockAWSClient is a mock implementation of aws.ClientInterface
@@ -120,11 +121,14 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", ctx, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+	// Set up mock expectations - now expecting resolved parameters and tags from StackConfig
+	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" &&
-			input.TemplateBody == templateContent &&
-			len(input.Parameters) == 0 &&
-			len(input.Tags) == 0 &&
+			len(input.Parameters) == 1 &&
+			input.Parameters[0].Key == "Param1" &&
+			input.Parameters[0].Value == "value1" &&
+			len(input.Tags) == 1 &&
+			input.Tags["Environment"] == "test" &&
 			len(input.Capabilities) == 1 &&
 			input.Capabilities[0] == "CAPABILITY_IAM"
 	})).Return(nil)
@@ -132,8 +136,18 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   map[string]string{"Param1": "value1"},
+		Tags:         map[string]string{"Environment": "test"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
 	// Execute
-	err = deployer.DeployStack(ctx, "test-stack", templateFile)
+	err = deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.NoError(t, err)
@@ -148,8 +162,18 @@ func TestAWSDeployer_DeployStack_FileNotFound(t *testing.T) {
 	mockClient := &MockAWSClient{}
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config with non-existent template file
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     "/nonexistent/template.json",
+		Parameters:   map[string]string{},
+		Tags:         map[string]string{},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
 	// Execute with non-existent file
-	err := deployer.DeployStack(ctx, "test-stack", "/nonexistent/template.json")
+	err := deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.Error(t, err)
@@ -182,8 +206,18 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config with valid template file
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   map[string]string{},
+		Tags:         map[string]string{},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
 	// Execute
-	err = deployer.DeployStack(ctx, "test-stack", templateFile)
+	err = deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.Error(t, err)
@@ -273,7 +307,7 @@ func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
-	// Execute
+	// Execute ValidateTemplate instead - this test is for template validation
 	err = deployer.ValidateTemplate(ctx, templateFile)
 
 	// Verify
@@ -314,8 +348,18 @@ Resources:
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   map[string]string{},
+		Tags:         map[string]string{},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
 	// Execute
-	err = deployer.DeployStack(ctx, "test-stack", templateFile)
+	err = deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.NoError(t, err)
@@ -346,8 +390,18 @@ func TestAWSDeployer_ReadTemplateFile_EmptyFile(t *testing.T) {
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config with parameters and tags
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},
+		Tags:         map[string]string{"Project": "stackaroo", "Environment": "test"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"},
+	}
+
 	// Execute
-	err = deployer.DeployStack(ctx, "test-stack", templateFile)
+	err = deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.NoError(t, err)
@@ -382,10 +436,21 @@ func TestAWSDeployer_ReadTemplateFile_PermissionDenied(t *testing.T) {
 	}()
 
 	mockClient := &MockAWSClient{}
+	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
+	// Create stack config
+	stackConfig := &config.StackConfig{
+		Name:         "test-stack",
+		Template:     templateFile,
+		Parameters:   map[string]string{"Param1": "value1"},
+		Tags:         map[string]string{"Environment": "test"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
 	// Execute
-	err = deployer.DeployStack(ctx, "test-stack", templateFile)
+	err = deployer.DeployStack(ctx, stackConfig)
 
 	// Verify
 	assert.Error(t, err)

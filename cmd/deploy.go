@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/orien/stackaroo/internal/deploy"
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/config/file"
+	"github.com/orien/stackaroo/internal/deploy"
 )
 
 var (
@@ -21,9 +22,9 @@ var (
 	deployer Deployer
 )
 
-// Deployer defines the interface for stack deployment operations
+// Deployer defines the interface for stack deployment operations  
 type Deployer interface {
-	DeployStack(ctx context.Context, stackName, templateFile string) error
+	DeployStack(ctx context.Context, stackConfig *config.StackConfig) error
 }
 
 // deployCmd represents the deploy command
@@ -48,7 +49,16 @@ var deployCmd = &cobra.Command{
 		// Get or create deployer
 		d := getDeployer()
 		
-		err := d.DeployStack(ctx, stackName, templateFile)
+		// Create a basic stack config for legacy deployment
+		stackConfig := &config.StackConfig{
+			Name:         stackName,
+			Template:     templateFile,
+			Parameters:   make(map[string]string),
+			Tags:         make(map[string]string),
+			Dependencies: []string{},
+			Capabilities: []string{"CAPABILITY_IAM"},
+		}
+		err := d.DeployStack(ctx, stackConfig)
 		if err != nil {
 			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}
@@ -92,16 +102,15 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 	}
 	
 	// Resolve template path relative to config file directory
-	templatePath := stackConfig.Template
-	if !filepath.IsAbs(templatePath) {
-		templatePath = filepath.Join(filepath.Dir("stackaroo.yaml"), templatePath)
+	if !filepath.IsAbs(stackConfig.Template) {
+		stackConfig.Template = filepath.Join(filepath.Dir("stackaroo.yaml"), stackConfig.Template)
 	}
 	
 	// Get or create deployer
 	d := getDeployer()
 	
-	// Deploy using the resolved template path
-	err = d.DeployStack(ctx, stackName, templatePath)
+	// Deploy using the stack configuration
+	err = d.DeployStack(ctx, stackConfig)
 	if err != nil {
 		return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 	}

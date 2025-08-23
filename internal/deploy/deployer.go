@@ -10,11 +10,12 @@ import (
 	"os"
 
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 )
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, stackName, templateFile string) error
+	DeployStack(ctx context.Context, stackConfig *config.StackConfig) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
@@ -41,29 +42,44 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 }
 
 // DeployStack deploys a CloudFormation stack
-func (d *AWSDeployer) DeployStack(ctx context.Context, stackName, templateFile string) error {
+func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.StackConfig) error {
 	// Read the template file
-	templateContent, err := d.readTemplateFile(templateFile)
+	templateContent, err := d.readTemplateFile(stackConfig.Template)
 	if err != nil {
 		return fmt.Errorf("failed to read template: %w", err)
 	}
-
+	
+	// Convert parameters to AWS format
+	awsParams := make([]aws.Parameter, 0, len(stackConfig.Parameters))
+	for key, value := range stackConfig.Parameters {
+		awsParams = append(awsParams, aws.Parameter{
+			Key:   key,
+			Value: value,
+		})
+	}
+	
+	// Use capabilities from config, with default fallback
+	capabilities := stackConfig.Capabilities
+	if len(capabilities) == 0 {
+		capabilities = []string{"CAPABILITY_IAM"} // Default capability
+	}
+	
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
-
+	
 	// Deploy the stack
 	err = cfnOps.DeployStack(ctx, aws.DeployStackInput{
-		StackName:    stackName,
+		StackName:    stackConfig.Name,
 		TemplateBody: templateContent,
-		Parameters:   []aws.Parameter{},          // Empty for now
-		Tags:         map[string]string{},        // Empty for now
-		Capabilities: []string{"CAPABILITY_IAM"}, // Default capability
+		Parameters:   awsParams,
+		Tags:         stackConfig.Tags,
+		Capabilities: capabilities,
 	})
-
+	
 	if err != nil {
 		return fmt.Errorf("failed to deploy stack: %w", err)
 	}
-
+	
 	return nil
 }
 
