@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
 )
 
 // MockDeployer is a mock implementation of the Deployer interface
@@ -186,6 +187,86 @@ func TestDeployCommand_AdvancedMockingFeatures(t *testing.T) {
 
 	// Verify specific methods were called the expected number of times
 	mockDeployer.AssertNumberOfCalls(t, "DeployStack", 2)
+}
+
+func TestDeployCommand_WithConfigurationFile(t *testing.T) {
+	// Test that deploy command can use configuration from stackaroo.yaml
+	
+	// Create temporary config file
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  dev:
+    account: "123456789012"
+    region: us-west-2
+    tags:
+      Environment: dev
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+    parameters:
+      VpcCidr: 10.0.0.0/16
+    contexts:
+      dev:
+        parameters:
+          VpcCidr: 10.1.0.0/16
+`
+	
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "stackaroo.yaml")
+	templateFile := filepath.Join(tmpDir, "templates", "vpc.yaml")
+	
+	// Create config file
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+	
+	// Create template directory and file
+	err = os.MkdirAll(filepath.Dir(templateFile), 0755)
+	require.NoError(t, err)
+	templateContent := `{
+		"AWSTemplateFormatVersion": "2010-09-09",
+		"Resources": {
+			"VPC": {
+				"Type": "AWS::EC2::VPC",
+				"Properties": {
+					"CidrBlock": {"Ref": "VpcCidr"}
+				}
+			}
+		},
+		"Parameters": {
+			"VpcCidr": {"Type": "String"}
+		}
+	}`
+	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
+	require.NoError(t, err)
+	
+	// Set up mock deployer that expects config-resolved values
+	mockDeployer := &MockDeployer{}
+	// Use flexible path matching since config system may resolve to absolute paths
+	mockDeployer.On("DeployStack", mock.Anything, "vpc", mock.MatchedBy(func(path string) bool {
+		return path == "templates/vpc.yaml" || filepath.Base(filepath.Dir(path)) == "templates" && filepath.Base(path) == "vpc.yaml"
+	})).Return(nil)
+	
+	oldDeployer := deployer
+	SetDeployer(mockDeployer)
+	defer SetDeployer(oldDeployer)
+	
+	// Change to temp directory so config file is found
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+	
+	// Execute deploy command with context flag
+	rootCmd.SetArgs([]string{"deploy", "vpc", "--context", "dev"})
+	
+	err = rootCmd.Execute()
+	assert.NoError(t, err, "deploy command should execute successfully with config")
+	
+	// Verify deployer was called with correct parameters
+	mockDeployer.AssertExpectations(t)
 }
 
 // Helper function to find a command by name
