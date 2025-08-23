@@ -27,6 +27,7 @@ stackaroo
 
 # But allow specific dotfiles we want to track
 !.gitignore
+!.github
 
 # Temporary files
 *.tmp
