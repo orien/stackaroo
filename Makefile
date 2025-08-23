@@ -68,7 +68,16 @@ vet: ## Run go vet
 	@echo "🔍 Running go vet..."
 	@go vet ./...
 
-lint: fmt vet ## Run linting tools
+golangci-lint: ## Run golangci-lint
+	@echo "🔍 Running golangci-lint..."
+	@golangci-lint run
+
+install-golangci-lint: ## Install golangci-lint
+	@echo "📦 Installing golangci-lint..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@echo "✅ golangci-lint installed"
+
+lint: fmt vet golangci-lint ## Run all linting tools
 
 tidy: ## Tidy and verify module dependencies
 	@echo "🧹 Tidying module dependencies..."
@@ -123,6 +132,10 @@ git-check: ## Check git status and requirements
 	@git status --porcelain
 	@echo "📋 Recent commits:"
 	@git log --oneline -5
+
+lint-fix: ## Run golangci-lint with auto-fix
+	@echo "🔧 Running golangci-lint with auto-fix..."
+	@golangci-lint run --fix
 
 commit-check: lint test git-check ## Run pre-commit checks
 	@echo "✅ All checks passed!"
