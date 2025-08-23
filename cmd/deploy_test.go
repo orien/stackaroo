@@ -27,7 +27,7 @@ func TestDeployCommand_AcceptsStackName(t *testing.T) {
 	deployCmd := findCommand(rootCmd, "deploy")
 	assert.NotNil(t, deployCmd)
 	
-	// Test that Args validation is set (will fail initially since it's nil)
+	// Test that Args validation is set to require exactly one argument
 	assert.NotNil(t, deployCmd.Args, "deploy command should have Args validation set")
 }
 
@@ -53,12 +53,12 @@ func TestDeployCommand_ReadsTemplateFile(t *testing.T) {
 		}
 	}`
 	
-	// This will fail initially because ReadTemplateFile function doesn't exist yet
+	// Test error handling when file doesn't exist
 	content, err := ReadTemplateFile("test-template.json")
 	assert.Error(t, err, "should error when file doesn't exist")
 	assert.Empty(t, content, "content should be empty when file doesn't exist")
 	
-	// Test would pass with a real file, but we need the function first
+	// Template content for testing
 	_ = templateContent // Use the variable so it doesn't cause unused error
 }
 
@@ -80,15 +80,14 @@ func TestReadTemplateFile_ReadsActualFile(t *testing.T) {
 	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
 	require.NoError(t, err)
 
-	// This will fail because ReadTemplateFile doesn't actually read files yet
+	// Test reading actual file content from disk
 	content, err := ReadTemplateFile(templateFile)
 	assert.NoError(t, err, "should successfully read existing file")
 	assert.Equal(t, templateContent, content, "should return file content")
 }
 
 func TestDeployCommand_CallsDeployStack(t *testing.T) {
-	// Test that deploy command calls DeployStack function with correct parameters
-	// This will fail initially because DeployStack function doesn't exist yet
+	// Test that DeployStack function can be called with stack name and template file
 	
 	tmpDir := t.TempDir()
 	templateFile := filepath.Join(tmpDir, "test-template.json")
@@ -104,14 +103,13 @@ func TestDeployCommand_CallsDeployStack(t *testing.T) {
 	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
 	require.NoError(t, err)
 	
-	// This will fail because DeployStack function doesn't exist yet
+	// Test calling DeployStack directly
 	err = DeployStack("test-stack", templateFile)
 	assert.NoError(t, err, "DeployStack should execute without error")
 }
 
 func TestDeployCommand_RunCallsDeployStack(t *testing.T) {
-	// Test that deploy command Run function actually calls DeployStack
-	// This will fail initially because the Run function doesn't call DeployStack yet
+	// Test that deploy command executes end-to-end successfully
 	
 	// Create a temporary template file
 	tmpDir := t.TempDir()
