@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/stackaroo/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 // MockAWSClient is a mock implementation of aws.ClientInterface

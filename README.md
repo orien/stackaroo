@@ -34,7 +34,7 @@ Stackaroo simplifies CloudFormation stack management by providing:
 ## Installation
 
 ```bash
-go install github.com/stackaroo/stackaroo@latest
+go install github.com/orien/stackaroo@latest
 ```
 
-Or download a binary from the [releases page](https://github.com/stackaroo/stackaroo/releases).
+Or download a binary from the [releases page](https://github.com/orien/stackaroo/releases).

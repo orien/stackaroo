@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/stackaroo/stackaroo/internal/deploy"
+	"github.com/orien/stackaroo/internal/deploy"
 )
 
 var (

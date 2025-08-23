@@ -13,7 +13,7 @@ import (
 
 	"time"
 
-	"github.com/stackaroo/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 func main() {

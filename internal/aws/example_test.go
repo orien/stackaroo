@@ -7,7 +7,7 @@ package aws_test
 import (
 	"fmt"
 
-	"github.com/stackaroo/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 // ExampleClient demonstrates how to create and use the AWS client
