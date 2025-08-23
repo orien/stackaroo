@@ -6,6 +6,8 @@ Date: 2025-08-23
 
 Accepted
 
+Amended by [ADR 0009: Configuration context abstraction](0009-configuration-context-abstraction.md)
+
 Amends [ADR 0003: Configuration format](0003-configuration-format.md)
 
 ## Context
