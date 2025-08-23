@@ -6,6 +6,8 @@ Date: 2025-08-21
 
 Accepted
 
+Amended by [ADR 0008: Configuration abstraction](0008-configuration-abstraction.md)
+
 ## Context
 
 We need to choose a configuration format for Stackaroo's primary configuration file and parameter files. The configuration will need to support:
