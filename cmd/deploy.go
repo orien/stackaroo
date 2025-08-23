@@ -5,50 +5,66 @@ SPDX-License-Identifier: BSD-3-Clause
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/stackaroo/stackaroo/internal/deploy"
 )
 
 var (
 	templateFile string
+	// deployer can be injected for testing
+	deployer Deployer
 )
+
+// Deployer defines the interface for stack deployment operations  
+type Deployer interface {
+	DeployStack(ctx context.Context, stackName, templateFile string) error
+}
 
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy CloudFormation stacks",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
-		err := DeployStack(stackName, templateFile)
+		
+		// Get or create deployer
+		d := getDeployer()
+		
+		ctx := context.Background()
+		err := d.DeployStack(ctx, stackName, templateFile)
 		if err != nil {
-			fmt.Printf("Error deploying stack %s: %v\n", stackName, err)
-			os.Exit(1)
+			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}
 		fmt.Printf("Successfully deployed stack %s\n", stackName)
+		return nil
 	},
 }
 
-// GetTemplateFile returns the current template file path
-func GetTemplateFile() string {
-	return templateFile
-}
-
-// ReadTemplateFile reads the content of a template file
-func ReadTemplateFile(filename string) (string, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", filename, err)
+// getDeployer returns the deployer instance, creating a default one if none is set
+func getDeployer() Deployer {
+	if deployer != nil {
+		return deployer
 	}
-	return string(content), nil
+	
+	// Create default deployer
+	ctx := context.Background()
+	d, err := deploy.NewDefaultDeployer(ctx)
+	if err != nil {
+		// This shouldn't happen in normal operation, but if it does,
+		// we'll handle it in the command execution
+		panic(fmt.Sprintf("failed to create default deployer: %v", err))
+	}
+	
+	return d
 }
 
-// DeployStack deploys a CloudFormation stack
-func DeployStack(stackName, templateFile string) error {
-	// TODO: Implement actual CloudFormation deployment
-	return nil
+// SetDeployer allows injection of a deployer (for testing)
+func SetDeployer(d Deployer) {
+	deployer = d
 }
 
 

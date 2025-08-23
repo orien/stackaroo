@@ -88,7 +88,7 @@ type CloudFormationOperations struct {
 }
 
 // NewCloudFormationOperations creates a new CloudFormation operations wrapper
-func (c *Client) NewCloudFormationOperations() *CloudFormationOperations {
+func (c *Client) NewCloudFormationOperations() CloudFormationOperationsInterface {
 	return &CloudFormationOperations{
 		client: c.cfn,
 	}

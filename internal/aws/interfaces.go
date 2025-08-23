@@ -23,3 +23,25 @@ type CloudFormationClientInterface interface {
 
 // Ensure that the actual CloudFormation client implements our interface
 var _ CloudFormationClientInterface = (*cloudformation.Client)(nil)
+
+// Ensure that our Client implements ClientInterface
+var _ ClientInterface = (*Client)(nil)
+
+// Ensure that CloudFormationOperations implements CloudFormationOperationsInterface
+var _ CloudFormationOperationsInterface = (*CloudFormationOperations)(nil)
+
+// ClientInterface defines the interface for AWS client operations
+type ClientInterface interface {
+	NewCloudFormationOperations() CloudFormationOperationsInterface
+}
+
+// CloudFormationOperationsInterface defines the interface for CloudFormation operations
+type CloudFormationOperationsInterface interface {
+	DeployStack(ctx context.Context, input DeployStackInput) error
+	UpdateStack(ctx context.Context, input UpdateStackInput) error
+	DeleteStack(ctx context.Context, input DeleteStackInput) error
+	GetStack(ctx context.Context, stackName string) (*Stack, error)
+	ListStacks(ctx context.Context) ([]*Stack, error)
+	ValidateTemplate(ctx context.Context, templateBody string) error
+	StackExists(ctx context.Context, stackName string) (bool, error)
+}
