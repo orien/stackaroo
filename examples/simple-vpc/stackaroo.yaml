@@ -1,0 +1,67 @@
+# Stackaroo Configuration Example
+# This file defines infrastructure stacks and their deployment contexts
+
+project: simple-vpc-example
+region: us-east-1  # Global default region
+
+# Global tags applied to all resources unless overridden
+tags:
+  ManagedBy: stackaroo
+  Project: simple-vpc-example
+  Owner: infrastructure-team
+
+# Deployment contexts define where and how stacks are deployed
+contexts:
+  dev:
+    account: "123456789012"
+    region: us-west-2
+    tags:
+      Environment: dev
+      CostCenter: engineering
+      
+  staging:
+    account: "123456789012"  # Same account as dev
+    region: us-east-1        # Different region
+    tags:
+      Environment: staging
+      CostCenter: engineering
+      
+  prod:
+    account: "987654321098"  # Production account
+    region: us-east-1
+    tags:
+      Environment: prod
+      CostCenter: production
+
+# Stack definitions with context-specific overrides
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+    parameters:
+      VpcCidr: 10.0.0.0/16           # Global default
+      EnableDnsHostnames: "true"
+      EnableDnsSupport: "true"
+    tags:
+      Component: networking
+    capabilities: 
+      - CAPABILITY_IAM
+    contexts:
+      dev:
+        parameters:
+          VpcCidr: 10.1.0.0/16       # Dev override
+        tags:
+          Component: dev-networking
+      staging:
+        parameters:
+          VpcCidr: 10.2.0.0/16       # Staging override
+      prod:
+        parameters:
+          VpcCidr: 10.3.0.0/16       # Prod override
+        tags:
+          Component: prod-networking
+          Monitoring: enabled
+
+# Usage examples:
+#   stackaroo deploy vpc --context dev     # Deploy to dev environment
+#   stackaroo deploy vpc --context prod    # Deploy to production
+#   stackaroo list --context staging       # List stacks in staging
