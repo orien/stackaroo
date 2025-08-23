@@ -39,13 +39,23 @@ type Client struct {
 }
 ```
 
+The `Client` implements the `ClientInterface`:
+
+```go
+type ClientInterface interface {
+    NewCloudFormationOperations() CloudFormationOperationsInterface
+}
+```
+
 **Responsibilities:**
 - Load and manage AWS configuration
 - Create and cache service-specific clients
 - Provide factory methods for service operations
+- Implement interfaces for testability and dependency injection
 
 **Key Methods:**
 - `NewClient(ctx, Config)` - Create new client with custom configuration
+- `NewCloudFormationOperations()` - Create CloudFormation operations (implements interface)
 - `CloudFormation()` - Access underlying CloudFormation client
 - `Region()` - Get configured AWS region
 
@@ -55,7 +65,21 @@ The `CloudFormationOperations` struct provides high-level CloudFormation operati
 
 ```go
 type CloudFormationOperations struct {
-    client *cloudformation.Client
+    client CloudFormationClientInterface
+}
+```
+
+The operations implement the `CloudFormationOperationsInterface`:
+
+```go
+type CloudFormationOperationsInterface interface {
+    DeployStack(ctx context.Context, input DeployStackInput) error
+    UpdateStack(ctx context.Context, input UpdateStackInput) error
+    DeleteStack(ctx context.Context, input DeleteStackInput) error
+    GetStack(ctx context.Context, stackName string) (*Stack, error)
+    ListStacks(ctx context.Context) ([]*Stack, error)
+    ValidateTemplate(ctx context.Context, templateBody string) error
+    StackExists(ctx context.Context, stackName string) (bool, error)
 }
 ```
 
@@ -73,6 +97,12 @@ type CloudFormationOperations struct {
 - `Parameter` - Key-value pairs for stack parameters
 - `StackStatus` - Enumerated stack status values
 - Input structs for each operation with required and optional fields
+
+**Interface Design:**
+All operations are interface-based to support dependency injection and testing:
+- `ClientInterface` - Main AWS client abstraction
+- `CloudFormationOperationsInterface` - CloudFormation-specific operations
+- `CloudFormationClientInterface` - Low-level CloudFormation client interface
 
 ## Usage Patterns
 
@@ -92,7 +122,7 @@ client, err := aws.NewClient(ctx, aws.Config{
 ### CloudFormation Operations
 
 ```go
-// Get CloudFormation operations
+// Get CloudFormation operations (returns interface)
 cfnOps := client.NewCloudFormationOperations()
 
 // Deploy a stack
@@ -219,24 +249,52 @@ client, err := aws.NewClient(ctx, aws.Config{
 
 ## Testing Strategy
 
-### Unit Testing
-- Mock the `CloudFormationOperations` interface for business logic testing
-- Use AWS SDK v2's testing utilities for service-level testing
+### Interface-Based Testing
+The AWS client architecture is designed for comprehensive testing using interface-based mocking:
 
-### Integration Testing  
-- Use AWS localstack or moto for local CloudFormation testing
-- Provide test configuration for different AWS environments
-
-### Example Test Structure
+#### Primary Testing Pattern
 ```go
+import "github.com/stretchr/testify/mock"
+
+// MockCloudFormationOperations implements CloudFormationOperationsInterface
 type MockCloudFormationOperations struct {
-    deployStackFunc func(ctx context.Context, input aws.DeployStackInput) error
+    mock.Mock
 }
 
 func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-    return m.deployStackFunc(ctx, input)
+    args := m.Called(ctx, input)
+    return args.Error(0)
 }
 ```
+
+#### Integration with Business Logic
+The `internal/deploy` package uses dependency injection for testability:
+
+```go
+// In production
+deployer := deploy.NewAWSDeployer(awsClient)
+
+// In tests  
+mockClient := &MockAWSClient{}
+deployer := deploy.NewAWSDeployer(mockClient)
+```
+
+### Unit Testing
+- Mock all interfaces (`ClientInterface`, `CloudFormationOperationsInterface`)
+- Use `testify/mock` for professional mocking with expectations
+- Test business logic in isolation from AWS SDK
+- Fast, deterministic tests with no external dependencies
+
+### Integration Testing  
+- Use AWS localstack or moto for local AWS service simulation
+- Provide test configuration for different AWS environments
+- End-to-end testing with real AWS SDK behavior
+
+### Testing Best Practices
+- All external dependencies are abstracted behind interfaces
+- Use dependency injection to substitute mocks in tests
+- Follow the patterns established in `cmd/deploy_test.go`
+- Verify mock expectations with `AssertExpectations()`
 
 ## Performance Considerations
 
@@ -271,3 +329,38 @@ func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aw
 - Operations only request necessary permissions
 - Clear documentation of required IAM permissions for each operation
 - Support for cross-account deployment patterns
+
+## Integration with Stackaroo Components
+
+### Deployment Layer
+The AWS client integrates with the `internal/deploy` package:
+
+```go
+// AWSDeployer uses the ClientInterface
+type AWSDeployer struct {
+    awsClient aws.ClientInterface
+}
+
+func NewAWSDeployer(awsClient aws.ClientInterface) *AWSDeployer {
+    return &AWSDeployer{awsClient: awsClient}
+}
+```
+
+### CLI Integration
+CLI commands use the deployment layer through dependency injection:
+
+```go
+// CLI uses Deployer interface
+type Deployer interface {
+    DeployStack(ctx context.Context, stackName, templateFile string) error
+}
+
+// Production: AWS implementation
+deployer := deploy.NewDefaultDeployer(ctx)
+
+// Testing: Mock implementation  
+mockDeployer := &MockDeployer{}
+cmd.SetDeployer(mockDeployer)
+```
+
+This layered architecture ensures clean separation of concerns and comprehensive testability throughout the application.
