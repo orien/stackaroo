@@ -75,11 +75,11 @@ type TemplateReader interface {
 
 ### 1. Single Stack Resolution
 
-```
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌────────────────┐
-│Load Config  │───▶│Get Stack     │───▶│Read Template    │───▶│Resolve Stack   │
-│(context)    │    │Config        │    │File             │    │Parameters/Tags │
-└─────────────┘    └──────────────┘    └─────────────────┘    └────────────────┘
+```mermaid
+flowchart LR
+    A[Load Config<br/>context] --> B[Get Stack<br/>Config]
+    B --> C[Read Template<br/>File]
+    C --> D[Resolve Stack<br/>Parameters/Tags]
 ```
 
 **Steps:**
@@ -92,12 +92,10 @@ type TemplateReader interface {
 
 ### 2. Multi-Stack Resolution
 
-```
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-│Resolve Each │───▶│Calculate     │───▶│Create           │
-│Stack         │    │Dependencies  │    │ResolvedStacks   │
-│Individually  │    │Order         │    │                 │
-└─────────────┘    └──────────────┘    └─────────────────┘
+```mermaid
+flowchart LR
+    A[Resolve Each<br/>Stack<br/>Individually] --> B[Calculate<br/>Dependencies<br/>Order]
+    B --> C[Create<br/>ResolvedStacks]
 ```
 
 **Steps:**
@@ -147,12 +145,10 @@ stacks:
 
 ### Inheritance Hierarchy
 
-```
-Global Config Tags
-       ↓
-   Stack Tags (override global)
-       ↓
-  Final Resolved Tags
+```mermaid
+flowchart TD
+    A[Global Config Tags] --> B[Stack Tags<br/>override global]
+    B --> C[Final Resolved Tags]
 ```
 
 ### Merge Strategy
@@ -190,12 +186,10 @@ tags:
 
 ### Module Dependencies
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│Config       │───▶│Resolver     │───▶│Deploy       │
-│(providers)  │    │(business    │    │(AWS ops)    │
-│             │    │ logic)      │    │             │
-└─────────────┘    └─────────────┘    └─────────────┘
+```mermaid
+flowchart LR
+    A[Config<br/>providers] --> B[Resolver<br/>business<br/>logic]
+    B --> C[Deploy<br/>AWS ops]
 ```
 
 ### Data Flow
