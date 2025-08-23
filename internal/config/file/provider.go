@@ -10,14 +10,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
 	"github.com/orien/stackaroo/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // Provider implements config.ConfigProvider by reading from a YAML file
 // Based on ADR 0010 (File provider configuration structure)
 type Provider struct {
-	filename string
+	filename  string
 	rawConfig *Config
 }
 
@@ -34,22 +34,22 @@ func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Con
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
-	
+
 	// Find the requested context
 	rawContext, exists := fp.rawConfig.Contexts[context]
 	if !exists {
 		return nil, fmt.Errorf("context '%s' not found in configuration", context)
 	}
-	
+
 	// Resolve context configuration with inheritance
 	resolvedContext := fp.resolveContext(context, rawContext)
-	
+
 	// Resolve all stacks for this context
 	resolvedStacks, err := fp.resolveStacks(context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve stacks for context '%s': %w", context, err)
 	}
-	
+
 	// Build final config
 	cfg := &config.Config{
 		Project: fp.rawConfig.Project,
@@ -58,7 +58,7 @@ func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Con
 		Context: resolvedContext,
 		Stacks:  resolvedStacks,
 	}
-	
+
 	return cfg, nil
 }
 
@@ -67,12 +67,12 @@ func (fp *Provider) ListContexts() ([]string, error) {
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
-	
+
 	contexts := make([]string, 0, len(fp.rawConfig.Contexts))
 	for name := range fp.rawConfig.Contexts {
 		contexts = append(contexts, name)
 	}
-	
+
 	return contexts, nil
 }
 
@@ -81,7 +81,7 @@ func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, er
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
-	
+
 	// Find the stack in raw config
 	var rawStack *Stack
 	for _, stack := range fp.rawConfig.Stacks {
@@ -90,17 +90,17 @@ func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, er
 			break
 		}
 	}
-	
+
 	if rawStack == nil {
 		return nil, fmt.Errorf("stack '%s' not found in configuration", stackName)
 	}
-	
+
 	// Resolve the stack for the given context
 	resolvedStack, err := fp.resolveStack(rawStack, context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve stack '%s' for context '%s': %w", stackName, context, err)
 	}
-	
+
 	return resolvedStack, nil
 }
 
@@ -109,7 +109,7 @@ func (fp *Provider) Validate() error {
 	if err := fp.ensureLoaded(); err != nil {
 		return err
 	}
-	
+
 	// Check that all stack context references exist
 	for _, stack := range fp.rawConfig.Stacks {
 		for contextName := range stack.Contexts {
@@ -118,7 +118,7 @@ func (fp *Provider) Validate() error {
 			}
 		}
 	}
-	
+
 	// Check that template files exist (basic validation)
 	for _, stack := range fp.rawConfig.Stacks {
 		if stack.Template != "" {
@@ -129,7 +129,7 @@ func (fp *Provider) Validate() error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -138,19 +138,19 @@ func (fp *Provider) ensureLoaded() error {
 	if fp.rawConfig != nil {
 		return nil // Already loaded
 	}
-	
+
 	// Read file
 	data, err := os.ReadFile(fp.filename)
 	if err != nil {
 		return fmt.Errorf("failed to read config file '%s': %w", fp.filename, err)
 	}
-	
+
 	// Parse YAML
 	var rawConfig Config
 	if err := yaml.Unmarshal(data, &rawConfig); err != nil {
 		return fmt.Errorf("failed to parse YAML config file '%s': %w", fp.filename, err)
 	}
-	
+
 	fp.rawConfig = &rawConfig
 	return nil
 }
@@ -163,12 +163,12 @@ func (fp *Provider) resolveContext(name string, rawContext *Context) *config.Con
 		Region:  rawContext.Region,
 		Tags:    fp.copyStringMap(rawContext.Tags),
 	}
-	
+
 	// Apply global defaults if not overridden
 	if resolved.Region == "" {
 		resolved.Region = fp.rawConfig.Region
 	}
-	
+
 	// Merge global tags with context tags (context takes precedence)
 	if fp.rawConfig.Tags != nil {
 		if resolved.Tags == nil {
@@ -180,14 +180,14 @@ func (fp *Provider) resolveContext(name string, rawContext *Context) *config.Con
 			}
 		}
 	}
-	
+
 	return resolved
 }
 
 // resolveStacks resolves all stacks for the given context
 func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error) {
 	resolved := make([]*config.StackConfig, 0, len(fp.rawConfig.Stacks))
-	
+
 	for _, rawStack := range fp.rawConfig.Stacks {
 		resolvedStack, err := fp.resolveStack(rawStack, context)
 		if err != nil {
@@ -195,7 +195,7 @@ func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error)
 		}
 		resolved = append(resolved, resolvedStack)
 	}
-	
+
 	return resolved, nil
 }
 
@@ -209,7 +209,7 @@ func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.Stack
 		Dependencies: fp.copyStringSlice(rawStack.Dependencies),
 		Capabilities: fp.copyStringSlice(rawStack.Capabilities),
 	}
-	
+
 	// Apply context-specific overrides if they exist
 	if contextOverride, exists := rawStack.Contexts[context]; exists {
 		// Merge parameters (context overrides take precedence)
@@ -221,7 +221,7 @@ func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.Stack
 				resolved.Parameters[k] = v
 			}
 		}
-		
+
 		// Merge tags (context overrides take precedence)
 		if contextOverride.Tags != nil {
 			if resolved.Tags == nil {
@@ -231,18 +231,18 @@ func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.Stack
 				resolved.Tags[k] = v
 			}
 		}
-		
+
 		// Override dependencies if specified
 		if contextOverride.Dependencies != nil {
 			resolved.Dependencies = fp.copyStringSlice(contextOverride.Dependencies)
 		}
-		
+
 		// Override capabilities if specified
 		if contextOverride.Capabilities != nil {
 			resolved.Capabilities = fp.copyStringSlice(contextOverride.Capabilities)
 		}
 	}
-	
+
 	return resolved, nil
 }
 
@@ -251,7 +251,7 @@ func (fp *Provider) resolveTemplatePath(templatePath string) string {
 	if filepath.IsAbs(templatePath) {
 		return templatePath
 	}
-	
+
 	configDir := filepath.Dir(fp.filename)
 	return filepath.Join(configDir, templatePath)
 }
@@ -262,7 +262,7 @@ func (fp *Provider) copyStringMap(source map[string]string) map[string]string {
 	if source == nil {
 		return nil
 	}
-	
+
 	copy := make(map[string]string, len(source))
 	for k, v := range source {
 		copy[k] = v
@@ -274,7 +274,7 @@ func (fp *Provider) copyStringSlice(source []string) []string {
 	if source == nil {
 		return nil
 	}
-	
+
 	copy := make([]string, len(source))
 	for i, v := range source {
 		copy[i] = v

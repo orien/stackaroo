@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 	deployer Deployer
 )
 
-// Deployer defines the interface for stack deployment operations  
+// Deployer defines the interface for stack deployment operations
 type Deployer interface {
 	DeployStack(ctx context.Context, stackConfig *config.StackConfig) error
 }
@@ -35,20 +35,20 @@ var deployCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
 		ctx := context.Background()
-		
+
 		// If context is provided, load configuration
 		if contextName != "" {
 			return deployWithConfig(ctx, stackName, contextName)
 		}
-		
+
 		// Fall back to legacy template-based deployment
 		if templateFile == "" {
 			return fmt.Errorf("either --template or --context must be specified")
 		}
-		
+
 		// Get or create deployer
 		d := getDeployer()
-		
+
 		// Create a basic stack config for legacy deployment
 		stackConfig := &config.StackConfig{
 			Name:         stackName,
@@ -94,27 +94,27 @@ func SetDeployer(d Deployer) {
 func deployWithConfig(ctx context.Context, stackName, contextName string) error {
 	// Load configuration from default file
 	provider := file.NewProvider("stackaroo.yaml")
-	
+
 	// Get stack configuration for the specified context
 	stackConfig, err := provider.GetStack(stackName, contextName)
 	if err != nil {
 		return fmt.Errorf("failed to load stack configuration: %w", err)
 	}
-	
+
 	// Resolve template path relative to config file directory
 	if !filepath.IsAbs(stackConfig.Template) {
 		stackConfig.Template = filepath.Join(filepath.Dir("stackaroo.yaml"), stackConfig.Template)
 	}
-	
+
 	// Get or create deployer
 	d := getDeployer()
-	
+
 	// Deploy using the stack configuration
 	err = d.DeployStack(ctx, stackConfig)
 	if err != nil {
 		return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 	}
-	
+
 	fmt.Printf("Successfully deployed stack %s in context %s\n", stackName, contextName)
 	return nil
 }

@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/orien/stackaroo/internal/config"
 )
 
 // MockDeployer is a mock implementation of the Deployer interface
@@ -223,7 +223,7 @@ func TestDeployCommand_AdvancedMockingFeatures(t *testing.T) {
 
 func TestDeployCommand_WithConfigurationFile(t *testing.T) {
 	// Test that deploy command can use configuration from stackaroo.yaml
-	
+
 	// Create temporary config file
 	configContent := `
 project: test-project
@@ -246,15 +246,15 @@ stacks:
         parameters:
           VpcCidr: 10.1.0.0/16
 `
-	
+
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "stackaroo.yaml")
 	templateFile := filepath.Join(tmpDir, "templates", "vpc.yaml")
-	
+
 	// Create config file
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	require.NoError(t, err)
-	
+
 	// Create template directory and file
 	err = os.MkdirAll(filepath.Dir(templateFile), 0755)
 	require.NoError(t, err)
@@ -274,32 +274,32 @@ stacks:
 	}`
 	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
 	require.NoError(t, err)
-	
+
 	// Set up mock deployer that expects config-resolved values
 	mockDeployer := &MockDeployer{}
 	// Expect StackConfig with resolved parameters from dev context
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
 		return stackConfig.Name == "vpc" &&
 			stackConfig.Parameters["VpcCidr"] == "10.1.0.0/16" &&
-			(stackConfig.Template == "templates/vpc.yaml" || 
-			 filepath.Base(filepath.Dir(stackConfig.Template)) == "templates" && filepath.Base(stackConfig.Template) == "vpc.yaml")
+			(stackConfig.Template == "templates/vpc.yaml" ||
+				filepath.Base(filepath.Dir(stackConfig.Template)) == "templates" && filepath.Base(stackConfig.Template) == "vpc.yaml")
 	})).Return(nil)
-	
+
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer)
-	
+
 	// Change to temp directory so config file is found
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
-	
+
 	// Execute deploy command with context flag
 	rootCmd.SetArgs([]string{"deploy", "vpc", "--context", "dev"})
-	
+
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy command should execute successfully with config")
-	
+
 	// Verify deployer was called with correct parameters
 	mockDeployer.AssertExpectations(t)
 }

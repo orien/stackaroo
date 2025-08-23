@@ -48,7 +48,7 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.Stack
 	if err != nil {
 		return fmt.Errorf("failed to read template: %w", err)
 	}
-	
+
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(stackConfig.Parameters))
 	for key, value := range stackConfig.Parameters {
@@ -57,16 +57,16 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.Stack
 			Value: value,
 		})
 	}
-	
+
 	// Use capabilities from config, with default fallback
 	capabilities := stackConfig.Capabilities
 	if len(capabilities) == 0 {
 		capabilities = []string{"CAPABILITY_IAM"} // Default capability
 	}
-	
+
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
-	
+
 	// Deploy the stack
 	err = cfnOps.DeployStack(ctx, aws.DeployStackInput{
 		StackName:    stackConfig.Name,
@@ -75,11 +75,11 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.Stack
 		Tags:         stackConfig.Tags,
 		Capabilities: capabilities,
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to deploy stack: %w", err)
 	}
-	
+
 	return nil
 }
 
