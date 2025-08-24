@@ -21,7 +21,7 @@ type DefaultFileSystemResolver struct{}
 func (fsr *DefaultFileSystemResolver) Resolve(fileURI string) (string, error) {
 	filePath, err := parseFileURI(fileURI)
 	if err != nil {
-		return "", fmt.Errorf("invalid template URI %s: %w", fileURI, err)
+		return "", fmt.Errorf("invalid file URI %s: %w", fileURI, err)
 	}
 
 	content, err := os.ReadFile(filePath)
