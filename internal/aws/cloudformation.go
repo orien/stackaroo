@@ -53,6 +53,19 @@ type Stack struct {
 	Tags        map[string]string
 }
 
+// StackInfo represents detailed CloudFormation stack information for diff operations
+type StackInfo struct {
+	Name        string
+	Status      StackStatus
+	CreatedTime *time.Time
+	UpdatedTime *time.Time
+	Description string
+	Parameters  map[string]string
+	Outputs     map[string]string
+	Tags        map[string]string
+	Template    string // The actual template content
+}
+
 // Parameter represents a CloudFormation stack parameter
 type Parameter struct {
 	Key   string
@@ -300,6 +313,64 @@ func isStackNotFoundError(err error) bool {
 	// This is a simplified check - in practice you might want to check the specific AWS error codes
 	return err != nil && (contains(err.Error(), "does not exist") ||
 		contains(err.Error(), "ValidationError"))
+}
+
+// GetTemplate retrieves the template for a CloudFormation stack
+func (cf *CloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
+	result, err := cf.client.GetTemplate(ctx, &cloudformation.GetTemplateInput{
+		StackName: aws.String(stackName),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get template for stack %s: %w", stackName, err)
+	}
+
+	return aws.ToString(result.TemplateBody), nil
+}
+
+// DescribeStack retrieves detailed information about a specific stack including template
+func (cf *CloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*StackInfo, error) {
+	// Get basic stack information
+	stack, err := cf.GetStack(ctx, stackName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get template content
+	template, err := cf.GetTemplate(ctx, stackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template for stack %s: %w", stackName, err)
+	}
+
+	// Convert Stack to StackInfo
+	stackInfo := &StackInfo{
+		Name:        stack.Name,
+		Status:      stack.Status,
+		CreatedTime: stack.CreatedTime,
+		UpdatedTime: stack.UpdatedTime,
+		Description: stack.Description,
+		Parameters:  stack.Parameters,
+		Outputs:     stack.Outputs,
+		Tags:        stack.Tags,
+		Template:    template,
+	}
+
+	return stackInfo, nil
+}
+
+// CreateChangeSet creates a CloudFormation changeset
+func (cf *CloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+	return cf.client.CreateChangeSet(ctx, params, optFns...)
+}
+
+// DeleteChangeSet deletes a CloudFormation changeset
+func (cf *CloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
+	return cf.client.DeleteChangeSet(ctx, params, optFns...)
+}
+
+// DescribeChangeSet describes a CloudFormation changeset
+func (cf *CloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
+	return cf.client.DescribeChangeSet(ctx, params, optFns...)
 }
 
 // contains is a simple string contains check

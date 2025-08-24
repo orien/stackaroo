@@ -114,6 +114,22 @@ func (m *MockCloudFormationClient) ValidateTemplate(ctx context.Context, params 
 	return nil, nil
 }
 
+func (m *MockCloudFormationClient) GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error) {
+	return nil, nil
+}
+
+func (m *MockCloudFormationClient) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+	return nil, nil
+}
+
+func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
+	return nil, nil
+}
+
+func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
+	return nil, nil
+}
+
 func TestConfig_RegionHandling(t *testing.T) {
 	tests := []struct {
 		name           string

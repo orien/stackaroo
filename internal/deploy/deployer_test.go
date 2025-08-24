@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,31 @@ func (m *MockCloudFormationOperations) ValidateTemplate(ctx context.Context, tem
 func (m *MockCloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
 	args := m.Called(ctx, stackName)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
+	args := m.Called(ctx, stackName)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
+	args := m.Called(ctx, stackName)
+	return args.Get(0).(*aws.StackInfo), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.CreateChangeSetOutput), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.DeleteChangeSetOutput), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
 }
 
 func TestNewAWSDeployer(t *testing.T) {

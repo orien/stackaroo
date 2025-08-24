@@ -23,7 +23,7 @@ var rootCmd = &cobra.Command{
 • Template validation and deployment
 • Rich terminal output with progress indicators
 
-Use stackaroo to deploy, update, delete, and monitor your CloudFormation stacks
+Use stackaroo to deploy, update, delete, diff, and monitor your CloudFormation stacks
 across multiple environments with consistent, repeatable configurations.`,
 }
 

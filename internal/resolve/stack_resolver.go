@@ -15,11 +15,17 @@ import (
 // ResolvedStack represents a fully resolved stack ready for deployment
 type ResolvedStack struct {
 	Name         string
+	Environment  string
 	TemplateBody string
 	Parameters   map[string]string
 	Tags         map[string]string
 	Capabilities []string
 	Dependencies []string
+}
+
+// GetTemplateContent returns the template content for this resolved stack
+func (rs *ResolvedStack) GetTemplateContent() (string, error) {
+	return rs.TemplateBody, nil
 }
 
 // ResolvedStacks represents a collection of resolved stacks
@@ -74,6 +80,7 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 
 	return &ResolvedStack{
 		Name:         stackConfig.Name,
+		Environment:  context,
 		TemplateBody: templateBody,
 		Parameters:   parameters,
 		Tags:         tags,
