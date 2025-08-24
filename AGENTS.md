@@ -361,7 +361,7 @@ make commit-check      # Run comprehensive pre-commit checks
 ```
 
 ### Commit Messages
-- Use conventional commit format when possible
+- Do not use conventional commit format
 - Include context about AWS resources or stacks affected
 - Reference issue numbers when applicable
 
