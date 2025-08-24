@@ -7,6 +7,7 @@ package file
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,8 @@ stacks:
 	require.Len(t, cfg.Stacks, 1)
 	stack := cfg.Stacks[0]
 	assert.Equal(t, "vpc", stack.Name)
-	assert.Equal(t, "templates/vpc.yaml", stack.Template)
+	assert.True(t, strings.HasPrefix(stack.Template, "file://"), "template should be a file:// URI")
+	assert.True(t, strings.HasSuffix(stack.Template, "templates/vpc.yaml"), "template should end with templates/vpc.yaml")
 	assert.Equal(t, "10.1.0.0/16", stack.Parameters["VpcCidr"]) // Context-specific parameter
 }
 

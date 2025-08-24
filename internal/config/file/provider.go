@@ -28,6 +28,11 @@ func NewProvider(filename string) *Provider {
 	}
 }
 
+// NewDefaultProvider creates a new file-based ConfigProvider using the default config filename
+func NewDefaultProvider() *Provider {
+	return NewProvider("stackaroo.yaml")
+}
+
 // LoadConfig loads and resolves configuration for the specified context
 func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Config, error) {
 	// Load raw config if not already loaded
@@ -203,7 +208,7 @@ func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error)
 func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.StackConfig, error) {
 	resolved := &config.StackConfig{
 		Name:         rawStack.Name,
-		Template:     rawStack.Template,
+		Template:     fp.resolveTemplateURI(rawStack.Template),
 		Parameters:   fp.copyStringMap(rawStack.Parameters),
 		Tags:         fp.copyStringMap(rawStack.Tags),
 		Dependencies: fp.copyStringSlice(rawStack.Dependencies),
@@ -254,6 +259,12 @@ func (fp *Provider) resolveTemplatePath(templatePath string) string {
 
 	configDir := filepath.Dir(fp.filename)
 	return filepath.Join(configDir, templatePath)
+}
+
+// resolveTemplateURI resolves template path to file:// URI relative to config file directory
+func (fp *Provider) resolveTemplateURI(templatePath string) string {
+	resolvedPath := fp.resolveTemplatePath(templatePath)
+	return "file://" + resolvedPath
 }
 
 // Helper methods for copying maps and slices to avoid shared references

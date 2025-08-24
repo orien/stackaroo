@@ -45,7 +45,7 @@ type ContextConfig struct {
 // StackConfig represents resolved stack configuration with context overrides applied
 type StackConfig struct {
 	Name         string
-	Template     string
+	Template     string // URI to template (file://, s3://, git://, etc.)
 	Parameters   map[string]string
 	Tags         map[string]string
 	Dependencies []string

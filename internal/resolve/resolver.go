@@ -13,21 +13,37 @@ import (
 	"github.com/orien/stackaroo/internal/config"
 )
 
-// TemplateReader defines the interface for reading templates
+// TemplateReader defines the interface for reading templates from URIs
 type TemplateReader interface {
-	ReadTemplate(templatePath string) (string, error)
+	ReadTemplate(templateURI string) (string, error)
 }
 
-// FileTemplateReader implements TemplateReader for reading templates from files
+// FileTemplateReader implements TemplateReader for reading templates from file:// URIs
 type FileTemplateReader struct{}
 
-// ReadTemplate reads template content from a file
-func (ftr *FileTemplateReader) ReadTemplate(templatePath string) (string, error) {
-	content, err := os.ReadFile(templatePath)
+// ReadTemplate reads template content from a file:// URI
+func (ftr *FileTemplateReader) ReadTemplate(templateURI string) (string, error) {
+	filePath, err := parseFileURI(templateURI)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", templatePath, err)
+		return "", fmt.Errorf("invalid template URI %s: %w", templateURI, err)
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read template file %s: %w", filePath, err)
 	}
 	return string(content), nil
+}
+
+// parseFileURI extracts the file path from a file:// URI or treats as relative path
+func parseFileURI(uri string) (string, error) {
+	// Handle file:// scheme
+	if len(uri) > 7 && uri[:7] == "file://" {
+		return uri[7:], nil
+	}
+
+	// Handle relative paths as-is for backward compatibility
+	return uri, nil
 }
 
 // ResolvedStack represents a fully resolved stack ready for deployment

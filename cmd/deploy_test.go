@@ -534,7 +534,7 @@ stacks:
 
 	// Test configuration provider directly first
 	provider := file.NewProvider("stackaroo.yaml")
-	
+
 	// Debug: Check if config loads correctly
 	config, err := provider.LoadConfig(context.Background(), "test")
 	assert.NoError(t, err, "config should load")
@@ -545,7 +545,7 @@ stacks:
 			t.Logf("Config stack: %s, deps: %v", stack.Name, stack.Dependencies)
 		}
 	}
-	
+
 	// Debug: Check individual stack lookup
 	appStack, err := provider.GetStack("app", "test")
 	assert.NoError(t, err, "should find app stack")
@@ -559,7 +559,7 @@ stacks:
 
 	resolved, err := resolver.Resolve(context.Background(), "test", []string{"app"})
 	assert.NoError(t, err, "resolver should work")
-	
+
 	if resolved != nil {
 		t.Logf("Resolved stacks count: %d", len(resolved.Stacks))
 		t.Logf("Deployment order: %v", resolved.DeploymentOrder)

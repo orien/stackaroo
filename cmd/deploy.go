@@ -93,7 +93,7 @@ func SetDeployer(d Deployer) {
 // deployWithConfig handles deployment using configuration file
 func deployWithConfig(ctx context.Context, stackName, contextName string) error {
 	// Create configuration provider and template reader
-	provider := file.NewProvider("stackaroo.yaml")
+	provider := file.NewDefaultProvider()
 	templateReader := &resolve.FileTemplateReader{}
 
 	// Create resolver
