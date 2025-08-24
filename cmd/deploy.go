@@ -7,8 +7,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/orien/stackaroo/internal/resolve"
@@ -24,7 +24,7 @@ var (
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, stackConfig *config.StackConfig) error
+	DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error
 }
 
 // deployCmd represents the deploy command
@@ -49,16 +49,22 @@ var deployCmd = &cobra.Command{
 		// Get or create deployer
 		d := getDeployer()
 
-		// Create a basic stack config for legacy deployment
-		stackConfig := &config.StackConfig{
+		// Read template content for legacy deployment
+		templateContent, err := os.ReadFile(templateFile)
+		if err != nil {
+			return fmt.Errorf("failed to read template file %s: %w", templateFile, err)
+		}
+
+		// Create a basic resolved stack for legacy deployment
+		resolvedStack := &resolve.ResolvedStack{
 			Name:         stackName,
-			Template:     templateFile,
+			TemplateBody: string(templateContent),
 			Parameters:   make(map[string]string),
 			Tags:         make(map[string]string),
 			Dependencies: []string{},
 			Capabilities: []string{"CAPABILITY_IAM"},
 		}
-		err := d.DeployStack(ctx, stackConfig)
+		err = d.DeployStack(ctx, resolvedStack)
 		if err != nil {
 			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}
@@ -120,18 +126,8 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 			return fmt.Errorf("resolved stack %s not found", stackName)
 		}
 
-		// Convert ResolvedStack to StackConfig for deployer
-		stackConfig := &config.StackConfig{
-			Name:         stackToDeploy.Name,
-			Template:     stackToDeploy.TemplateBody, // Use resolved template content
-			Parameters:   stackToDeploy.Parameters,
-			Tags:         stackToDeploy.Tags,
-			Dependencies: stackToDeploy.Dependencies,
-			Capabilities: stackToDeploy.Capabilities,
-		}
-
 		// Deploy the stack
-		err = d.DeployStack(ctx, stackConfig)
+		err = d.DeployStack(ctx, stackToDeploy)
 		if err != nil {
 			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}

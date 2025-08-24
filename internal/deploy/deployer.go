@@ -10,12 +10,12 @@ import (
 	"os"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config"
+	"github.com/orien/stackaroo/internal/resolve"
 )
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, stackConfig *config.StackConfig) error
+	DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
@@ -42,24 +42,18 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 }
 
 // DeployStack deploys a CloudFormation stack
-func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.StackConfig) error {
-	// Read the template file
-	templateContent, err := d.readTemplateFile(stackConfig.Template)
-	if err != nil {
-		return fmt.Errorf("failed to read template: %w", err)
-	}
-
+func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error {
 	// Convert parameters to AWS format
-	awsParams := make([]aws.Parameter, 0, len(stackConfig.Parameters))
-	for key, value := range stackConfig.Parameters {
+	awsParams := make([]aws.Parameter, 0, len(resolvedStack.Parameters))
+	for key, value := range resolvedStack.Parameters {
 		awsParams = append(awsParams, aws.Parameter{
 			Key:   key,
 			Value: value,
 		})
 	}
 
-	// Use capabilities from config, with default fallback
-	capabilities := stackConfig.Capabilities
+	// Use capabilities from resolved stack, with default fallback
+	capabilities := resolvedStack.Capabilities
 	if len(capabilities) == 0 {
 		capabilities = []string{"CAPABILITY_IAM"} // Default capability
 	}
@@ -68,11 +62,11 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stackConfig *config.Stack
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 
 	// Deploy the stack
-	err = cfnOps.DeployStack(ctx, aws.DeployStackInput{
-		StackName:    stackConfig.Name,
-		TemplateBody: templateContent,
+	err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
+		StackName:    resolvedStack.Name,
+		TemplateBody: resolvedStack.TemplateBody,
 		Parameters:   awsParams,
-		Tags:         stackConfig.Tags,
+		Tags:         resolvedStack.Tags,
 		Capabilities: capabilities,
 	})
 

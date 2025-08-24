@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config"
+	"github.com/orien/stackaroo/internal/resolve"
 )
 
 // MockAWSClient is a mock implementation of aws.ClientInterface
@@ -121,9 +121,10 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	// Set up mock expectations - now expecting resolved parameters and tags from StackConfig
+	// Set up mock expectations - now expecting resolved parameters and tags from ResolvedStack
 	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" &&
+			input.TemplateBody == templateContent &&
 			len(input.Parameters) == 1 &&
 			input.Parameters[0].Key == "Param1" &&
 			input.Parameters[0].Value == "value1" &&
@@ -136,10 +137,10 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
-	// Create stack config
-	stackConfig := &config.StackConfig{
+	// Create resolved stack
+	resolvedStack := &resolve.ResolvedStack{
 		Name:         "test-stack",
-		Template:     templateFile,
+		TemplateBody: templateContent,
 		Parameters:   map[string]string{"Param1": "value1"},
 		Tags:         map[string]string{"Environment": "test"},
 		Dependencies: []string{},
@@ -147,7 +148,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, stackConfig)
+	err = deployer.DeployStack(ctx, resolvedStack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -155,33 +156,38 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_FileNotFound(t *testing.T) {
-	// Test deploy stack with non-existent template file
+func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
+	// Test deploy stack with empty template body
 	ctx := context.Background()
 
+	// Set up mocks
+	mockCfnOps := &MockCloudFormationOperations{}
 	mockClient := &MockAWSClient{}
+
+	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
+	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+		return input.StackName == "test-stack" && input.TemplateBody == ""
+	})).Return(nil)
+
 	deployer := NewAWSDeployer(mockClient)
 
-	// Create stack config with non-existent template file
-	stackConfig := &config.StackConfig{
+	// Create resolved stack with empty template body
+	resolvedStack := &resolve.ResolvedStack{
 		Name:         "test-stack",
-		Template:     "/nonexistent/template.json",
+		TemplateBody: "",
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
 		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
-	// Execute with non-existent file
-	err := deployer.DeployStack(ctx, stackConfig)
+	// Execute
+	err := deployer.DeployStack(ctx, resolvedStack)
 
 	// Verify
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read template")
-	assert.Contains(t, err.Error(), "no such file or directory")
-
-	// AWS client should not be called
+	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
+	mockCfnOps.AssertExpectations(t)
 }
 
 func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
@@ -201,15 +207,17 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", ctx, mock.Anything).Return(errors.New("AWS deployment error"))
+	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+		return input.StackName == "test-stack" && input.TemplateBody == templateContent
+	})).Return(errors.New("AWS deployment error"))
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
-	// Create stack config with valid template file
-	stackConfig := &config.StackConfig{
+	// Create resolved stack with template content
+	resolvedStack := &resolve.ResolvedStack{
 		Name:         "test-stack",
-		Template:     templateFile,
+		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
 		Dependencies: []string{},
@@ -217,7 +225,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, stackConfig)
+	err = deployer.DeployStack(ctx, resolvedStack)
 
 	// Verify
 	assert.Error(t, err)
@@ -318,13 +326,10 @@ func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ReadTemplateFile_Success(t *testing.T) {
-	// Test reading template file through DeployStack (since readTemplateFile is private)
+func TestAWSDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
+	// Test deploying stack with YAML template content
 	ctx := context.Background()
 
-	// Create temporary template file with specific content
-	tmpDir := t.TempDir()
-	templateFile := filepath.Join(tmpDir, "test-template.yaml")
 	templateContent := `AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
@@ -332,26 +337,24 @@ Resources:
     Properties:
       BucketName: my-test-bucket`
 
-	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
-	require.NoError(t, err)
-
 	// Set up mocks to capture the template content
 	mockCfnOps := &MockCloudFormationOperations{}
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", ctx, mock.MatchedBy(func(input aws.DeployStackInput) bool {
-		// Verify the template content was read correctly
-		return input.TemplateBody == templateContent
+	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+		// Verify the template content was passed correctly
+		return input.TemplateBody == templateContent &&
+			input.StackName == "test-stack"
 	})).Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
-	// Create stack config
-	stackConfig := &config.StackConfig{
+	// Create resolved stack
+	resolvedStack := &resolve.ResolvedStack{
 		Name:         "test-stack",
-		Template:     templateFile,
+		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
 		Dependencies: []string{},
@@ -359,7 +362,7 @@ Resources:
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, stackConfig)
+	err := deployer.DeployStack(ctx, resolvedStack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -367,33 +370,30 @@ Resources:
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ReadTemplateFile_EmptyFile(t *testing.T) {
-	// Test reading empty template file
+func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
+	// Test deploying stack with multiple parameters and tags
 	ctx := context.Background()
-
-	// Create empty template file
-	tmpDir := t.TempDir()
-	templateFile := filepath.Join(tmpDir, "empty-template.json")
-
-	err := os.WriteFile(templateFile, []byte(""), 0644)
-	require.NoError(t, err)
 
 	// Set up mocks
 	mockCfnOps := &MockCloudFormationOperations{}
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", ctx, mock.MatchedBy(func(input aws.DeployStackInput) bool {
-		return input.TemplateBody == ""
+	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+		return input.TemplateBody == "" &&
+			input.StackName == "test-stack" &&
+			len(input.Parameters) == 2 &&
+			len(input.Tags) == 2 &&
+			len(input.Capabilities) == 2
 	})).Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
 
-	// Create stack config with parameters and tags
-	stackConfig := &config.StackConfig{
+	// Create resolved stack with parameters and tags
+	resolvedStack := &resolve.ResolvedStack{
 		Name:         "test-stack",
-		Template:     templateFile,
+		TemplateBody: "",
 		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},
 		Tags:         map[string]string{"Project": "stackaroo", "Environment": "test"},
 		Dependencies: []string{},
@@ -401,7 +401,7 @@ func TestAWSDeployer_ReadTemplateFile_EmptyFile(t *testing.T) {
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, stackConfig)
+	err := deployer.DeployStack(ctx, resolvedStack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -409,54 +409,4 @@ func TestAWSDeployer_ReadTemplateFile_EmptyFile(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ReadTemplateFile_PermissionDenied(t *testing.T) {
-	// Test reading template file with permission denied
-	// Skip on Windows as file permissions work differently
-	if os.Getenv("GOOS") == "windows" {
-		t.Skip("Skipping permission test on Windows")
-	}
 
-	ctx := context.Background()
-
-	// Create temporary template file and remove read permissions
-	tmpDir := t.TempDir()
-	templateFile := filepath.Join(tmpDir, "no-read-template.json")
-	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
-
-	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
-	require.NoError(t, err)
-
-	// Remove read permissions
-	err = os.Chmod(templateFile, 0000)
-	require.NoError(t, err)
-
-	// Restore permissions for cleanup
-	defer func() {
-		_ = os.Chmod(templateFile, 0644)
-	}()
-
-	mockClient := &MockAWSClient{}
-	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
-
-	// Create stack config
-	stackConfig := &config.StackConfig{
-		Name:         "test-stack",
-		Template:     templateFile,
-		Parameters:   map[string]string{"Param1": "value1"},
-		Tags:         map[string]string{"Environment": "test"},
-		Dependencies: []string{},
-		Capabilities: []string{"CAPABILITY_IAM"},
-	}
-
-	// Execute
-	err = deployer.DeployStack(ctx, stackConfig)
-
-	// Verify
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read template")
-	assert.Contains(t, err.Error(), "permission denied")
-
-	// AWS client should not be called
-	mockClient.AssertExpectations(t)
-}

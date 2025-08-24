@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-// FileSystemResolver defines the interface for resolving and reading templates from URIs
+// FileSystemResolver defines the interface for resolving and reading files from URIs
 type FileSystemResolver interface {
 	Resolve(fileURI string) (string, error)
 }
