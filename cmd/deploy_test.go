@@ -290,9 +290,14 @@ stacks:
 	defer SetDeployer(oldDeployer)
 
 	// Change to temp directory so config file is found
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
 
 	// Execute deploy command with context flag
 	rootCmd.SetArgs([]string{"deploy", "vpc", "--context", "dev"})
