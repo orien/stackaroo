@@ -13,12 +13,12 @@ import (
 	"github.com/orien/stackaroo/internal/config"
 )
 
-// TemplateReader defines the interface for reading templates from URIs
-type TemplateReader interface {
+// FileSystemResolver defines the interface for reading templates from URIs
+type FileSystemResolver interface {
 	ReadTemplate(templateURI string) (string, error)
 }
 
-// FileTemplateReader implements TemplateReader for reading templates from file:// URIs
+// FileTemplateReader reads templates from file:// URIs
 type FileTemplateReader struct{}
 
 // ReadTemplate reads template content from a file:// URI
@@ -65,21 +65,21 @@ type ResolvedStacks struct {
 
 // Resolver resolves configuration into deployment-ready artifacts
 type Resolver struct {
-	configProvider config.ConfigProvider
-	templateReader TemplateReader
+	configProvider     config.ConfigProvider
+	fileSystemResolver FileSystemResolver
 }
 
 // NewResolver creates a new resolver instance with the given config provider
 func NewResolver(configProvider config.ConfigProvider) *Resolver {
 	return &Resolver{
-		configProvider: configProvider,
-		templateReader: &FileTemplateReader{},
+		configProvider:     configProvider,
+		fileSystemResolver: &FileTemplateReader{},
 	}
 }
 
-// SetTemplateReader allows injecting a custom template reader (for testing)
-func (r *Resolver) SetTemplateReader(templateReader TemplateReader) {
-	r.templateReader = templateReader
+// SetFileSystemResolver allows injecting a custom file system resolver (for testing)
+func (r *Resolver) SetFileSystemResolver(fileSystemResolver FileSystemResolver) {
+	r.fileSystemResolver = fileSystemResolver
 }
 
 // ResolveStack resolves a single stack configuration
@@ -97,7 +97,7 @@ func (r *Resolver) ResolveStack(ctx context.Context, context string, stackName s
 	}
 
 	// Read template
-	templateBody, err := r.templateReader.ReadTemplate(stackConfig.Template)
+	templateBody, err := r.fileSystemResolver.ReadTemplate(stackConfig.Template)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template: %w", err)
 	}

@@ -48,23 +48,23 @@ func (m *MockConfigProvider) Validate() error {
 	return args.Error(0)
 }
 
-// MockTemplateReader is a mock implementation of TemplateReader
-type MockTemplateReader struct {
+// MockFileSystemResolver is a mock implementation of the FileSystemResolver interface
+type MockFileSystemResolver struct {
 	mock.Mock
 }
 
-func (m *MockTemplateReader) ReadTemplate(templatePath string) (string, error) {
-	args := m.Called(templatePath)
+func (m *MockFileSystemResolver) ReadTemplate(templateURI string) (string, error) {
+	args := m.Called(templateURI)
 	return args.String(0), args.Error(1)
 }
 
 func TestNewResolver(t *testing.T) {
 	// Test that we can create a new resolver
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	assert.NotNil(t, resolver, "resolver should not be nil")
 }
@@ -75,7 +75,7 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 
 	// Set up mocks
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	// Mock data
 	cfg := &config.Config{
@@ -110,11 +110,11 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 	// Set expectations
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/vpc.yaml").Return(templateContent, nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/vpc.yaml").Return(templateContent, nil)
 
 	// Create resolver
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Execute
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
@@ -132,7 +132,7 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 
 	// Verify all expectations were met
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
@@ -140,13 +140,13 @@ func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	// Set expectation for config load failure
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(nil, assert.AnError)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
 
@@ -155,7 +155,7 @@ func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to load config")
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
@@ -163,7 +163,7 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 
@@ -171,7 +171,7 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "nonexistent")
 
@@ -180,7 +180,7 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to get stack")
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
@@ -188,7 +188,7 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 	stackConfig := &config.StackConfig{
@@ -198,10 +198,10 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/missing.yaml").Return("", assert.AnError)
+	mockFileSystemResolver.On("ReadTemplate", "templates/missing.yaml").Return("", assert.AnError)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
 
@@ -210,7 +210,7 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read template")
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_Resolve_MultipleStacks(t *testing.T) {
@@ -218,7 +218,7 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 
@@ -238,11 +238,11 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil).Times(2)
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(vpcConfig, nil)
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/vpc.yaml").Return("{}", nil)
-	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/vpc.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
 
@@ -255,7 +255,7 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	assert.Equal(t, []string{"vpc", "app"}, resolved.DeploymentOrder)
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_Resolve_CircularDependency(t *testing.T) {
@@ -263,7 +263,7 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 
@@ -283,11 +283,11 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil).Times(2)
 	mockConfigProvider.On("GetStack", "stack-a", "dev").Return(stackAConfig, nil)
 	mockConfigProvider.On("GetStack", "stack-b", "dev").Return(stackBConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/a.yaml").Return("{}", nil)
-	mockTemplateReader.On("ReadTemplate", "templates/b.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/a.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/b.yaml").Return("{}", nil)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"stack-a", "stack-b"})
 
@@ -296,7 +296,7 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	assert.Contains(t, err.Error(), "circular dependency detected")
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_Resolve_EmptyStackList(t *testing.T) {
@@ -304,10 +304,10 @@ func TestResolver_Resolve_EmptyStackList(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{})
 
@@ -318,7 +318,7 @@ func TestResolver_Resolve_EmptyStackList(t *testing.T) {
 	assert.Empty(t, resolved.DeploymentOrder)
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
@@ -326,7 +326,7 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 
@@ -360,13 +360,13 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	mockConfigProvider.On("GetStack", "security", "prod").Return(securityConfig, nil)
 	mockConfigProvider.On("GetStack", "database", "prod").Return(databaseConfig, nil)
 	mockConfigProvider.On("GetStack", "app", "prod").Return(appConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/vpc.yaml").Return("{}", nil)
-	mockTemplateReader.On("ReadTemplate", "templates/security.yaml").Return("{}", nil)
-	mockTemplateReader.On("ReadTemplate", "templates/database.yaml").Return("{}", nil)
-	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/vpc.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/security.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/database.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Request stacks in random order
 	resolved, err := resolver.Resolve(ctx, "prod", []string{"app", "vpc", "database", "security"})
@@ -381,7 +381,7 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	assert.Equal(t, expectedOrder, resolved.DeploymentOrder)
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
@@ -389,7 +389,7 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{
 		Project: "test-project",
@@ -413,10 +413,10 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 
 	mockConfigProvider.On("LoadConfig", ctx, "staging").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "web", "staging").Return(stackConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/web.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/web.yaml").Return("{}", nil)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := resolver.ResolveStack(ctx, "staging", "web")
 
@@ -432,7 +432,7 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	assert.Equal(t, "web-server", resolved.Tags["Component"])       // From stack only
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
 
 func TestResolver_Resolve_MissingDependency(t *testing.T) {
@@ -440,7 +440,7 @@ func TestResolver_Resolve_MissingDependency(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
-	mockTemplateReader := &MockTemplateReader{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
 
@@ -453,10 +453,10 @@ func TestResolver_Resolve_MissingDependency(t *testing.T) {
 
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
-	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
+	mockFileSystemResolver.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
 	resolver := NewResolver(mockConfigProvider)
-	resolver.SetTemplateReader(mockTemplateReader)
+	resolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Only resolve app, not its dependency
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"app"})
@@ -470,5 +470,5 @@ func TestResolver_Resolve_MissingDependency(t *testing.T) {
 	assert.Equal(t, []string{"database"}, resolved.Stacks[0].Dependencies)
 
 	mockConfigProvider.AssertExpectations(t)
-	mockTemplateReader.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
 }
