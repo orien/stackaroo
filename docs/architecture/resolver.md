@@ -195,7 +195,7 @@ flowchart LR
 ### Data Flow
 
 1. **Config Provider** loads YAML, converts to config types
-2. **Resolver** transforms config types to resolved artifacts
+2. **StackResolver** transforms config types to resolved artifacts
 3. **Deploy** uses resolved artifacts for AWS API calls
 
 ### CLI Integration
@@ -204,7 +204,7 @@ flowchart LR
 // Example usage in deploy command
 configProvider := file.NewDefaultProvider()  // No hardcoded filename
 templateReader := &resolve.FileTemplateReader{}
-resolver := resolve.NewResolver(configProvider, templateReader)
+resolver := resolve.NewStackResolver(configProvider, templateReader)
 
 resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
 if err != nil {

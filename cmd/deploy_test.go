@@ -555,7 +555,7 @@ stacks:
 	}
 
 	// Test resolver
-	resolver := resolve.NewResolver(provider)
+	resolver := resolve.NewStackResolver(provider)
 
 	resolved, err := resolver.Resolve(context.Background(), "test", []string{"app"})
 	assert.NoError(t, err, "resolver should work")

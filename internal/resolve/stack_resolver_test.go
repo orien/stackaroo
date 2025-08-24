@@ -58,18 +58,18 @@ func (m *MockFileSystemResolver) Resolve(templateURI string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
-func TestNewResolver(t *testing.T) {
-	// Test that we can create a new resolver
+func TestNewStackResolver(t *testing.T) {
+	// Test that we can create a new stack resolver
 	mockConfigProvider := &MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	assert.NotNil(t, resolver, "resolver should not be nil")
+	assert.NotNil(t, stackResolver, "stack resolver should not be nil")
 }
 
-func TestResolver_ResolveStack_Success(t *testing.T) {
+func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	// Test successful resolution of a single stack
 	ctx := context.Background()
 
@@ -112,12 +112,12 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/vpc.yaml").Return(templateContent, nil)
 
-	// Create resolver
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	// Create stack resolver
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Execute
-	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
+	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
 
 	// Verify
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
+func TestStackResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	// Test error handling when config loading fails
 	ctx := context.Background()
 
@@ -145,10 +145,10 @@ func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	// Set expectation for config load failure
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(nil, assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
+	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
@@ -158,7 +158,7 @@ func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
+func TestStackResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	// Test error handling when stack is not found
 	ctx := context.Background()
 
@@ -170,10 +170,10 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.ResolveStack(ctx, "dev", "nonexistent")
+	resolved, err := stackResolver.ResolveStack(ctx, "dev", "nonexistent")
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
@@ -183,7 +183,7 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
+func TestStackResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	// Test error handling when template reading fails
 	ctx := context.Background()
 
@@ -200,10 +200,10 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/missing.yaml").Return("", assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
+	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
@@ -213,7 +213,7 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_Resolve_MultipleStacks(t *testing.T) {
+func TestStackResolver_Resolve_MultipleStacks(t *testing.T) {
 	// Test resolving multiple stacks
 	ctx := context.Background()
 
@@ -241,10 +241,10 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/vpc.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
+	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"vpc", "app"})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -258,7 +258,7 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_Resolve_CircularDependency(t *testing.T) {
+func TestStackResolver_Resolve_CircularDependency(t *testing.T) {
 	// Test detection of circular dependencies
 	ctx := context.Background()
 
@@ -286,10 +286,10 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/a.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/b.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.Resolve(ctx, "dev", []string{"stack-a", "stack-b"})
+	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"stack-a", "stack-b"})
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
@@ -299,17 +299,17 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_Resolve_EmptyStackList(t *testing.T) {
+func TestStackResolver_Resolve_EmptyStackList(t *testing.T) {
 	// Test resolving empty stack list
 	ctx := context.Background()
 
 	mockConfigProvider := &MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.Resolve(ctx, "dev", []string{})
+	resolved, err := stackResolver.Resolve(ctx, "dev", []string{})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -321,7 +321,7 @@ func TestResolver_Resolve_EmptyStackList(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
+func TestStackResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	// Test complex dependency chain: vpc -> security -> database -> app
 	ctx := context.Background()
 
@@ -365,11 +365,11 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/database.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Request stacks in random order
-	resolved, err := resolver.Resolve(ctx, "prod", []string{"app", "vpc", "database", "security"})
+	resolved, err := stackResolver.Resolve(ctx, "prod", []string{"app", "vpc", "database", "security"})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -384,7 +384,7 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
+func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	// Test parameter inheritance from global config
 	ctx := context.Background()
 
@@ -415,10 +415,10 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockConfigProvider.On("GetStack", "web", "staging").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/web.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := resolver.ResolveStack(ctx, "staging", "web")
+	resolved, err := stackResolver.ResolveStack(ctx, "staging", "web")
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -435,7 +435,7 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
-func TestResolver_Resolve_MissingDependency(t *testing.T) {
+func TestStackResolver_Resolve_MissingDependency(t *testing.T) {
 	// Test handling of missing dependency (dependency not in resolved stack list)
 	ctx := context.Background()
 
@@ -455,11 +455,11 @@ func TestResolver_Resolve_MissingDependency(t *testing.T) {
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider)
-	resolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Only resolve app, not its dependency
-	resolved, err := resolver.Resolve(ctx, "dev", []string{"app"})
+	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"app"})
 
 	// Should succeed - missing dependencies are ignored for dependency ordering
 	// (they might be deployed separately)

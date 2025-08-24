@@ -29,27 +29,27 @@ type ResolvedStacks struct {
 	DeploymentOrder []string
 }
 
-// Resolver resolves configuration into deployment-ready artifacts
-type Resolver struct {
+// StackResolver resolves configuration into deployment-ready artifacts
+type StackResolver struct {
 	configProvider     config.ConfigProvider
 	fileSystemResolver FileSystemResolver
 }
 
-// NewResolver creates a new resolver instance with the given config provider
-func NewResolver(configProvider config.ConfigProvider) *Resolver {
-	return &Resolver{
+// NewStackResolver creates a new stack resolver instance with the given config provider
+func NewStackResolver(configProvider config.ConfigProvider) *StackResolver {
+	return &StackResolver{
 		configProvider:     configProvider,
 		fileSystemResolver: &DefaultFileSystemResolver{},
 	}
 }
 
 // SetFileSystemResolver allows injecting a custom file system resolver (for testing)
-func (r *Resolver) SetFileSystemResolver(fileSystemResolver FileSystemResolver) {
+func (r *StackResolver) SetFileSystemResolver(fileSystemResolver FileSystemResolver) {
 	r.fileSystemResolver = fileSystemResolver
 }
 
 // ResolveStack resolves a single stack configuration
-func (r *Resolver) ResolveStack(ctx context.Context, context string, stackName string) (*ResolvedStack, error) {
+func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackName string) (*ResolvedStack, error) {
 	// Load configuration
 	cfg, err := r.configProvider.LoadConfig(ctx, context)
 	if err != nil {
@@ -83,7 +83,7 @@ func (r *Resolver) ResolveStack(ctx context.Context, context string, stackName s
 }
 
 // Resolve resolves multiple stacks and calculates deployment order
-func (r *Resolver) Resolve(ctx context.Context, context string, stackNames []string) (*ResolvedStacks, error) {
+func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames []string) (*ResolvedStacks, error) {
 	var resolvedStacks []*ResolvedStack
 
 	// Resolve each stack
@@ -109,7 +109,7 @@ func (r *Resolver) Resolve(ctx context.Context, context string, stackNames []str
 }
 
 // mergeParameters merges parameters with inheritance
-func (r *Resolver) mergeParameters(stackParams map[string]string) map[string]string {
+func (r *StackResolver) mergeParameters(stackParams map[string]string) map[string]string {
 	// Simple implementation - just return stack parameters for now
 	result := make(map[string]string)
 	for k, v := range stackParams {
@@ -119,7 +119,7 @@ func (r *Resolver) mergeParameters(stackParams map[string]string) map[string]str
 }
 
 // mergeTags merges tags with inheritance
-func (r *Resolver) mergeTags(globalTags, stackTags map[string]string) map[string]string {
+func (r *StackResolver) mergeTags(globalTags, stackTags map[string]string) map[string]string {
 	result := make(map[string]string)
 
 	// Add global tags first
@@ -136,7 +136,7 @@ func (r *Resolver) mergeTags(globalTags, stackTags map[string]string) map[string
 }
 
 // calculateDependencyOrder calculates the deployment order based on dependencies
-func (r *Resolver) calculateDependencyOrder(stacks []*ResolvedStack) ([]string, error) {
+func (r *StackResolver) calculateDependencyOrder(stacks []*ResolvedStack) ([]string, error) {
 	// Simple topological sort implementation
 	// Build name to stack map
 	stackMap := make(map[string]*ResolvedStack)
