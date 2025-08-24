@@ -13,9 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 )
 
-// CloudFormationOperationsClient is an alias for the AWS CloudFormation operations
-type CloudFormationOperationsClient = CloudFormationOperations
-
 // DefaultClient provides a high-level interface for AWS operations
 type DefaultClient struct {
 	config aws.Config
@@ -68,7 +65,7 @@ func (c *DefaultClient) Region() string {
 }
 
 // NewCloudFormationClient creates a new CloudFormation client with default AWS configuration
-func NewCloudFormationClient(ctx context.Context) (CloudFormationOperationsClient, error) {
+func NewCloudFormationClient(ctx context.Context) (CloudFormationOperations, error) {
 	// Load default AWS configuration
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
