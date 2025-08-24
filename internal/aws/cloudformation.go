@@ -95,27 +95,27 @@ type DeleteStackInput struct {
 	StackName string
 }
 
-// CloudFormationOperations provides CloudFormation-specific operations
-type CloudFormationOperations struct {
-	client CloudFormationClientInterface
+// DefaultCloudFormationOperations provides CloudFormation-specific operations
+type DefaultCloudFormationOperations struct {
+	client CloudFormationClient
 }
 
 // NewCloudFormationOperations creates a new CloudFormation operations wrapper
-func (c *Client) NewCloudFormationOperations() CloudFormationOperationsInterface {
-	return &CloudFormationOperations{
+func (c *DefaultClient) NewCloudFormationOperations() CloudFormationOperations {
+	return &DefaultCloudFormationOperations{
 		client: c.cfn,
 	}
 }
 
 // NewCloudFormationOperationsWithClient creates operations with a custom client (for testing)
-func NewCloudFormationOperationsWithClient(client CloudFormationClientInterface) *CloudFormationOperations {
-	return &CloudFormationOperations{
+func NewCloudFormationOperationsWithClient(client CloudFormationClient) *DefaultCloudFormationOperations {
+	return &DefaultCloudFormationOperations{
 		client: client,
 	}
 }
 
 // DeployStack creates a new CloudFormation stack
-func (cf *CloudFormationOperations) DeployStack(ctx context.Context, input DeployStackInput) error {
+func (cf *DefaultCloudFormationOperations) DeployStack(ctx context.Context, input DeployStackInput) error {
 	params := make([]types.Parameter, len(input.Parameters))
 	for i, p := range input.Parameters {
 		params[i] = types.Parameter{
@@ -153,7 +153,7 @@ func (cf *CloudFormationOperations) DeployStack(ctx context.Context, input Deplo
 }
 
 // UpdateStack updates an existing CloudFormation stack
-func (cf *CloudFormationOperations) UpdateStack(ctx context.Context, input UpdateStackInput) error {
+func (cf *DefaultCloudFormationOperations) UpdateStack(ctx context.Context, input UpdateStackInput) error {
 	params := make([]types.Parameter, len(input.Parameters))
 	for i, p := range input.Parameters {
 		params[i] = types.Parameter{
@@ -191,7 +191,7 @@ func (cf *CloudFormationOperations) UpdateStack(ctx context.Context, input Updat
 }
 
 // DeleteStack deletes a CloudFormation stack
-func (cf *CloudFormationOperations) DeleteStack(ctx context.Context, input DeleteStackInput) error {
+func (cf *DefaultCloudFormationOperations) DeleteStack(ctx context.Context, input DeleteStackInput) error {
 	_, err := cf.client.DeleteStack(ctx, &cloudformation.DeleteStackInput{
 		StackName: aws.String(input.StackName),
 	})
@@ -204,7 +204,7 @@ func (cf *CloudFormationOperations) DeleteStack(ctx context.Context, input Delet
 }
 
 // GetStack retrieves information about a specific stack
-func (cf *CloudFormationOperations) GetStack(ctx context.Context, stackName string) (*Stack, error) {
+func (cf *DefaultCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*Stack, error) {
 	result, err := cf.client.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: aws.String(stackName),
 	})
@@ -248,7 +248,7 @@ func (cf *CloudFormationOperations) GetStack(ctx context.Context, stackName stri
 }
 
 // ListStacks returns a list of all CloudFormation stacks
-func (cf *CloudFormationOperations) ListStacks(ctx context.Context) ([]*Stack, error) {
+func (cf *DefaultCloudFormationOperations) ListStacks(ctx context.Context) ([]*Stack, error) {
 	var stacks []*Stack
 	paginator := cloudformation.NewListStacksPaginator(cf.client, &cloudformation.ListStacksInput{})
 
@@ -279,7 +279,7 @@ func (cf *CloudFormationOperations) ListStacks(ctx context.Context) ([]*Stack, e
 }
 
 // ValidateTemplate validates a CloudFormation template
-func (cf *CloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
+func (cf *DefaultCloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
 	_, err := cf.client.ValidateTemplate(ctx, &cloudformation.ValidateTemplateInput{
 		TemplateBody: aws.String(templateBody),
 	})
@@ -292,7 +292,7 @@ func (cf *CloudFormationOperations) ValidateTemplate(ctx context.Context, templa
 }
 
 // StackExists checks if a stack exists
-func (cf *CloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
+func (cf *DefaultCloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
 	_, err := cf.client.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: aws.String(stackName),
 	})
@@ -316,7 +316,7 @@ func isStackNotFoundError(err error) bool {
 }
 
 // GetTemplate retrieves the template for a CloudFormation stack
-func (cf *CloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
+func (cf *DefaultCloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
 	result, err := cf.client.GetTemplate(ctx, &cloudformation.GetTemplateInput{
 		StackName: aws.String(stackName),
 	})
@@ -329,7 +329,7 @@ func (cf *CloudFormationOperations) GetTemplate(ctx context.Context, stackName s
 }
 
 // DescribeStack retrieves detailed information about a specific stack including template
-func (cf *CloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*StackInfo, error) {
+func (cf *DefaultCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*StackInfo, error) {
 	// Get basic stack information
 	stack, err := cf.GetStack(ctx, stackName)
 	if err != nil {
@@ -359,17 +359,17 @@ func (cf *CloudFormationOperations) DescribeStack(ctx context.Context, stackName
 }
 
 // CreateChangeSet creates a CloudFormation changeset
-func (cf *CloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+func (cf *DefaultCloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
 	return cf.client.CreateChangeSet(ctx, params, optFns...)
 }
 
 // DeleteChangeSet deletes a CloudFormation changeset
-func (cf *CloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
+func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
 	return cf.client.DeleteChangeSet(ctx, params, optFns...)
 }
 
 // DescribeChangeSet describes a CloudFormation changeset
-func (cf *CloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
+func (cf *DefaultCloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
 	return cf.client.DescribeChangeSet(ctx, params, optFns...)
 }
 

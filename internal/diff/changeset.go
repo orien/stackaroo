@@ -17,11 +17,11 @@ import (
 
 // DefaultChangeSetManager implements ChangeSetManager using AWS CloudFormation
 type DefaultChangeSetManager struct {
-	cfClient aws.CloudFormationOperationsInterface
+	cfClient aws.CloudFormationOperations
 }
 
 // NewChangeSetManager creates a new changeset manager
-func NewChangeSetManager(cfClient aws.CloudFormationOperationsInterface) ChangeSetManager {
+func NewChangeSetManager(cfClient aws.CloudFormationOperations) ChangeSetManager {
 	return &DefaultChangeSetManager{
 		cfClient: cfClient,
 	}

@@ -21,11 +21,11 @@ type Deployer interface {
 
 // AWSDeployer implements Deployer using AWS CloudFormation
 type AWSDeployer struct {
-	awsClient aws.ClientInterface
+	awsClient aws.Client
 }
 
 // NewAWSDeployer creates a new AWSDeployer
-func NewAWSDeployer(awsClient aws.ClientInterface) *AWSDeployer {
+func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
 	return &AWSDeployer{
 		awsClient: awsClient,
 	}
@@ -33,7 +33,7 @@ func NewAWSDeployer(awsClient aws.ClientInterface) *AWSDeployer {
 
 // NewDefaultDeployer creates a deployer with default AWS configuration
 func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
-	client, err := aws.NewClient(ctx, aws.Config{})
+	client, err := aws.NewDefaultClient(ctx, aws.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client: %w", err)
 	}

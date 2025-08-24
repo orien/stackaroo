@@ -131,7 +131,7 @@ git-check: ## Check git status and requirements
 	@echo "📋 Git status:"
 	@git status --porcelain
 	@echo "📋 Recent commits:"
-	@git log --oneline -5
+	@git --no-pager log --oneline -5
 
 lint-fix: ## Run golangci-lint with auto-fix
 	@echo "🔧 Running golangci-lint with auto-fix..."

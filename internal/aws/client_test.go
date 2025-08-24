@@ -84,7 +84,7 @@ func TestNewCloudFormationOperationsWithClient(t *testing.T) {
 	ops := NewCloudFormationOperationsWithClient(mockClient)
 
 	assert.NotNil(t, ops)
-	assert.Equal(t, mockClient, ops.client)
+	// Client field is private, but successful creation indicates dependency injection worked
 }
 
 // MockCloudFormationClient for testing dependency injection

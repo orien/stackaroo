@@ -39,7 +39,7 @@ func (m *MockChangeSetClient) DescribeChangeSet(ctx context.Context, params *clo
 	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
 }
 
-// Additional methods to satisfy CloudFormationOperationsInterface
+// Additional methods to satisfy CloudFormationOperations
 
 func (m *MockChangeSetClient) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
 	args := m.Called(ctx, input)

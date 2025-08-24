@@ -20,17 +20,17 @@ import (
 	"github.com/orien/stackaroo/internal/resolve"
 )
 
-// MockAWSClient is a mock implementation of aws.ClientInterface
+// MockAWSClient is a mock implementation of aws.Client
 type MockAWSClient struct {
 	mock.Mock
 }
 
-func (m *MockAWSClient) NewCloudFormationOperations() aws.CloudFormationOperationsInterface {
+func (m *MockAWSClient) NewCloudFormationOperations() aws.CloudFormationOperations {
 	args := m.Called()
-	return args.Get(0).(aws.CloudFormationOperationsInterface)
+	return args.Get(0).(aws.CloudFormationOperations)
 }
 
-// MockCloudFormationOperations is a mock implementation of aws.CloudFormationOperationsInterface
+// MockCloudFormationOperations is a mock implementation of aws.CloudFormationOperations
 type MockCloudFormationOperations struct {
 	mock.Mock
 }

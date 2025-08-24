@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 )
 
-// CloudFormationClientInterface defines the interface for CloudFormation client operations
+// CloudFormationClient defines the interface for CloudFormation client operations
 // This allows for easier testing with mock implementations
-type CloudFormationClientInterface interface {
+type CloudFormationClient interface {
 	CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error)
 	UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error)
 	DeleteStack(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error)
@@ -26,21 +26,21 @@ type CloudFormationClientInterface interface {
 }
 
 // Ensure that the actual CloudFormation client implements our interface
-var _ CloudFormationClientInterface = (*cloudformation.Client)(nil)
+var _ CloudFormationClient = (*cloudformation.Client)(nil)
 
-// Ensure that our Client implements ClientInterface
-var _ ClientInterface = (*Client)(nil)
+// Ensure that our DefaultClient implements Client
+var _ Client = (*DefaultClient)(nil)
 
-// Ensure that CloudFormationOperations implements CloudFormationOperationsInterface
-var _ CloudFormationOperationsInterface = (*CloudFormationOperations)(nil)
+// Ensure that DefaultCloudFormationOperations implements CloudFormationOperations
+var _ CloudFormationOperations = (*DefaultCloudFormationOperations)(nil)
 
-// ClientInterface defines the interface for AWS client operations
-type ClientInterface interface {
-	NewCloudFormationOperations() CloudFormationOperationsInterface
+// Client defines the interface for AWS client operations
+type Client interface {
+	NewCloudFormationOperations() CloudFormationOperations
 }
 
-// CloudFormationOperationsInterface defines the interface for CloudFormation operations
-type CloudFormationOperationsInterface interface {
+// CloudFormationOperations defines the interface for CloudFormation operations
+type CloudFormationOperations interface {
 	DeployStack(ctx context.Context, input DeployStackInput) error
 	UpdateStack(ctx context.Context, input UpdateStackInput) error
 	DeleteStack(ctx context.Context, input DeleteStackInput) error

@@ -13,11 +13,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 )
 
-// CloudFormationClient is an alias for the AWS CloudFormation client
-type CloudFormationClient = CloudFormationOperationsInterface
+// CloudFormationOperationsClient is an alias for the AWS CloudFormation operations
+type CloudFormationOperationsClient = CloudFormationOperations
 
-// Client provides a high-level interface for AWS operations
-type Client struct {
+// DefaultClient provides a high-level interface for AWS operations
+type DefaultClient struct {
 	config aws.Config
 	cfn    *cloudformation.Client
 }
@@ -28,8 +28,8 @@ type Config struct {
 	Profile string
 }
 
-// NewClient creates a new AWS client with the specified configuration
-func NewClient(ctx context.Context, cfg Config) (*Client, error) {
+// NewDefaultClient creates a new AWS client with the specified configuration
+func NewDefaultClient(ctx context.Context, cfg Config) (*DefaultClient, error) {
 	var opts []func(*config.LoadOptions) error
 
 	// Set region if specified
@@ -51,24 +51,24 @@ func NewClient(ctx context.Context, cfg Config) (*Client, error) {
 	// Create service clients
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
 
-	return &Client{
+	return &DefaultClient{
 		config: awsCfg,
 		cfn:    cfnClient,
 	}, nil
 }
 
 // CloudFormation returns the CloudFormation client
-func (c *Client) CloudFormation() *cloudformation.Client {
+func (c *DefaultClient) CloudFormation() *cloudformation.Client {
 	return c.cfn
 }
 
 // Region returns the configured AWS region
-func (c *Client) Region() string {
+func (c *DefaultClient) Region() string {
 	return c.config.Region
 }
 
 // NewCloudFormationClient creates a new CloudFormation client with default AWS configuration
-func NewCloudFormationClient(ctx context.Context) (CloudFormationClient, error) {
+func NewCloudFormationClient(ctx context.Context) (CloudFormationOperationsClient, error) {
 	// Load default AWS configuration
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {

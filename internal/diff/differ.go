@@ -14,7 +14,7 @@ import (
 
 // DefaultDiffer implements the Differ interface using AWS CloudFormation
 type DefaultDiffer struct {
-	cfClient            aws.CloudFormationClient
+	cfClient            aws.CloudFormationOperations
 	templateComparator  TemplateComparator
 	parameterComparator ParameterComparator
 	tagComparator       TagComparator
