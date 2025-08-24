@@ -9,16 +9,16 @@ import (
 	"os"
 )
 
-// FileSystemResolver defines the interface for resolving and reading files from `file://` URIs
+// FileSystemResolver defines the interface for resolving and reading templates from URIs
 type FileSystemResolver interface {
-	ReadTemplate(fileURI string) (string, error)
+	Resolve(fileURI string) (string, error)
 }
 
 // DefaultFileSystemResolver implements FileSystemResolver for reading files from `file://` URIs
 type DefaultFileSystemResolver struct{}
 
-// ReadTemplate reads template content from a file:// URI
-func (fsr *DefaultFileSystemResolver) ReadTemplate(fileURI string) (string, error) {
+// Resolve reads template content from a file:// URI
+func (fsr *DefaultFileSystemResolver) Resolve(fileURI string) (string, error) {
 	filePath, err := parseFileURI(fileURI)
 	if err != nil {
 		return "", fmt.Errorf("invalid template URI %s: %w", fileURI, err)
@@ -26,7 +26,7 @@ func (fsr *DefaultFileSystemResolver) ReadTemplate(fileURI string) (string, erro
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", filePath, err)
+		return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 	return string(content), nil
 }

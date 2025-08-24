@@ -63,7 +63,7 @@ func (r *Resolver) ResolveStack(ctx context.Context, context string, stackName s
 	}
 
 	// Read template
-	templateBody, err := r.fileSystemResolver.ReadTemplate(stackConfig.Template)
+	templateBody, err := r.fileSystemResolver.Resolve(stackConfig.Template)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template: %w", err)
 	}
