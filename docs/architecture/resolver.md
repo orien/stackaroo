@@ -67,7 +67,7 @@ type ConfigProvider interface {
 #### TemplateReader
 ```go
 type TemplateReader interface {
-    ReadTemplate(templatePath string) (string, error)
+    ReadTemplate(templateURI string) (string, error)
 }
 ```
 
@@ -85,7 +85,7 @@ flowchart LR
 **Steps:**
 1. **Load Configuration** - Get global config for context
 2. **Get Stack Config** - Retrieve stack-specific configuration
-3. **Read Template** - Load CloudFormation template content
+3. **Read Template** - Load CloudFormation template content from URI
 4. **Merge Parameters** - Apply inheritance rules
 5. **Merge Tags** - Combine global and stack tags
 6. **Create ResolvedStack** - Package everything together
@@ -202,8 +202,8 @@ flowchart LR
 
 ```go
 // Example usage in deploy command
-configProvider := config.NewFileProvider("stackaroo.yaml")
-templateReader := &FileTemplateReader{}
+configProvider := file.NewDefaultProvider()  // No hardcoded filename
+templateReader := &resolve.FileTemplateReader{}
 resolver := resolve.NewResolver(configProvider, templateReader)
 
 resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
@@ -218,6 +218,73 @@ for _, stackName := range resolved.DeploymentOrder {
     // ...
 }
 ```
+
+## Architectural Separation Improvements
+
+### Responsibility Boundaries
+
+The resolver module has been designed with clear separation of concerns to prevent responsibility leaks:
+
+```mermaid
+graph TD
+    A[cmd/deploy<br/>CLI Orchestration] --> B[config/file<br/>Configuration & URI Resolution]
+    A --> C[resolve<br/>Business Logic & Template Loading]
+    
+    B --> D[stackaroo.yaml<br/>File Knowledge]
+    C --> E[URI Parsing<br/>file://, s3://, git://]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#f1f8e9
+    style D fill:#fff3e0
+    style E fill:#fff3e0
+```
+
+### Module Responsibilities
+
+#### **cmd/deploy Module**
+- **Pure CLI orchestration** - No file system knowledge
+- **Uses factory methods** - `file.NewDefaultProvider()` instead of hardcoded filenames
+- **Dependency injection** - Accepts resolver and configuration provider interfaces
+
+#### **config/file Module**  
+- **Owns "stackaroo.yaml" filename** - Via `NewDefaultProvider()` factory
+- **Path-to-URI conversion** - Converts relative paths to `file://` URIs
+- **Configuration file knowledge** - Understands YAML structure and resolution
+
+#### **resolve Module**
+- **URI-based template loading** - No assumptions about template sources
+- **Business logic only** - Dependency resolution, parameter inheritance
+- **Template preprocessing** - Handles multiple URI schemes (file://, s3://, git://)
+
+### URI-Based Template Architecture
+
+Templates are now handled as URIs throughout the system:
+
+```go
+// Before: Path-based (leaky abstraction)
+type StackConfig struct {
+    Template string  // Assumed to be file path
+}
+
+// After: URI-based (clean abstraction)  
+type StackConfig struct {
+    Template string  // URI: file://, s3://, git://, etc.
+}
+
+// Resolver handles URI parsing and loading
+type TemplateReader interface {
+    ReadTemplate(templateURI string) (string, error)
+}
+```
+
+### Benefits of New Architecture
+
+1. **No Hardcoded Filenames** - `cmd` module doesn't know about "stackaroo.yaml"
+2. **URI Flexibility** - Templates can come from files, S3, Git, HTTP, etc.
+3. **Clean Boundaries** - Each module has single, clear responsibility
+4. **Testable Design** - Easy to mock template sources via URI interfaces
+5. **Future Extensibility** - New template sources require no changes to cmd/config modules
 
 ## Error Handling
 
@@ -305,14 +372,27 @@ func (m *MockConfigProvider) LoadConfig(ctx context.Context, context string) (*c
 ### Template Reader Implementations
 
 ```go
-// File-based templates
+// File-based templates (handles file:// URIs)
 type FileTemplateReader struct{}
 
-// S3-based templates  
+func (ftr *FileTemplateReader) ReadTemplate(templateURI string) (string, error) {
+    // Parses file:// URI and reads from local filesystem
+    // Supports both file://path and relative path formats
+}
+
+// S3-based templates (handles s3:// URIs)
 type S3TemplateReader struct{}
 
-// Git-based templates
+func (str *S3TemplateReader) ReadTemplate(templateURI string) (string, error) {
+    // Parses s3://bucket/key URI and reads from S3
+}
+
+// Git-based templates (handles git:// URIs)
 type GitTemplateReader struct{}
+
+func (gtr *GitTemplateReader) ReadTemplate(templateURI string) (string, error) {
+    // Parses git://repo/branch/path URI and reads from Git
+}
 ```
 
 ### Future Enhancements
@@ -328,13 +408,14 @@ type GitTemplateReader struct{}
 
 ### Input Validation
 
-- **Template Paths** - Prevent path traversal attacks
-- **Parameter Values** - Sanitize user inputs
+- **Template URIs** - Validate URI schemes and prevent malicious URIs
+- **Parameter Values** - Sanitize user inputs  
 - **Stack Names** - Validate naming conventions
 
 ### Template Security
 
-- **Template Sources** - Validate template file origins
+- **Template Sources** - Validate template URI schemes and origins
+- **URI Parsing** - Safe parsing of file://, s3://, git:// URIs
 - **Content Scanning** - Basic checks for malicious content
 - **Size Limits** - Prevent memory exhaustion from large templates
 

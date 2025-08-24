@@ -105,7 +105,7 @@ Represents stack configuration with context overrides applied:
 ```go
 type StackConfig struct {
     Name         string            // Stack name
-    Template     string            // Template file path
+    Template     string            // Template URI (file://, s3://, git://, etc.)
     Parameters   map[string]string // Resolved parameters
     Tags         map[string]string // Resolved tags
     Dependencies []string          // Stack dependencies
@@ -161,6 +161,20 @@ type Stack struct {
 
 ### **Resolution Engine**
 
+#### **Template URI Resolution**
+
+The file provider converts relative template paths to `file://` URIs during resolution:
+
+```mermaid
+graph LR
+    A[YAML: templates/vpc.yaml] --> B[resolveTemplatePath]
+    B --> C[Absolute Path: /project/templates/vpc.yaml]
+    C --> D[file:// URI: file:///project/templates/vpc.yaml]
+    
+    style A fill:#fff3e0
+    style D fill:#e8f5e8
+```
+
 #### **Parameter Inheritance Hierarchy**
 
 Parameters are resolved using a three-level inheritance hierarchy:
@@ -211,7 +225,7 @@ flowchart TD
     
     E --> F[Merge Context Tags<br/>Context Wins]
     F --> G[Replace Dependencies & Capabilities<br/>if specified]
-    G --> H[Resolve Template Path<br/>Relative to Config File]
+    G --> H[Convert Template Path to URI<br/>file:// scheme for file paths]
     
     H --> I[Return Resolved StackConfig]
     
@@ -311,11 +325,29 @@ stacks:
 
 ## Usage Patterns
 
+### **Provider Factory Methods**
+
+The file provider offers two creation methods to support different architectural needs:
+
+```go
+// Method 1: Explicit filename (for custom config files)
+provider := file.NewProvider("custom-config.yaml")
+
+// Method 2: Default factory (recommended - no hardcoded filenames)
+provider := file.NewDefaultProvider()  // Uses "stackaroo.yaml"
+```
+
+**Architectural Benefits of `NewDefaultProvider()`:**
+- **Encapsulates filename knowledge** - Consumer modules don't need to know config filename
+- **Consistent defaults** - All applications use same config file name
+- **Easy configuration** - Single source of truth for default behavior
+- **Testable** - Mock providers can use different factory implementations
+
 ### **Loading Configuration**
 
 ```go
-// Create file provider
-provider := file.NewProvider("stackaroo.yaml")
+// Create file provider with default config file
+provider := file.NewDefaultProvider()
 
 // Load configuration for specific context
 cfg, err := provider.LoadConfig(ctx, "prod")
@@ -362,9 +394,9 @@ if err := provider.Validate(); err != nil {
 }
 ```
 
-## Template Path Resolution
+## Template URI Resolution
 
-Templates are resolved relative to the configuration file location:
+Template paths in YAML configuration are converted to URIs by the file provider:
 
 ```
 Project Structure:
@@ -379,11 +411,13 @@ Project Structure:
 YAML Configuration:
 stacks:
   - name: vpc
-    template: templates/vpc.yaml        # → ./templates/vpc.yaml
+    template: templates/vpc.yaml        # → file:///project/templates/vpc.yaml
   - name: security
-    template: modules/shared/sg.yaml   # → ./modules/shared/sg.yaml
+    template: modules/shared/sg.yaml   # → file:///project/modules/shared/sg.yaml
   - name: absolute
-    template: /path/to/template.yaml   # → /path/to/template.yaml (absolute)
+    template: /path/to/template.yaml   # → file:///path/to/template.yaml (absolute)
+  - name: s3-template
+    template: s3://bucket/template.yaml # → s3://bucket/template.yaml (URI passthrough)
 ```
 
 ## Validation Features
@@ -394,9 +428,9 @@ The configuration system performs several validation checks:
 - Ensures all context references in stack overrides exist
 - Prevents dangling context references
 
-### **Template File Validation**
-- Checks that template files exist on disk
-- Resolves paths relative to configuration file
+### **Template URI Validation**
+- Checks that template files exist on disk (for file:// URIs)
+- Resolves paths relative to configuration file before URI conversion
 
 ### **YAML Structure Validation**
 - Validates YAML syntax and structure
@@ -407,6 +441,7 @@ The configuration system performs several validation checks:
 - Parameter type validation against template requirements
 - Circular dependency detection
 - Account/region accessibility checks
+- URI scheme validation (file://, s3://, git://)
 
 ## Performance Characteristics
 
@@ -531,10 +566,11 @@ func createTempConfigFile(t *testing.T, content string) string {
 
 ## Security Considerations
 
-### **Path Traversal Prevention**
-- Template paths are resolved safely relative to config file
-- Absolute paths are allowed but logged for audit
-- No access outside project directory by default
+### **URI Security**
+- Template paths are resolved safely to file:// URIs relative to config file
+- Absolute paths are converted to absolute file:// URIs but logged for audit
+- URI scheme validation prevents malicious schemes
+- No access outside project directory by default for relative paths
 
 ### **Sensitive Data Handling**
 - Configuration files may contain AWS account IDs
@@ -553,6 +589,7 @@ func createTempConfigFile(t *testing.T, content string) string {
 - Include/import directives for modular configuration
 - Configuration file versioning and migration
 - Schema validation with detailed error messages
+- Support for additional URI schemes (s3://, git://, http://)
 
 ### **Provider Features**
 - HTTP-based configuration provider
