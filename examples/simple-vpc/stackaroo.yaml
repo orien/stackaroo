@@ -62,6 +62,6 @@ stacks:
           Monitoring: enabled
 
 # Usage examples:
-#   stackaroo deploy vpc --context dev     # Deploy to dev environment
-#   stackaroo deploy vpc --context prod    # Deploy to production
-#   stackaroo list --context staging       # List stacks in staging
+#   stackaroo deploy vpc --environment dev     # Deploy to dev environment
+#   stackaroo deploy vpc --environment prod    # Deploy to production
+#   stackaroo list --environment staging       # List stacks in staging

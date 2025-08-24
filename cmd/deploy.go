@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	contextName string
+	environmentName string
 	// deployer can be injected for testing
 	deployer Deployer
 )
@@ -34,12 +34,12 @@ var deployCmd = &cobra.Command{
 		stackName := args[0]
 		ctx := context.Background()
 
-		// Context must be provided
-		if contextName == "" {
-			return fmt.Errorf("--context must be specified")
+		// Environment must be provided
+		if environmentName == "" {
+			return fmt.Errorf("--environment must be specified")
 		}
 
-		return deployWithConfig(ctx, stackName, contextName)
+		return deployWithConfig(ctx, stackName, environmentName)
 	},
 }
 
@@ -67,13 +67,13 @@ func SetDeployer(d Deployer) {
 }
 
 // deployWithConfig handles deployment using configuration file
-func deployWithConfig(ctx context.Context, stackName, contextName string) error {
+func deployWithConfig(ctx context.Context, stackName, environmentName string) error {
 	// Create configuration provider and resolver
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 
 	// Resolve stack and all its dependencies
-	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
+	resolved, err := resolver.Resolve(ctx, environmentName, []string{stackName})
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
@@ -102,7 +102,7 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}
 
-		fmt.Printf("Successfully deployed stack %s in context %s\n", stackName, contextName)
+		fmt.Printf("Successfully deployed stack %s in environment %s\n", stackName, environmentName)
 	}
 
 	return nil
@@ -110,8 +110,8 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVar(&contextName, "context", "", "deployment context (environment)")
-	if err := deployCmd.MarkFlagRequired("context"); err != nil {
-		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
+	deployCmd.Flags().StringVar(&environmentName, "environment", "", "deployment environment")
+	if err := deployCmd.MarkFlagRequired("environment"); err != nil {
+		panic(fmt.Sprintf("failed to mark environment flag as required: %v", err))
 	}
 }
