@@ -30,20 +30,20 @@ The AWS client abstraction provides a clean, type-safe interface for interacting
 
 ### Core Client (`internal/aws/client.go`)
 
-The main `Client` struct serves as the entry point for all AWS operations:
+The main `DefaultClient` struct serves as the entry point for all AWS operations:
 
 ```go
-type Client struct {
+type DefaultClient struct {
     config aws.Config
     cfn    *cloudformation.Client
 }
 ```
 
-The `Client` implements the `ClientInterface`:
+The `DefaultClient` implements the `Client` interface:
 
 ```go
-type ClientInterface interface {
-    NewCloudFormationOperations() CloudFormationOperationsInterface
+type Client interface {
+    NewCloudFormationOperations() CloudFormationOperations
 }
 ```
 
@@ -54,25 +54,28 @@ type ClientInterface interface {
 - Implement interfaces for testability and dependency injection
 
 **Key Methods:**
-- `NewClient(ctx, Config)` - Create new client with custom configuration
+- `NewDefaultClient(ctx, Config)` - Create new client with custom configuration
 - `NewCloudFormationOperations()` - Create CloudFormation operations (implements interface)
 - `CloudFormation()` - Access underlying CloudFormation client
 - `Region()` - Get configured AWS region
 
 ### CloudFormation Operations (`internal/aws/cloudformation.go`)
 
-The `CloudFormationOperations` struct provides high-level CloudFormation operations:
+The `DefaultCloudFormationOperations` struct provides high-level CloudFormation operations:
 
 ```go
-type CloudFormationOperations struct {
-    client CloudFormationClientInterface
+type DefaultCloudFormationOperations struct {
+    client CloudFormationClient
 }
 ```
 
-The operations implement the `CloudFormationOperationsInterface`:
+The operations implement the `CloudFormationOperations` interface:
 
 ```go
-type CloudFormationOperationsInterface interface {
+// Import context for interface:
+// "github.com/aws/aws-sdk-go-v2/service/cloudformation"
+
+type CloudFormationOperations interface {
     DeployStack(ctx context.Context, input DeployStackInput) error
     UpdateStack(ctx context.Context, input UpdateStackInput) error
     DeleteStack(ctx context.Context, input DeleteStackInput) error
@@ -80,6 +83,11 @@ type CloudFormationOperationsInterface interface {
     ListStacks(ctx context.Context) ([]*Stack, error)
     ValidateTemplate(ctx context.Context, templateBody string) error
     StackExists(ctx context.Context, stackName string) (bool, error)
+    GetTemplate(ctx context.Context, stackName string) (string, error)
+    DescribeStack(ctx context.Context, stackName string) (*StackInfo, error)
+    CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
+    DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
+    DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
 }
 ```
 
@@ -91,18 +99,24 @@ type CloudFormationOperationsInterface interface {
 - `ListStacks()` - List all stacks
 - `ValidateTemplate()` - Validate CloudFormation templates
 - `StackExists()` - Check stack existence
+- `GetTemplate()` - Retrieve template content for existing stacks
+- `DescribeStack()` - Get detailed stack information including template
+- `CreateChangeSet()` - Create CloudFormation changesets for diff operations
+- `DeleteChangeSet()` - Remove CloudFormation changesets
+- `DescribeChangeSet()` - Get changeset details and proposed changes
 
 **Data Types:**
 - `Stack` - Represents CloudFormation stack with cleaned-up fields
+- `StackInfo` - Detailed stack information including template content
 - `Parameter` - Key-value pairs for stack parameters
 - `StackStatus` - Enumerated stack status values
 - Input structs for each operation with required and optional fields
 
 **Interface Design:**
 All operations are interface-based to support dependency injection and testing:
-- `ClientInterface` - Main AWS client abstraction
-- `CloudFormationOperationsInterface` - CloudFormation-specific operations
-- `CloudFormationClientInterface` - Low-level CloudFormation client interface
+- `Client` - Main AWS client abstraction
+- `CloudFormationOperations` - CloudFormation-specific operations
+- `CloudFormationClient` - Low-level CloudFormation client interface
 
 ## Usage Patterns
 
@@ -110,10 +124,10 @@ All operations are interface-based to support dependency injection and testing:
 
 ```go
 // Default configuration (uses AWS default credential chain)
-client, err := aws.NewClient(ctx, aws.Config{})
+client, err := aws.NewDefaultClient(ctx, aws.Config{})
 
 // Custom configuration
-client, err := aws.NewClient(ctx, aws.Config{
+client, err := aws.NewDefaultClient(ctx, aws.Config{
     Region:  "us-west-2",
     Profile: "production",
 })
@@ -203,16 +217,16 @@ if err != nil {
 
 To add support for additional AWS services (S3, EC2, etc.):
 
-1. **Add service client to `Client` struct:**
+1. **Add service client to `DefaultClient` struct:**
    ```go
-   type Client struct {
+   type DefaultClient struct {
        config aws.Config
        cfn    *cloudformation.Client
        s3     *s3.Client  // New service
    }
    ```
 
-2. **Initialize in `NewClient()`:**
+2. **Initialize in `NewDefaultClient()`:**
    ```go
    s3Client := s3.NewFromConfig(awsCfg)
    ```
@@ -220,12 +234,12 @@ To add support for additional AWS services (S3, EC2, etc.):
 3. **Create operations wrapper:**
    ```go
    // internal/aws/s3.go
-   type S3Operations struct {
+   type DefaultS3Operations struct {
        client *s3.Client
    }
    
-   func (c *Client) NewS3Operations() *S3Operations {
-       return &S3Operations{client: c.s3}
+   func (c *DefaultClient) NewS3Operations() S3Operations {
+       return &DefaultS3Operations{client: c.s3}
    }
    ```
 
@@ -242,7 +256,7 @@ For special authentication requirements:
 
 ```go
 // Custom credential provider
-client, err := aws.NewClient(ctx, aws.Config{
+client, err := aws.NewDefaultClient(ctx, aws.Config{
     // Custom credentials via AWS SDK options
 })
 ```
@@ -256,7 +270,7 @@ The AWS client architecture is designed for comprehensive testing using interfac
 ```go
 import "github.com/stretchr/testify/mock"
 
-// MockCloudFormationOperations implements CloudFormationOperationsInterface
+// MockCloudFormationOperations implements CloudFormationOperations
 type MockCloudFormationOperations struct {
     mock.Mock
 }
@@ -280,7 +294,7 @@ deployer := deploy.NewAWSDeployer(mockClient)
 ```
 
 ### Unit Testing
-- Mock all interfaces (`ClientInterface`, `CloudFormationOperationsInterface`)
+- Mock all interfaces (`Client`, `CloudFormationOperations`)
 - Use `testify/mock` for professional mocking with expectations
 - Test business logic in isolation from AWS SDK
 - Fast, deterministic tests with no external dependencies
@@ -299,9 +313,9 @@ deployer := deploy.NewAWSDeployer(mockClient)
 ## Performance Considerations
 
 ### Connection Reuse
-- Single `Client` instance should be reused across operations
+- Single `DefaultClient` instance should be reused across operations
 - AWS SDK v2 handles connection pooling automatically
-- Service clients are cached within the `Client` instance
+- Service clients are cached within the `DefaultClient` instance
 
 ### Context Handling
 - All operations accept `context.Context` for timeout and cancellation
@@ -336,12 +350,12 @@ deployer := deploy.NewAWSDeployer(mockClient)
 The AWS client integrates with the `internal/deploy` package:
 
 ```go
-// AWSDeployer uses the ClientInterface
+// AWSDeployer uses the Client interface
 type AWSDeployer struct {
-    awsClient aws.ClientInterface
+    awsClient aws.Client
 }
 
-func NewAWSDeployer(awsClient aws.ClientInterface) *AWSDeployer {
+func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
     return &AWSDeployer{awsClient: awsClient}
 }
 ```
