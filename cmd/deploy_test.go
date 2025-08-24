@@ -47,91 +47,83 @@ func TestDeployCommand_AcceptsStackName(t *testing.T) {
 	assert.NotNil(t, deployCmd.Args, "deploy command should have Args validation set")
 }
 
-func TestDeployCommand_HasTemplateFlag(t *testing.T) {
-	// Test that deploy command has a --template flag
+func TestDeployCommand_HasContextFlag(t *testing.T) {
+	// Test that deploy command has a --context flag
 	deployCmd := findCommand(rootCmd, "deploy")
 	assert.NotNil(t, deployCmd)
 
-	// Check that --template flag exists
-	templateFlag := deployCmd.Flags().Lookup("template")
-	assert.NotNil(t, templateFlag, "deploy command should have --template flag")
-	assert.Equal(t, "template", templateFlag.Name)
+	// Check that --context flag exists
+	contextFlag := deployCmd.Flags().Lookup("context")
+	assert.NotNil(t, contextFlag, "deploy command should have --context flag")
+	assert.Equal(t, "context", contextFlag.Name)
 }
 
-func TestDeployCommand_CallsDeployerCorrectly(t *testing.T) {
-	// Test that deploy command calls the deployer with correct parameters
+func TestDeployCommand_RequiresContext(t *testing.T) {
+	// Test that deploy command requires --context flag
 
-	// Create a temporary template file
-	tmpDir := t.TempDir()
-	templateFile := filepath.Join(tmpDir, "test-template.json")
-	templateContent := `{
-		"AWSTemplateFormatVersion": "2010-09-09",
-		"Resources": {
-			"TestBucket": {
-				"Type": "AWS::S3::Bucket"
-			}
-		}
-	}`
-
-	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
-	require.NoError(t, err)
-
-	// Set up mock deployer
+	// Mock deployer that shouldn't be called
 	mockDeployer := &MockDeployer{}
-	expectedResolvedStack := &resolve.ResolvedStack{
-		Name:         "test-stack",
-		TemplateBody: string(templateContent),
-		Parameters:   make(map[string]string),
-		Tags:         make(map[string]string),
-		Dependencies: []string{},
-		Capabilities: []string{"CAPABILITY_IAM"},
-	}
-	mockDeployer.On("DeployStack", mock.Anything, expectedResolvedStack).Return(nil)
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
-	defer SetDeployer(oldDeployer) // Restore after test
+	defer SetDeployer(oldDeployer)
 
-	// Execute the root command with deploy subcommand and arguments
-	rootCmd.SetArgs([]string{"deploy", "test-stack", "--template", templateFile})
+	// Execute without context flag - should fail
+	rootCmd.SetArgs([]string{"deploy", "test-stack"})
 
-	// Execute the command
-	err = rootCmd.Execute()
-	assert.NoError(t, err, "deploy command should execute successfully with mock")
+	err := rootCmd.Execute()
+	assert.Error(t, err, "deploy command should require --context flag")
+	assert.Contains(t, err.Error(), "required flag(s) \"context\" not set")
 
-	// Verify that all expected calls were made
+	// Verify no deployer calls were made
 	mockDeployer.AssertExpectations(t)
 }
 
 func TestDeployCommand_HandlesDeployerError(t *testing.T) {
 	// Test that deploy command properly handles errors from deployer
 
-	// Create a temporary template file
+	// Create temporary directory and config files
 	tmpDir := t.TempDir()
-	templateFile := filepath.Join(tmpDir, "test-template.json")
-	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 
-	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
+	// Create stackaroo.yaml
+	configContent := `
+contexts:
+  test:
+    parameters:
+      Environment: test
+stacks:
+  - name: test-stack
+    template: test-template.json
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "stackaroo.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+	err = os.WriteFile(filepath.Join(tmpDir, "test-template.json"), []byte(templateContent), 0644)
 	require.NoError(t, err)
 
 	// Set up mock deployer that returns an error
 	mockDeployer := &MockDeployer{}
-	expectedResolvedStack := &resolve.ResolvedStack{
-		Name:         "test-stack",
-		TemplateBody: string(templateContent),
-		Parameters:   make(map[string]string),
-		Tags:         make(map[string]string),
-		Dependencies: []string{},
-		Capabilities: []string{"CAPABILITY_IAM"},
-	}
-	mockDeployer.On("DeployStack", mock.Anything, expectedResolvedStack).Return(errors.New("deployment failed"))
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+		return resolvedStack.Name == "test-stack"
+	})).Return(errors.New("deployment failed"))
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
-	defer SetDeployer(oldDeployer) // Restore after test
+	defer SetDeployer(oldDeployer)
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
 
 	// Execute the root command with deploy subcommand and arguments
-	rootCmd.SetArgs([]string{"deploy", "test-stack", "--template", templateFile})
+	rootCmd.SetArgs([]string{"deploy", "test-stack", "--context", "test"})
 
 	// Execute the command - should return error
 	err = rootCmd.Execute()
@@ -165,62 +157,79 @@ func TestDeployCommand_RequiresStackName(t *testing.T) {
 }
 
 func TestDeployCommand_AdvancedMockingFeatures(t *testing.T) {
-	// Test demonstrating advanced testify/mock features
+	// Test advanced mock features like expectations count and argument matching
 
-	// Create temporary template files
+	// Create temporary directory and config files
 	tmpDir := t.TempDir()
-	templateFile1 := filepath.Join(tmpDir, "template1.json")
-	templateFile2 := filepath.Join(tmpDir, "template2.json")
 
-	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
-	err := os.WriteFile(templateFile1, []byte(templateContent), 0644)
+	// Create stackaroo.yaml with two stacks
+	configContent := `
+contexts:
+  test:
+    parameters:
+      Environment: test
+stacks:
+  - name: stack-1
+    template: template1.json
+  - name: stack-2
+    template: template2.json
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "stackaroo.yaml"), []byte(configContent), 0644)
 	require.NoError(t, err)
-	err = os.WriteFile(templateFile2, []byte(templateContent), 0644)
+
+	templateContent := `{
+		"AWSTemplateFormatVersion": "2010-09-09",
+		"Resources": {
+			"TestResource": {
+				"Type": "AWS::CloudFormation::WaitConditionHandle"
+			}
+		}
+	}`
+
+	err = os.WriteFile(filepath.Join(tmpDir, "template1.json"), []byte(templateContent), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "template2.json"), []byte(templateContent), 0644)
 	require.NoError(t, err)
 
 	// Set up mock with multiple expectations and argument matching
 	mockDeployer := &MockDeployer{}
 
 	// Expect specific calls with exact argument matching
-	expectedResolvedStack1 := &resolve.ResolvedStack{
-		Name:         "stack-1",
-		TemplateBody: templateContent,
-		Parameters:   make(map[string]string),
-		Tags:         make(map[string]string),
-		Dependencies: []string{},
-		Capabilities: []string{"CAPABILITY_IAM"},
-	}
-	expectedResolvedStack2 := &resolve.ResolvedStack{
-		Name:         "stack-2",
-		TemplateBody: templateContent,
-		Parameters:   make(map[string]string),
-		Tags:         make(map[string]string),
-		Dependencies: []string{},
-		Capabilities: []string{"CAPABILITY_IAM"},
-	}
-	mockDeployer.On("DeployStack", mock.Anything, expectedResolvedStack1).Return(nil).Once()
-	mockDeployer.On("DeployStack", mock.Anything, expectedResolvedStack2).Return(errors.New("second deployment failed")).Once()
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+		return resolvedStack.Name == "stack-1"
+	})).Return(nil).Once()
+
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+		return resolvedStack.Name == "stack-2"
+	})).Return(errors.New("second deployment failed")).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer)
 
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
+
 	// First deployment should succeed
-	rootCmd.SetArgs([]string{"deploy", "stack-1", "--template", templateFile1})
+	rootCmd.SetArgs([]string{"deploy", "stack-1", "--context", "test"})
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "first deployment should succeed")
 
 	// Second deployment should fail
-	rootCmd.SetArgs([]string{"deploy", "stack-2", "--template", templateFile2})
+	rootCmd.SetArgs([]string{"deploy", "stack-2", "--context", "test"})
 	err = rootCmd.Execute()
 	assert.Error(t, err, "second deployment should fail")
-	assert.Contains(t, err.Error(), "second deployment failed")
+	assert.Contains(t, err.Error(), "second deployment failed", "error should contain expected message")
 
-	// Verify all expectations were met exactly once
+	// Verify all expectations were met
 	mockDeployer.AssertExpectations(t)
-
-	// Verify specific methods were called the expected number of times
-	mockDeployer.AssertNumberOfCalls(t, "DeployStack", 2)
 }
 
 func TestDeployCommand_WithConfigurationFile(t *testing.T) {

@@ -7,7 +7,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
@@ -16,8 +15,7 @@ import (
 )
 
 var (
-	templateFile string
-	contextName  string
+	contextName string
 	// deployer can be injected for testing
 	deployer Deployer
 )
@@ -36,40 +34,12 @@ var deployCmd = &cobra.Command{
 		stackName := args[0]
 		ctx := context.Background()
 
-		// If context is provided, load configuration
-		if contextName != "" {
-			return deployWithConfig(ctx, stackName, contextName)
+		// Context must be provided
+		if contextName == "" {
+			return fmt.Errorf("--context must be specified")
 		}
 
-		// Fall back to legacy template-based deployment
-		if templateFile == "" {
-			return fmt.Errorf("either --template or --context must be specified")
-		}
-
-		// Get or create deployer
-		d := getDeployer()
-
-		// Read template content for legacy deployment
-		templateContent, err := os.ReadFile(templateFile)
-		if err != nil {
-			return fmt.Errorf("failed to read template file %s: %w", templateFile, err)
-		}
-
-		// Create a basic resolved stack for legacy deployment
-		resolvedStack := &resolve.ResolvedStack{
-			Name:         stackName,
-			TemplateBody: string(templateContent),
-			Parameters:   make(map[string]string),
-			Tags:         make(map[string]string),
-			Dependencies: []string{},
-			Capabilities: []string{"CAPABILITY_IAM"},
-		}
-		err = d.DeployStack(ctx, resolvedStack)
-		if err != nil {
-			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
-		}
-		fmt.Printf("Successfully deployed stack %s\n", stackName)
-		return nil
+		return deployWithConfig(ctx, stackName, contextName)
 	},
 }
 
@@ -140,6 +110,8 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&templateFile, "template", "t", "", "CloudFormation template file")
 	deployCmd.Flags().StringVar(&contextName, "context", "", "deployment context (environment)")
+	if err := deployCmd.MarkFlagRequired("context"); err != nil {
+		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
+	}
 }

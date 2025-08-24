@@ -408,5 +408,3 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
-
-
