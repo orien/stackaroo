@@ -7,44 +7,10 @@ package resolve
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/orien/stackaroo/internal/config"
 )
-
-// FileSystemResolver defines the interface for reading templates from URIs
-type FileSystemResolver interface {
-	ReadTemplate(templateURI string) (string, error)
-}
-
-// FileTemplateReader reads templates from file:// URIs
-type FileTemplateReader struct{}
-
-// ReadTemplate reads template content from a file:// URI
-func (ftr *FileTemplateReader) ReadTemplate(templateURI string) (string, error) {
-	filePath, err := parseFileURI(templateURI)
-	if err != nil {
-		return "", fmt.Errorf("invalid template URI %s: %w", templateURI, err)
-	}
-
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", filePath, err)
-	}
-	return string(content), nil
-}
-
-// parseFileURI extracts the file path from a file:// URI or treats as relative path
-func parseFileURI(uri string) (string, error) {
-	// Handle file:// scheme
-	if len(uri) > 7 && uri[:7] == "file://" {
-		return uri[7:], nil
-	}
-
-	// Handle relative paths as-is for backward compatibility
-	return uri, nil
-}
 
 // ResolvedStack represents a fully resolved stack ready for deployment
 type ResolvedStack struct {
@@ -73,7 +39,7 @@ type Resolver struct {
 func NewResolver(configProvider config.ConfigProvider) *Resolver {
 	return &Resolver{
 		configProvider:     configProvider,
-		fileSystemResolver: &FileTemplateReader{},
+		fileSystemResolver: &DefaultFileSystemResolver{},
 	}
 }
 
