@@ -31,13 +31,13 @@ func (fsr *DefaultFileSystemResolver) Resolve(fileURI string) (string, error) {
 	return string(content), nil
 }
 
-// parseFileURI extracts the file path from a file:// URI or treats as relative path
+// parseFileURI extracts the file path from a file:// URI
 func parseFileURI(uri string) (string, error) {
 	// Handle file:// scheme
 	if len(uri) > 7 && uri[:7] == "file://" {
 		return uri[7:], nil
 	}
 
-	// Handle relative paths as-is for backward compatibility
-	return uri, nil
+	// Return error for non-file:// URIs
+	return "", fmt.Errorf("URI must start with file://, got: %s", uri)
 }
