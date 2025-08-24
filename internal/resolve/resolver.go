@@ -7,6 +7,7 @@ package resolve
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/orien/stackaroo/internal/config"
@@ -15,6 +16,18 @@ import (
 // TemplateReader defines the interface for reading templates
 type TemplateReader interface {
 	ReadTemplate(templatePath string) (string, error)
+}
+
+// FileTemplateReader implements TemplateReader for reading templates from files
+type FileTemplateReader struct{}
+
+// ReadTemplate reads template content from a file
+func (ftr *FileTemplateReader) ReadTemplate(templatePath string) (string, error) {
+	content, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read template file %s: %w", templatePath, err)
+	}
+	return string(content), nil
 }
 
 // ResolvedStack represents a fully resolved stack ready for deployment

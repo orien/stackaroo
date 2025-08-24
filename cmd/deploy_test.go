@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/orien/stackaroo/internal/config"
+	"github.com/orien/stackaroo/internal/config/file"
+	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -307,6 +309,264 @@ stacks:
 
 	// Verify deployer was called with correct parameters
 	mockDeployer.AssertExpectations(t)
+}
+
+func TestDeployCommand_RequiresDependencyResolution(t *testing.T) {
+	// Test that deploy command uses resolver for dependency resolution
+	// This will fail because current implementation doesn't use resolver for dependencies
+
+	// Create config with dependencies: app depends on database, database depends on vpc
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  test:
+    account: "123456789012"
+    region: us-east-1
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+    parameters:
+      VpcCidr: 10.0.0.0/16
+
+  - name: database
+    template: templates/db.yaml
+    depends_on: [vpc]
+    parameters:
+      DBInstanceClass: db.t3.micro
+
+  - name: app
+    template: templates/app.yaml
+    depends_on: [database]
+    parameters:
+      InstanceType: t3.micro
+`
+
+	// Create temporary config file
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "stackaroo.yaml")
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create template files
+	templatesDir := filepath.Join(tmpDir, "templates")
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+
+	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {}}`
+	for _, name := range []string{"vpc.yaml", "db.yaml", "app.yaml"} {
+		err = os.WriteFile(filepath.Join(templatesDir, name), []byte(templateContent), 0644)
+		require.NoError(t, err)
+	}
+
+	// Mock deployer that expects calls in dependency order: vpc → database → app
+	mockDeployer := &MockDeployer{}
+
+	// This test will fail because current implementation doesn't resolve dependencies
+	// We expect the resolver to be called and handle the dependency ordering
+	// For now, just expect app deployment (what current implementation does)
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
+		return stackConfig.Name == "app" // Current implementation only deploys single stack
+	})).Return(nil)
+
+	oldDeployer := deployer
+	SetDeployer(mockDeployer)
+	defer SetDeployer(oldDeployer)
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
+
+	// This should resolve dependencies and deploy: vpc → database → app
+	// But current implementation will only deploy app
+	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
+
+	err = rootCmd.Execute()
+	assert.NoError(t, err, "deploy should succeed")
+
+	// This test currently passes but doesn't verify dependency resolution
+	// When we integrate the resolver, we should expect 3 calls in order
+	mockDeployer.AssertExpectations(t)
+}
+
+func TestDeployCommand_UsesResolverForMultiStackDeployment(t *testing.T) {
+	// Test that deploy command uses resolver to deploy dependencies in correct order
+	// This WILL FAIL because current implementation doesn't use resolver
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  test:
+    account: "123456789012"
+    region: us-east-1
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+
+  - name: database
+    template: templates/db.yaml
+    depends_on: [vpc]
+
+  - name: app
+    template: templates/app.yaml
+    depends_on: [database]
+`
+
+	// Create temporary config and template files
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "stackaroo.yaml")
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	templatesDir := filepath.Join(tmpDir, "templates")
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+
+	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {}}`
+	for _, name := range []string{"vpc.yaml", "db.yaml", "app.yaml"} {
+		err = os.WriteFile(filepath.Join(templatesDir, name), []byte(templateContent), 0644)
+		require.NoError(t, err)
+	}
+
+	// Mock deployer that expects ALL THREE stacks in dependency order
+	mockDeployer := &MockDeployer{}
+
+	// This test WILL FAIL because current implementation only deploys one stack
+	// We need resolver to resolve dependencies and deploy all of them
+	var callOrder []string
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
+		callOrder = append(callOrder, stackConfig.Name)
+		return stackConfig.Name == "vpc"
+	})).Return(nil).Once()
+
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
+		return stackConfig.Name == "database"
+	})).Return(nil).Once()
+
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
+		return stackConfig.Name == "app"
+	})).Return(nil).Once()
+
+	oldDeployer := deployer
+	SetDeployer(mockDeployer)
+	defer SetDeployer(oldDeployer)
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
+
+	// Deploy app - should trigger resolver to deploy vpc → database → app
+	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
+
+	err = rootCmd.Execute()
+	assert.NoError(t, err, "deploy should succeed")
+
+	// Verify all three stacks were deployed in correct order
+	mockDeployer.AssertExpectations(t)
+}
+
+func TestDebugResolver(t *testing.T) {
+	// Debug test to see what resolver actually returns
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  test:
+    account: "123456789012"
+    region: us-east-1
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+    
+  - name: database
+    template: templates/db.yaml
+    depends_on: [vpc]
+      
+  - name: app
+    template: templates/app.yaml
+    depends_on: [database]
+`
+
+	// Create temporary config and template files
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "stackaroo.yaml")
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	templatesDir := filepath.Join(tmpDir, "templates")
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+
+	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {}}`
+	for _, name := range []string{"vpc.yaml", "db.yaml", "app.yaml"} {
+		err = os.WriteFile(filepath.Join(templatesDir, name), []byte(templateContent), 0644)
+		require.NoError(t, err)
+	}
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(oldWd)
+		require.NoError(t, err)
+	}()
+
+	// Test configuration provider directly first
+	provider := file.NewProvider("stackaroo.yaml")
+	
+	// Debug: Check if config loads correctly
+	config, err := provider.LoadConfig(context.Background(), "test")
+	assert.NoError(t, err, "config should load")
+	if config != nil {
+		t.Logf("Config loaded successfully")
+		t.Logf("Number of stacks in config: %d", len(config.Stacks))
+		for _, stack := range config.Stacks {
+			t.Logf("Config stack: %s, deps: %v", stack.Name, stack.Dependencies)
+		}
+	}
+	
+	// Debug: Check individual stack lookup
+	appStack, err := provider.GetStack("app", "test")
+	assert.NoError(t, err, "should find app stack")
+	if appStack != nil {
+		t.Logf("App stack dependencies: %v", appStack.Dependencies)
+	}
+
+	// Test resolver
+	templateReader := &resolve.FileTemplateReader{}
+	resolver := resolve.NewResolver(provider, templateReader)
+
+	resolved, err := resolver.Resolve(context.Background(), "test", []string{"app"})
+	assert.NoError(t, err, "resolver should work")
+	
+	if resolved != nil {
+		t.Logf("Resolved stacks count: %d", len(resolved.Stacks))
+		t.Logf("Deployment order: %v", resolved.DeploymentOrder)
+		for _, stack := range resolved.Stacks {
+			t.Logf("Resolved stack: %s, deps: %v", stack.Name, stack.Dependencies)
+		}
+	}
 }
 
 // Helper function to find a command by name

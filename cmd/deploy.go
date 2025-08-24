@@ -7,11 +7,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
+	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 )
 
@@ -92,30 +92,56 @@ func SetDeployer(d Deployer) {
 
 // deployWithConfig handles deployment using configuration file
 func deployWithConfig(ctx context.Context, stackName, contextName string) error {
-	// Load configuration from default file
+	// Create configuration provider and template reader
 	provider := file.NewProvider("stackaroo.yaml")
+	templateReader := &resolve.FileTemplateReader{}
 
-	// Get stack configuration for the specified context
-	stackConfig, err := provider.GetStack(stackName, contextName)
+	// Create resolver
+	resolver := resolve.NewResolver(provider, templateReader)
+
+	// Resolve stack and all its dependencies
+	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
 	if err != nil {
-		return fmt.Errorf("failed to load stack configuration: %w", err)
-	}
-
-	// Resolve template path relative to config file directory
-	if !filepath.IsAbs(stackConfig.Template) {
-		stackConfig.Template = filepath.Join(filepath.Dir("stackaroo.yaml"), stackConfig.Template)
+		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
 
 	// Get or create deployer
 	d := getDeployer()
 
-	// Deploy using the stack configuration
-	err = d.DeployStack(ctx, stackConfig)
-	if err != nil {
-		return fmt.Errorf("error deploying stack %s: %w", stackName, err)
+	// Deploy all stacks in dependency order
+	for _, stackName := range resolved.DeploymentOrder {
+		// Find the resolved stack
+		var stackToDeploy *resolve.ResolvedStack
+		for _, stack := range resolved.Stacks {
+			if stack.Name == stackName {
+				stackToDeploy = stack
+				break
+			}
+		}
+
+		if stackToDeploy == nil {
+			return fmt.Errorf("resolved stack %s not found", stackName)
+		}
+
+		// Convert ResolvedStack to StackConfig for deployer
+		stackConfig := &config.StackConfig{
+			Name:         stackToDeploy.Name,
+			Template:     stackToDeploy.TemplateBody, // Use resolved template content
+			Parameters:   stackToDeploy.Parameters,
+			Tags:         stackToDeploy.Tags,
+			Dependencies: stackToDeploy.Dependencies,
+			Capabilities: stackToDeploy.Capabilities,
+		}
+
+		// Deploy the stack
+		err = d.DeployStack(ctx, stackConfig)
+		if err != nil {
+			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
+		}
+
+		fmt.Printf("Successfully deployed stack %s in context %s\n", stackName, contextName)
 	}
 
-	fmt.Printf("Successfully deployed stack %s in context %s\n", stackName, contextName)
 	return nil
 }
 
