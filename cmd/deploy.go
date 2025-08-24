@@ -92,12 +92,9 @@ func SetDeployer(d Deployer) {
 
 // deployWithConfig handles deployment using configuration file
 func deployWithConfig(ctx context.Context, stackName, contextName string) error {
-	// Create configuration provider and template reader
+	// Create configuration provider and resolver
 	provider := file.NewDefaultProvider()
-	templateReader := &resolve.FileTemplateReader{}
-
-	// Create resolver
-	resolver := resolve.NewResolver(provider, templateReader)
+	resolver := resolve.NewResolver(provider)
 
 	// Resolve stack and all its dependencies
 	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})

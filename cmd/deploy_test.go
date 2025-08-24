@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/orien/stackaroo/internal/config"
@@ -283,8 +284,8 @@ stacks:
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stackConfig *config.StackConfig) bool {
 		return stackConfig.Name == "vpc" &&
 			stackConfig.Parameters["VpcCidr"] == "10.1.0.0/16" &&
-			(stackConfig.Template == "templates/vpc.yaml" ||
-				filepath.Base(filepath.Dir(stackConfig.Template)) == "templates" && filepath.Base(stackConfig.Template) == "vpc.yaml")
+			strings.Contains(stackConfig.Template, "AWSTemplateFormatVersion") &&
+			strings.Contains(stackConfig.Template, "AWS::EC2::VPC")
 	})).Return(nil)
 
 	oldDeployer := deployer
@@ -554,8 +555,7 @@ stacks:
 	}
 
 	// Test resolver
-	templateReader := &resolve.FileTemplateReader{}
-	resolver := resolve.NewResolver(provider, templateReader)
+	resolver := resolve.NewResolver(provider)
 
 	resolved, err := resolver.Resolve(context.Background(), "test", []string{"app"})
 	assert.NoError(t, err, "resolver should work")

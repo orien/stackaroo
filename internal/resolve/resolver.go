@@ -69,12 +69,17 @@ type Resolver struct {
 	templateReader TemplateReader
 }
 
-// NewResolver creates a new resolver instance
-func NewResolver(configProvider config.ConfigProvider, templateReader TemplateReader) *Resolver {
+// NewResolver creates a new resolver instance with the given config provider
+func NewResolver(configProvider config.ConfigProvider) *Resolver {
 	return &Resolver{
 		configProvider: configProvider,
-		templateReader: templateReader,
+		templateReader: &FileTemplateReader{},
 	}
+}
+
+// SetTemplateReader allows injecting a custom template reader (for testing)
+func (r *Resolver) SetTemplateReader(templateReader TemplateReader) {
+	r.templateReader = templateReader
 }
 
 // ResolveStack resolves a single stack configuration

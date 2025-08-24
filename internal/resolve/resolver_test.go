@@ -63,7 +63,8 @@ func TestNewResolver(t *testing.T) {
 	mockConfigProvider := &MockConfigProvider{}
 	mockTemplateReader := &MockTemplateReader{}
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	assert.NotNil(t, resolver, "resolver should not be nil")
 }
@@ -112,7 +113,8 @@ func TestResolver_ResolveStack_Success(t *testing.T) {
 	mockTemplateReader.On("ReadTemplate", "templates/vpc.yaml").Return(templateContent, nil)
 
 	// Create resolver
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	// Execute
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
@@ -143,7 +145,8 @@ func TestResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	// Set expectation for config load failure
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(nil, assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
 
@@ -167,7 +170,8 @@ func TestResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "nonexistent")
 
@@ -196,7 +200,8 @@ func TestResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockTemplateReader.On("ReadTemplate", "templates/missing.yaml").Return("", assert.AnError)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.ResolveStack(ctx, "dev", "vpc")
 
@@ -236,7 +241,8 @@ func TestResolver_Resolve_MultipleStacks(t *testing.T) {
 	mockTemplateReader.On("ReadTemplate", "templates/vpc.yaml").Return("{}", nil)
 	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
 
@@ -280,7 +286,8 @@ func TestResolver_Resolve_CircularDependency(t *testing.T) {
 	mockTemplateReader.On("ReadTemplate", "templates/a.yaml").Return("{}", nil)
 	mockTemplateReader.On("ReadTemplate", "templates/b.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"stack-a", "stack-b"})
 
@@ -299,7 +306,8 @@ func TestResolver_Resolve_EmptyStackList(t *testing.T) {
 	mockConfigProvider := &MockConfigProvider{}
 	mockTemplateReader := &MockTemplateReader{}
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.Resolve(ctx, "dev", []string{})
 
@@ -357,7 +365,8 @@ func TestResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	mockTemplateReader.On("ReadTemplate", "templates/database.yaml").Return("{}", nil)
 	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	// Request stacks in random order
 	resolved, err := resolver.Resolve(ctx, "prod", []string{"app", "vpc", "database", "security"})
@@ -406,7 +415,8 @@ func TestResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockConfigProvider.On("GetStack", "web", "staging").Return(stackConfig, nil)
 	mockTemplateReader.On("ReadTemplate", "templates/web.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	resolved, err := resolver.ResolveStack(ctx, "staging", "web")
 
@@ -445,7 +455,8 @@ func TestResolver_Resolve_MissingDependency(t *testing.T) {
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 	mockTemplateReader.On("ReadTemplate", "templates/app.yaml").Return("{}", nil)
 
-	resolver := NewResolver(mockConfigProvider, mockTemplateReader)
+	resolver := NewResolver(mockConfigProvider)
+	resolver.SetTemplateReader(mockTemplateReader)
 
 	// Only resolve app, not its dependency
 	resolved, err := resolver.Resolve(ctx, "dev", []string{"app"})
