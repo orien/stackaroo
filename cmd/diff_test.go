@@ -21,7 +21,7 @@ type MockDiffer struct {
 	mock.Mock
 }
 
-func (m *MockDiffer) DiffStack(ctx context.Context, resolvedStack *model.ResolvedStack, options diff.Options) (*diff.Result, error) {
+func (m *MockDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stack, options diff.Options) (*diff.Result, error) {
 	args := m.Called(ctx, resolvedStack, options)
 	return args.Get(0).(*diff.Result), args.Error(1)
 }
@@ -111,7 +111,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	defer SetDiffer(originalDiffer)
 
 	// Create test resolved stack
-	testStack := &model.ResolvedStack{
+	testStack := &model.Stack{
 		Name:        "test-stack",
 		Environment: "dev",
 		Parameters:  map[string]string{"Param1": "value1"},
@@ -127,7 +127,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	}
 
 	// Setup expectations - differ should be called with resolved stack
-	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.ResolvedStack) bool {
+	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "test-stack"
 	}), mock.AnythingOfType("diff.Options")).Return(testResult, nil)
 
@@ -153,7 +153,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 	defer SetDiffer(originalDiffer)
 
 	// Create test resolved stack
-	testStack := &model.ResolvedStack{
+	testStack := &model.Stack{
 		Name:        "test-stack",
 		Environment: "dev",
 		Parameters:  map[string]string{"Param1": "newvalue"},
@@ -170,7 +170,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 	}
 
 	// Setup expectations
-	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.ResolvedStack) bool {
+	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "test-stack"
 	}), mock.AnythingOfType("diff.Options")).Return(testResult, nil)
 
@@ -196,12 +196,13 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	defer SetDiffer(originalDiffer)
 
 	// Create test resolved stack
-	testStack := &model.ResolvedStack{
+	testStack := &model.Stack{
 		Name:         "test-stack",
 		Environment:  "dev",
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 		Parameters:   map[string]string{"Param1": "value1"},
 		Tags:         map[string]string{"Environment": "dev"},
+		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
 	// Create test result for new stack
@@ -216,7 +217,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	}
 
 	// Setup expectations
-	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.ResolvedStack) bool {
+	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "test-stack"
 	}), mock.AnythingOfType("diff.Options")).Return(testResult, nil)
 
@@ -242,7 +243,7 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 	defer SetDiffer(originalDiffer)
 
 	// Create test resolved stack
-	testStack := &model.ResolvedStack{
+	testStack := &model.Stack{
 		Name:        "test-stack",
 		Environment: "dev",
 		Parameters:  map[string]string{},
@@ -251,7 +252,7 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 
 	// Setup expectations - differ returns error
 	expectedErr := errors.New("AWS connection failed")
-	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.ResolvedStack) bool {
+	mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "test-stack"
 	}), mock.AnythingOfType("diff.Options")).Return((*diff.Result)(nil), expectedErr)
 
@@ -336,7 +337,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			// Test the options mapping directly without external dependencies
 
 			// Create test resolved stack
-			testStack := &model.ResolvedStack{
+			testStack := &model.Stack{
 				Name:        "test-stack",
 				Environment: "dev",
 				Parameters:  map[string]string{},
@@ -358,7 +359,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			}
 
 			// Setup expectations with specific options
-			mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.ResolvedStack) bool {
+			mockDiffer.On("DiffStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 				return stack.Name == "test-stack"
 			}), tt.expectedOptions).Return(testResult, nil)
 

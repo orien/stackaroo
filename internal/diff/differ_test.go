@@ -137,8 +137,8 @@ func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemp
 	}
 }
 
-func createTestResolvedStack() *model.ResolvedStack {
-	return &model.ResolvedStack{
+func createTestResolvedStack() *model.Stack {
+	return &model.Stack{
 		Name:         "test-stack",
 		Environment:  "dev",
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,

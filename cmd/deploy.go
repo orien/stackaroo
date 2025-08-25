@@ -23,7 +23,7 @@ var (
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error
+	DeployStack(ctx context.Context, resolvedStack *model.Stack) error
 }
 
 // deployCmd represents the deploy command
@@ -85,7 +85,7 @@ func deployWithConfig(ctx context.Context, stackName, environmentName string) er
 	// Deploy all stacks in dependency order
 	for _, stackName := range resolved.DeploymentOrder {
 		// Find the resolved stack
-		var stackToDeploy *model.ResolvedStack
+		var stackToDeploy *model.Stack
 		for _, stack := range resolved.Stacks {
 			if stack.Name == stackName {
 				stackToDeploy = stack

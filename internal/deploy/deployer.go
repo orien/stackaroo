@@ -15,7 +15,7 @@ import (
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error
+	DeployStack(ctx context.Context, resolvedStack *model.Stack) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
@@ -42,7 +42,7 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 }
 
 // DeployStack deploys a CloudFormation stack
-func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error {
+func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.Stack) error {
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(resolvedStack.Parameters))
 	for key, value := range resolvedStack.Parameters {

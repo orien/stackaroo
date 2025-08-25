@@ -33,7 +33,7 @@ func (r *StackResolver) SetFileSystemResolver(fileSystemResolver FileSystemResol
 }
 
 // ResolveStack resolves a single stack configuration
-func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackName string) (*model.ResolvedStack, error) {
+func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackName string) (*model.Stack, error) {
 	// Load configuration
 	cfg, err := r.configProvider.LoadConfig(ctx, context)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	parameters := r.mergeParameters(stackConfig.Parameters)
 	tags := r.mergeTags(cfg.Tags, stackConfig.Tags)
 
-	return &model.ResolvedStack{
+	return &model.Stack{
 		Name:         stackConfig.Name,
 		Environment:  context,
 		TemplateBody: templateBody,
@@ -69,7 +69,7 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 
 // Resolve resolves multiple stacks and calculates deployment order
 func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
-	var resolvedStacks []*model.ResolvedStack
+	var resolvedStacks []*model.Stack
 
 	// Resolve each stack
 	for _, stackName := range stackNames {
@@ -121,10 +121,10 @@ func (r *StackResolver) mergeTags(globalTags, stackTags map[string]string) map[s
 }
 
 // calculateDependencyOrder calculates the deployment order based on dependencies
-func (r *StackResolver) calculateDependencyOrder(stacks []*model.ResolvedStack) ([]string, error) {
+func (r *StackResolver) calculateDependencyOrder(stacks []*model.Stack) ([]string, error) {
 	// Simple topological sort implementation
 	// Build name to stack map
-	stackMap := make(map[string]*model.ResolvedStack)
+	stackMap := make(map[string]*model.Stack)
 	for _, stack := range stacks {
 		stackMap[stack.Name] = stack
 	}

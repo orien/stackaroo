@@ -27,7 +27,7 @@ var (
 
 // Differ defines the interface for stack diff operations
 type Differ interface {
-	DiffStack(ctx context.Context, resolvedStack *model.ResolvedStack, options diff.Options) (*diff.Result, error)
+	DiffStack(ctx context.Context, resolvedStack *model.Stack, options diff.Options) (*diff.Result, error)
 }
 
 // diffCmd represents the diff command
@@ -104,7 +104,7 @@ func diffWithConfig(ctx context.Context, stackName, environmentName string) erro
 	}
 
 	// Find the target stack in resolved stacks
-	var targetStack *model.ResolvedStack
+	var targetStack *model.Stack
 	for _, stack := range resolved.Stacks {
 		if stack.Name == stackName {
 			targetStack = stack

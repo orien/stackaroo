@@ -146,7 +146,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	// Set up mock expectations - now expecting resolved parameters and tags from ResolvedStack
+	// Set up mock expectations - now expecting resolved parameters and tags from Stack
 	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" &&
 			input.TemplateBody == templateContent &&
@@ -163,7 +163,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.ResolvedStack{
+	resolvedStack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{"Param1": "value1"},
@@ -197,7 +197,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with empty template body
-	resolvedStack := &model.ResolvedStack{
+	resolvedStack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{},
@@ -240,7 +240,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with template content
-	resolvedStack := &model.ResolvedStack{
+	resolvedStack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -377,7 +377,7 @@ Resources:
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.ResolvedStack{
+	resolvedStack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -416,7 +416,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with parameters and tags
-	resolvedStack := &model.ResolvedStack{
+	resolvedStack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},

@@ -4,8 +4,8 @@ SPDX-License-Identifier: BSD-3-Clause
 */
 package model
 
-// ResolvedStack represents a fully resolved stack ready for deployment
-type ResolvedStack struct {
+// Stack represents a fully resolved stack ready for deployment
+type Stack struct {
 	Name         string
 	Environment  string
 	TemplateBody string
@@ -15,14 +15,14 @@ type ResolvedStack struct {
 	Dependencies []string
 }
 
-// GetTemplateContent returns the template content for this resolved stack
-func (rs *ResolvedStack) GetTemplateContent() (string, error) {
+// GetTemplateContent returns the template content for this stack
+func (rs *Stack) GetTemplateContent() (string, error) {
 	return rs.TemplateBody, nil
 }
 
 // ResolvedStacks represents a collection of resolved stacks
 type ResolvedStacks struct {
 	Context         string
-	Stacks          []*ResolvedStack
+	Stacks          []*Stack
 	DeploymentOrder []string
 }

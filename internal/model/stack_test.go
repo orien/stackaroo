@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolvedStack_GetTemplateContent(t *testing.T) {
+func TestStack_GetTemplateContent(t *testing.T) {
 	tests := []struct {
 		name         string
 		templateBody string
@@ -40,7 +40,7 @@ func TestResolvedStack_GetTemplateContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rs := &ResolvedStack{
+			rs := &Stack{
 				Name:         "test-stack",
 				Environment:  "dev",
 				TemplateBody: tt.templateBody,
@@ -62,9 +62,9 @@ func TestResolvedStack_GetTemplateContent(t *testing.T) {
 	}
 }
 
-func TestResolvedStack_Creation(t *testing.T) {
+func TestStack_Creation(t *testing.T) {
 	t.Run("create resolved stack with all fields", func(t *testing.T) {
-		rs := &ResolvedStack{
+		rs := &Stack{
 			Name:         "test-stack",
 			Environment:  "production",
 			TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
@@ -98,7 +98,7 @@ func TestResolvedStack_Creation(t *testing.T) {
 	})
 
 	t.Run("create resolved stack with minimal fields", func(t *testing.T) {
-		rs := &ResolvedStack{
+		rs := &Stack{
 			Name:         "minimal-stack",
 			Environment:  "dev",
 			TemplateBody: "",
@@ -120,13 +120,13 @@ func TestResolvedStack_Creation(t *testing.T) {
 
 func TestResolvedStacks_Creation(t *testing.T) {
 	t.Run("create resolved stacks with multiple stacks", func(t *testing.T) {
-		stack1 := &ResolvedStack{
+		stack1 := &Stack{
 			Name:        "vpc-stack",
 			Environment: "dev",
 			Parameters:  map[string]string{"VpcCidr": "10.0.0.0/16"},
 		}
 
-		stack2 := &ResolvedStack{
+		stack2 := &Stack{
 			Name:         "app-stack",
 			Environment:  "dev",
 			Parameters:   map[string]string{"Environment": "dev"},
@@ -135,7 +135,7 @@ func TestResolvedStacks_Creation(t *testing.T) {
 
 		rs := &ResolvedStacks{
 			Context:         "dev",
-			Stacks:          []*ResolvedStack{stack1, stack2},
+			Stacks:          []*Stack{stack1, stack2},
 			DeploymentOrder: []string{"vpc-stack", "app-stack"},
 		}
 
@@ -151,7 +151,7 @@ func TestResolvedStacks_Creation(t *testing.T) {
 	t.Run("create empty resolved stacks", func(t *testing.T) {
 		rs := &ResolvedStacks{
 			Context:         "test",
-			Stacks:          []*ResolvedStack{},
+			Stacks:          []*Stack{},
 			DeploymentOrder: []string{},
 		}
 
@@ -161,9 +161,9 @@ func TestResolvedStacks_Creation(t *testing.T) {
 	})
 }
 
-func TestResolvedStack_NilMaps(t *testing.T) {
+func TestStack_NilMaps(t *testing.T) {
 	t.Run("resolved stack with nil maps should work", func(t *testing.T) {
-		rs := &ResolvedStack{
+		rs := &Stack{
 			Name:         "test-stack",
 			Environment:  "dev",
 			TemplateBody: "test template",
