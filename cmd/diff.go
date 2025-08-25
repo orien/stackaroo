@@ -22,13 +22,8 @@ var (
 	diffTagsOnly        bool
 	diffFormat          string
 	// differ can be injected for testing
-	differ Differ
+	differ diff.Differ
 )
-
-// Differ defines the interface for stack diff operations
-type Differ interface {
-	DiffStack(ctx context.Context, resolvedStack *model.Stack, options diff.Options) (*diff.Result, error)
-}
 
 // diffCmd represents the diff command
 var diffCmd = &cobra.Command{
@@ -69,7 +64,7 @@ Examples:
 }
 
 // getDiffer returns the differ instance, creating a default one if none is set
-func getDiffer() Differ {
+func getDiffer() diff.Differ {
 	if differ != nil {
 		return differ
 	}
@@ -87,7 +82,7 @@ func getDiffer() Differ {
 }
 
 // SetDiffer allows injection of a differ (for testing)
-func SetDiffer(d Differ) {
+func SetDiffer(d diff.Differ) {
 	differ = d
 }
 
