@@ -21,7 +21,7 @@ type DefaultClient struct {
 
 // Config holds configuration for creating an AWS client
 type Config struct {
-	Region  string
+	Region string
 }
 
 // NewDefaultClient creates a new AWS client with the specified configuration

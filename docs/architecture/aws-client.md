@@ -366,7 +366,8 @@ CLI commands use the deployment layer through dependency injection:
 ```go
 // CLI uses Deployer interface
 type Deployer interface {
-    DeployStack(ctx context.Context, stackName, templateFile string) error
+    DeployStack(ctx context.Context, resolvedStack *model.Stack) error
+    ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
 // Production: AWS implementation

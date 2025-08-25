@@ -31,6 +31,11 @@ func (m *MockDeployer) DeployStack(ctx context.Context, resolvedStack *model.Sta
 	return args.Error(0)
 }
 
+func (m *MockDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
+	args := m.Called(ctx, templateFile)
+	return args.Error(0)
+}
+
 func TestDeployCommand_Exists(t *testing.T) {
 	// Test that deploy command is registered with root command
 	deployCmd := findCommand(rootCmd, "deploy")

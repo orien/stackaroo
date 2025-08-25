@@ -18,13 +18,8 @@ import (
 var (
 	environmentName string
 	// deployer can be injected for testing
-	deployer Deployer
+	deployer deploy.Deployer
 )
-
-// Deployer defines the interface for stack deployment operations
-type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *model.Stack) error
-}
 
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
@@ -45,7 +40,7 @@ var deployCmd = &cobra.Command{
 }
 
 // getDeployer returns the deployer instance, creating a default one if none is set
-func getDeployer() Deployer {
+func getDeployer() deploy.Deployer {
 	if deployer != nil {
 		return deployer
 	}
@@ -63,7 +58,7 @@ func getDeployer() Deployer {
 }
 
 // SetDeployer allows injection of a deployer (for testing)
-func SetDeployer(d Deployer) {
+func SetDeployer(d deploy.Deployer) {
 	deployer = d
 }
 

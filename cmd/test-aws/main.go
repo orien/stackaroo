@@ -35,7 +35,7 @@ func main() {
 	// Test 1: Create AWS Client
 	fmt.Println("1️⃣  Testing AWS Client Creation")
 	client, err := aws.NewDefaultClient(ctx, aws.Config{
-		Region:  *region,
+		Region: *region,
 	})
 	if err != nil {
 		log.Fatalf("❌ Failed to create AWS client: %v", err)
