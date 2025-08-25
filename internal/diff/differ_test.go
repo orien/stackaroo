@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/resolve"
+	"github.com/orien/stackaroo/internal/model"
 )
 
 // Mock implementations for testing
@@ -137,8 +137,8 @@ func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemp
 	}
 }
 
-func createTestResolvedStack() *resolve.ResolvedStack {
-	return &resolve.ResolvedStack{
+func createTestResolvedStack() *model.ResolvedStack {
+	return &model.ResolvedStack{
 		Name:         "test-stack",
 		Environment:  "dev",
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,

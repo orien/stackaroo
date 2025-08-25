@@ -7,13 +7,13 @@ package diff
 import (
 	"context"
 
-	"github.com/orien/stackaroo/internal/resolve"
+	"github.com/orien/stackaroo/internal/model"
 )
 
 // Differ defines the interface for performing stack diffs
 type Differ interface {
 	// DiffStack compares a resolved stack configuration with the deployed stack
-	DiffStack(ctx context.Context, resolvedStack *resolve.ResolvedStack, options Options) (*Result, error)
+	DiffStack(ctx context.Context, resolvedStack *model.ResolvedStack, options Options) (*Result, error)
 }
 
 // Options configures what aspects of the stack to compare and how to format output

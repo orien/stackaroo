@@ -10,30 +10,8 @@ import (
 	"sort"
 
 	"github.com/orien/stackaroo/internal/config"
+	"github.com/orien/stackaroo/internal/model"
 )
-
-// ResolvedStack represents a fully resolved stack ready for deployment
-type ResolvedStack struct {
-	Name         string
-	Environment  string
-	TemplateBody string
-	Parameters   map[string]string
-	Tags         map[string]string
-	Capabilities []string
-	Dependencies []string
-}
-
-// GetTemplateContent returns the template content for this resolved stack
-func (rs *ResolvedStack) GetTemplateContent() (string, error) {
-	return rs.TemplateBody, nil
-}
-
-// ResolvedStacks represents a collection of resolved stacks
-type ResolvedStacks struct {
-	Context         string
-	Stacks          []*ResolvedStack
-	DeploymentOrder []string
-}
 
 // StackResolver resolves configuration into deployment-ready artifacts
 type StackResolver struct {
@@ -55,7 +33,7 @@ func (r *StackResolver) SetFileSystemResolver(fileSystemResolver FileSystemResol
 }
 
 // ResolveStack resolves a single stack configuration
-func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackName string) (*ResolvedStack, error) {
+func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackName string) (*model.ResolvedStack, error) {
 	// Load configuration
 	cfg, err := r.configProvider.LoadConfig(ctx, context)
 	if err != nil {
@@ -78,7 +56,7 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	parameters := r.mergeParameters(stackConfig.Parameters)
 	tags := r.mergeTags(cfg.Tags, stackConfig.Tags)
 
-	return &ResolvedStack{
+	return &model.ResolvedStack{
 		Name:         stackConfig.Name,
 		Environment:  context,
 		TemplateBody: templateBody,
@@ -90,8 +68,8 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 }
 
 // Resolve resolves multiple stacks and calculates deployment order
-func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames []string) (*ResolvedStacks, error) {
-	var resolvedStacks []*ResolvedStack
+func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
+	var resolvedStacks []*model.ResolvedStack
 
 	// Resolve each stack
 	for _, stackName := range stackNames {
@@ -108,7 +86,7 @@ func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames 
 		return nil, fmt.Errorf("failed to calculate dependency order: %w", err)
 	}
 
-	return &ResolvedStacks{
+	return &model.ResolvedStacks{
 		Context:         context,
 		Stacks:          resolvedStacks,
 		DeploymentOrder: deploymentOrder,
@@ -143,10 +121,10 @@ func (r *StackResolver) mergeTags(globalTags, stackTags map[string]string) map[s
 }
 
 // calculateDependencyOrder calculates the deployment order based on dependencies
-func (r *StackResolver) calculateDependencyOrder(stacks []*ResolvedStack) ([]string, error) {
+func (r *StackResolver) calculateDependencyOrder(stacks []*model.ResolvedStack) ([]string, error) {
 	// Simple topological sort implementation
 	// Build name to stack map
-	stackMap := make(map[string]*ResolvedStack)
+	stackMap := make(map[string]*model.ResolvedStack)
 	for _, stack := range stacks {
 		stackMap[stack.Name] = stack
 	}

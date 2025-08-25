@@ -10,6 +10,7 @@ import (
 
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
+	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +23,7 @@ var (
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error
+	DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error
 }
 
 // deployCmd represents the deploy command
@@ -84,7 +85,7 @@ func deployWithConfig(ctx context.Context, stackName, environmentName string) er
 	// Deploy all stacks in dependency order
 	for _, stackName := range resolved.DeploymentOrder {
 		// Find the resolved stack
-		var stackToDeploy *resolve.ResolvedStack
+		var stackToDeploy *model.ResolvedStack
 		for _, stack := range resolved.Stacks {
 			if stack.Name == stackName {
 				stackToDeploy = stack

@@ -10,6 +10,7 @@ import (
 
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/diff"
+	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 )
@@ -26,7 +27,7 @@ var (
 
 // Differ defines the interface for stack diff operations
 type Differ interface {
-	DiffStack(ctx context.Context, resolvedStack *resolve.ResolvedStack, options diff.Options) (*diff.Result, error)
+	DiffStack(ctx context.Context, resolvedStack *model.ResolvedStack, options diff.Options) (*diff.Result, error)
 }
 
 // diffCmd represents the diff command
@@ -103,7 +104,7 @@ func diffWithConfig(ctx context.Context, stackName, environmentName string) erro
 	}
 
 	// Find the target stack in resolved stacks
-	var targetStack *resolve.ResolvedStack
+	var targetStack *model.ResolvedStack
 	for _, stack := range resolved.Stacks {
 		if stack.Name == stackName {
 			targetStack = stack

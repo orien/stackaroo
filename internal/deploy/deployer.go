@@ -10,12 +10,12 @@ import (
 	"os"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/resolve"
+	"github.com/orien/stackaroo/internal/model"
 )
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error
+	DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
@@ -42,7 +42,7 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 }
 
 // DeployStack deploys a CloudFormation stack
-func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error {
+func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error {
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(resolvedStack.Parameters))
 	for key, value := range resolvedStack.Parameters {

@@ -12,12 +12,11 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/resolve"
 )
 
 // MockAWSClient is a mock implementation of aws.Client
@@ -164,7 +163,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &resolve.ResolvedStack{
+	resolvedStack := &model.ResolvedStack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{"Param1": "value1"},
@@ -198,7 +197,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with empty template body
-	resolvedStack := &resolve.ResolvedStack{
+	resolvedStack := &model.ResolvedStack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{},
@@ -241,7 +240,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with template content
-	resolvedStack := &resolve.ResolvedStack{
+	resolvedStack := &model.ResolvedStack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -378,7 +377,7 @@ Resources:
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &resolve.ResolvedStack{
+	resolvedStack := &model.ResolvedStack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -417,7 +416,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with parameters and tags
-	resolvedStack := &resolve.ResolvedStack{
+	resolvedStack := &model.ResolvedStack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},

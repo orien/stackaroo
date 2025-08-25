@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/orien/stackaroo/internal/config/file"
+	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ type MockDeployer struct {
 	mock.Mock
 }
 
-func (m *MockDeployer) DeployStack(ctx context.Context, resolvedStack *resolve.ResolvedStack) error {
+func (m *MockDeployer) DeployStack(ctx context.Context, resolvedStack *model.ResolvedStack) error {
 	args := m.Called(ctx, resolvedStack)
 	return args.Error(0)
 }
@@ -104,7 +105,7 @@ stacks:
 
 	// Set up mock deployer that returns an error
 	mockDeployer := &MockDeployer{}
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "test-stack"
 	})).Return(errors.New("deployment failed"))
 
@@ -195,11 +196,11 @@ stacks:
 	mockDeployer := &MockDeployer{}
 
 	// Expect specific calls with exact argument matching
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "stack-1"
 	})).Return(nil).Once()
 
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "stack-2"
 	})).Return(errors.New("second deployment failed")).Once()
 
@@ -289,7 +290,7 @@ stacks:
 	// Set up mock deployer that expects config-resolved values
 	mockDeployer := &MockDeployer{}
 	// Expect ResolvedStack with resolved parameters from dev environment
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "vpc" &&
 			resolvedStack.Parameters["VpcCidr"] == "10.1.0.0/16" &&
 			strings.Contains(resolvedStack.TemplateBody, "AWSTemplateFormatVersion") &&
@@ -376,7 +377,7 @@ stacks:
 	// This test will fail because current implementation doesn't resolve dependencies
 	// We expect the resolver to be called and handle the dependency ordering
 	// For now, just expect app deployment (what current implementation does)
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "app" // Current implementation only deploys single stack
 	})).Return(nil)
 
@@ -453,7 +454,7 @@ stacks:
 
 	// Current implementation only deploys the directly requested stack
 	// Transitive dependency resolution is not yet implemented
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *resolve.ResolvedStack) bool {
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(resolvedStack *model.ResolvedStack) bool {
 		return resolvedStack.Name == "app"
 	})).Return(nil).Once()
 
