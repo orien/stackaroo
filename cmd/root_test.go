@@ -39,13 +39,6 @@ func TestRootCmd_GlobalFlags(t *testing.T) {
 	assert.Equal(t, "c", configFlag.Shorthand)
 	assert.Contains(t, configFlag.Usage, "config file")
 
-	// Test profile flag
-	profileFlag := flags.Lookup("profile")
-	require.NotNil(t, profileFlag)
-	assert.Equal(t, "", profileFlag.DefValue)
-	assert.Equal(t, "p", profileFlag.Shorthand)
-	assert.Contains(t, profileFlag.Usage, "AWS profile")
-
 	// Test verbose flag
 	verboseFlag := flags.Lookup("verbose")
 	require.NotNil(t, verboseFlag)
@@ -79,7 +72,6 @@ func TestRootCmd_Help(t *testing.T) {
 	assert.Contains(t, helpOutput, "Stackaroo is a CLI tool")
 	assert.Contains(t, helpOutput, "Flags:")
 	assert.Contains(t, helpOutput, "--config")
-	assert.Contains(t, helpOutput, "--profile")
 	assert.Contains(t, helpOutput, "--verbose")
 	assert.Contains(t, helpOutput, "--dry-run")
 
@@ -198,9 +190,6 @@ func TestRootCmd_FlagTypes(t *testing.T) {
 	configFlag := flags.Lookup("config")
 	assert.Equal(t, "string", configFlag.Value.Type())
 
-	profileFlag := flags.Lookup("profile")
-	assert.Equal(t, "string", profileFlag.Value.Type())
-
 	// Boolean flags
 	verboseFlag := flags.Lookup("verbose")
 	assert.Equal(t, "bool", verboseFlag.Value.Type())
@@ -219,7 +208,6 @@ func TestRootCmd_FlagInheritance(t *testing.T) {
 	inheritedFlags := deployCmd.InheritedFlags()
 
 	assert.NotNil(t, inheritedFlags.Lookup("config"))
-	assert.NotNil(t, inheritedFlags.Lookup("profile"))
 	assert.NotNil(t, inheritedFlags.Lookup("verbose"))
 	assert.NotNil(t, inheritedFlags.Lookup("dry-run"))
 }

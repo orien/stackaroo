@@ -31,21 +31,6 @@ func TestConfig_Validation(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "profile only is valid",
-			config: Config{
-				Profile: "test-profile",
-			},
-			valid: true,
-		},
-		{
-			name: "both region and profile is valid",
-			config: Config{
-				Region:  "eu-west-1",
-				Profile: "production",
-			},
-			valid: true,
-		},
-		{
 			name: "valid AWS regions",
 			config: Config{
 				Region: "ap-southeast-2",
@@ -61,14 +46,10 @@ func TestConfig_Validation(t *testing.T) {
 
 			// Verify fields are accessible
 			_ = config.Region
-			_ = config.Profile
 
 			// Basic validation - config should have expected values
 			if tt.config.Region != "" {
 				assert.Equal(t, tt.config.Region, config.Region)
-			}
-			if tt.config.Profile != "" {
-				assert.Equal(t, tt.config.Profile, config.Profile)
 			}
 
 			assert.True(t, tt.valid) // All our test configs should be valid
@@ -162,42 +143,6 @@ func TestConfig_RegionHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := Config{Region: tt.inputRegion}
 			assert.Equal(t, tt.expectedRegion, config.Region)
-		})
-	}
-}
-
-func TestConfig_ProfileHandling(t *testing.T) {
-	tests := []struct {
-		name            string
-		inputProfile    string
-		expectedProfile string
-	}{
-		{
-			name:            "default profile",
-			inputProfile:    "default",
-			expectedProfile: "default",
-		},
-		{
-			name:            "custom profile",
-			inputProfile:    "production",
-			expectedProfile: "production",
-		},
-		{
-			name:            "dev profile",
-			inputProfile:    "dev",
-			expectedProfile: "dev",
-		},
-		{
-			name:            "empty profile",
-			inputProfile:    "",
-			expectedProfile: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := Config{Profile: tt.inputProfile}
-			assert.Equal(t, tt.expectedProfile, config.Profile)
 		})
 	}
 }

@@ -153,19 +153,6 @@ func TestConfig_Structure(t *testing.T) {
 				Region: "us-west-2",
 			},
 		},
-		{
-			name: "profile only",
-			config: Config{
-				Profile: "production",
-			},
-		},
-		{
-			name: "both region and profile",
-			config: Config{
-				Region:  "eu-central-1",
-				Profile: "staging",
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -173,7 +160,6 @@ func TestConfig_Structure(t *testing.T) {
 			// Just verify the config struct can be created and accessed
 			config := tt.config
 			_ = config.Region
-			_ = config.Profile
 			assert.True(t, true) // Basic structure test
 		})
 	}

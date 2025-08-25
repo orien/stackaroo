@@ -22,7 +22,6 @@ type DefaultClient struct {
 // Config holds configuration for creating an AWS client
 type Config struct {
 	Region  string
-	Profile string
 }
 
 // NewDefaultClient creates a new AWS client with the specified configuration
@@ -32,11 +31,6 @@ func NewDefaultClient(ctx context.Context, cfg Config) (*DefaultClient, error) {
 	// Set region if specified
 	if cfg.Region != "" {
 		opts = append(opts, config.WithRegion(cfg.Region))
-	}
-
-	// Set profile if specified
-	if cfg.Profile != "" {
-		opts = append(opts, config.WithSharedConfigProfile(cfg.Profile))
 	}
 
 	// Load AWS configuration

@@ -14,8 +14,7 @@ import (
 func ExampleClient() {
 	// Example of client configuration structure
 	config := aws.Config{
-		Region:  "us-east-1",
-		Profile: "default",
+		Region: "us-east-1",
 	}
 
 	fmt.Printf("Client would be configured for region: %s\n", config.Region)

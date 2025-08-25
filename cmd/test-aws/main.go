@@ -19,7 +19,6 @@ import (
 func main() {
 	var (
 		region    = flag.String("region", "us-east-1", "AWS region")
-		profile   = flag.String("profile", "", "AWS profile")
 		stackName = flag.String("stack", "stackaroo-test-stack", "Stack name for testing")
 		dryRun    = flag.Bool("dry-run", true, "Dry run mode (don't actually create/modify stacks)")
 		verbose   = flag.Bool("verbose", false, "Verbose output")
@@ -28,9 +27,6 @@ func main() {
 
 	fmt.Println("🚀 Stackaroo AWS Module Test")
 	fmt.Printf("Region: %s\n", *region)
-	if *profile != "" {
-		fmt.Printf("Profile: %s\n", *profile)
-	}
 	fmt.Printf("Dry Run: %t\n", *dryRun)
 	fmt.Println()
 
@@ -40,7 +36,6 @@ func main() {
 	fmt.Println("1️⃣  Testing AWS Client Creation")
 	client, err := aws.NewDefaultClient(ctx, aws.Config{
 		Region:  *region,
-		Profile: *profile,
 	})
 	if err != nil {
 		log.Fatalf("❌ Failed to create AWS client: %v", err)
