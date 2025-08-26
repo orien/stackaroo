@@ -39,6 +39,11 @@ func (m *MockChangeSetClient) DescribeChangeSet(ctx context.Context, params *clo
 	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
 }
 
+func (m *MockChangeSetClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
+}
+
 // Additional methods to satisfy CloudFormationOperations
 
 func (m *MockChangeSetClient) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
@@ -627,6 +632,128 @@ func TestDefaultChangeSetManager_CreateChangeSet_ChangeSetNameFormat(t *testing.
 	// Verify changeset name format
 	assert.Contains(t, changeSetName, "stackaroo-diff-")
 	assert.True(t, len(changeSetName) > len("stackaroo-diff-"), "Changeset name should include timestamp")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestDefaultChangeSetManager_CreateChangeSetForDeployment_ExistingStack(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockChangeSetClient{}
+	manager := NewChangeSetManager(mockClient)
+
+	// Test data
+	stackName := "test-stack"
+	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+	parameters := map[string]string{"Param1": "value1"}
+	capabilities := []string{"CAPABILITY_IAM"}
+	tags := map[string]string{"Environment": "test"}
+	changeSetId := "test-changeset-123"
+
+	// Mock StackExists - stack exists, so should be UPDATE changeset
+	mockClient.On("StackExists", ctx, stackName).Return(true, nil)
+
+	// Mock CreateChangeSet
+	var changeSetName string
+	mockClient.On("CreateChangeSet", ctx, mock.MatchedBy(func(input *cloudformation.CreateChangeSetInput) bool {
+		changeSetName = awssdk.ToString(input.ChangeSetName)
+		return awssdk.ToString(input.StackName) == stackName &&
+			awssdk.ToString(input.TemplateBody) == template &&
+			input.ChangeSetType == types.ChangeSetTypeUpdate &&
+			len(input.Parameters) == 1 &&
+			len(input.Tags) == 1 &&
+			len(input.Capabilities) == 1
+	})).Return(&cloudformation.CreateChangeSetOutput{
+		Id: awssdk.String(changeSetId),
+	}, nil)
+
+	// Mock wait for changeset
+	mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(&cloudformation.DescribeChangeSetOutput{
+		Status: types.ChangeSetStatusCreateComplete,
+	}, nil).Once()
+
+	// Mock final describe
+	mockClient.On("DescribeChangeSet", ctx, mock.MatchedBy(func(input *cloudformation.DescribeChangeSetInput) bool {
+		return awssdk.ToString(input.ChangeSetName) == changeSetId
+	})).Return(createTestDescribeChangeSetOutput(changeSetId, types.ChangeSetStatusCreateComplete), nil)
+
+	// Execute
+	result, err := manager.CreateChangeSetForDeployment(ctx, stackName, template, parameters, capabilities, tags)
+
+	// Assert
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, changeSetId, result.ChangeSetID)
+	assert.Contains(t, changeSetName, "stackaroo-deploy-")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestDefaultChangeSetManager_CreateChangeSetForDeployment_NewStack(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockChangeSetClient{}
+	manager := NewChangeSetManager(mockClient)
+
+	// Test data
+	stackName := "new-stack"
+	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+	parameters := map[string]string{}
+	capabilities := []string{"CAPABILITY_IAM"}
+	tags := map[string]string{}
+	changeSetId := "new-changeset-123"
+
+	// Mock StackExists - stack doesn't exist, so should be CREATE changeset
+	mockClient.On("StackExists", ctx, stackName).Return(false, nil)
+
+	// Mock CreateChangeSet
+	mockClient.On("CreateChangeSet", ctx, mock.MatchedBy(func(input *cloudformation.CreateChangeSetInput) bool {
+		return awssdk.ToString(input.StackName) == stackName &&
+			input.ChangeSetType == types.ChangeSetTypeCreate
+	})).Return(&cloudformation.CreateChangeSetOutput{
+		Id: awssdk.String(changeSetId),
+	}, nil)
+
+	// Mock wait and describe
+	mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(&cloudformation.DescribeChangeSetOutput{
+		Status: types.ChangeSetStatusCreateComplete,
+	}, nil).Once()
+
+	mockClient.On("DescribeChangeSet", ctx, mock.MatchedBy(func(input *cloudformation.DescribeChangeSetInput) bool {
+		return awssdk.ToString(input.ChangeSetName) == changeSetId
+	})).Return(createTestDescribeChangeSetOutput(changeSetId, types.ChangeSetStatusCreateComplete), nil)
+
+	// Execute
+	result, err := manager.CreateChangeSetForDeployment(ctx, stackName, template, parameters, capabilities, tags)
+
+	// Assert
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, changeSetId, result.ChangeSetID)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestDefaultChangeSetManager_CreateChangeSetForDeployment_StackExistsError(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockChangeSetClient{}
+	manager := NewChangeSetManager(mockClient)
+
+	// Test data
+	stackName := "test-stack"
+	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+	parameters := map[string]string{}
+	capabilities := []string{}
+	tags := map[string]string{}
+
+	// Mock StackExists failure
+	mockClient.On("StackExists", ctx, stackName).Return(false, errors.New("API error"))
+
+	// Execute
+	result, err := manager.CreateChangeSetForDeployment(ctx, stackName, template, parameters, capabilities, tags)
+
+	// Assert
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to check if stack exists")
 
 	mockClient.AssertExpectations(t)
 }

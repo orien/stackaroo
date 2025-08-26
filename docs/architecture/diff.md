@@ -285,6 +285,30 @@ sequenceDiagram
 - `ResolvedStack.Environment` - Track deployment context
 - Dependency resolution for complete stack information
 
+### 4. Deployment Integration (`internal/deploy`)
+
+**Integrated Preview:**
+- `NewDiffer(cfClient)` - Create differ with existing CloudFormation operations
+- `DiffStack(ctx, resolvedStack, options)` - Generate change preview during deployment
+- Consistent formatting between `stackaroo diff` and `stackaroo deploy` commands
+- Automatic change preview before deployment execution for existing stacks
+- Same changeset-based approach for both standalone diff and integrated deployment preview
+
+**Deployment Flow Integration:**
+```mermaid
+sequenceDiagram
+    participant Deploy as Deploy Command  
+    participant Differ as Diff Engine
+    participant AWS as AWS CloudFormation
+    
+    Deploy->>Differ: DiffStack(resolved, options)
+    Differ->>AWS: Generate changeset & preview
+    AWS->>Differ: Change details
+    Differ->>Deploy: Formatted preview
+    Deploy->>User: Display changes
+    Deploy->>AWS: Execute deployment
+```
+
 ## Error Handling Strategy
 
 ```mermaid

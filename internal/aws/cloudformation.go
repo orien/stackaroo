@@ -436,6 +436,11 @@ func (cf *DefaultCloudFormationOperations) CreateChangeSet(ctx context.Context, 
 	return cf.client.CreateChangeSet(ctx, params, optFns...)
 }
 
+// ExecuteChangeSet executes a CloudFormation changeset
+func (cf *DefaultCloudFormationOperations) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	return cf.client.ExecuteChangeSet(ctx, params, optFns...)
+}
+
 // DeleteChangeSet deletes a CloudFormation changeset
 func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
 	return cf.client.DeleteChangeSet(ctx, params, optFns...)

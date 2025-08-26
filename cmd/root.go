@@ -20,6 +20,7 @@ var rootCmd = &cobra.Command{
 • Declarative configuration in YAML files
 • Environment-specific parameter management
 • Stack dependency resolution
+• Change preview before deployment
 • Template validation and deployment
 • Rich terminal output with progress indicators
 

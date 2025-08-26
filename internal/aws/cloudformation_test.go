@@ -72,6 +72,11 @@ func (m *MockCloudFormationClientForDeployTest) CreateChangeSet(ctx context.Cont
 	return args.Get(0).(*cloudformation.CreateChangeSetOutput), args.Error(1)
 }
 
+func (m *MockCloudFormationClientForDeployTest) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
+}
+
 func (m *MockCloudFormationClientForDeployTest) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
 	args := m.Called(ctx, params)
 	return args.Get(0).(*cloudformation.DeleteChangeSetOutput), args.Error(1)
@@ -488,5 +493,50 @@ func TestDeployStackWithCallback_Success(t *testing.T) {
 	assert.Len(t, capturedEvents, 1)
 	assert.Equal(t, "event-1", capturedEvents[0].EventId)
 	assert.Equal(t, "callback-stack", capturedEvents[0].StackName)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDefaultCloudFormationOperations_ExecuteChangeSet_Success(t *testing.T) {
+	mockClient := &MockCloudFormationClientForDeployTest{}
+	cfOps := NewCloudFormationOperationsWithClient(mockClient)
+	ctx := context.Background()
+
+	changeSetID := "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/test-stack"
+
+	executeInput := &cloudformation.ExecuteChangeSetInput{
+		ChangeSetName: aws.String(changeSetID),
+	}
+
+	expectedOutput := &cloudformation.ExecuteChangeSetOutput{}
+
+	mockClient.On("ExecuteChangeSet", ctx, executeInput).Return(expectedOutput, nil)
+
+	output, err := cfOps.ExecuteChangeSet(ctx, executeInput)
+
+	require.NoError(t, err)
+	assert.Equal(t, expectedOutput, output)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDefaultCloudFormationOperations_ExecuteChangeSet_Error(t *testing.T) {
+	mockClient := &MockCloudFormationClientForDeployTest{}
+	cfOps := NewCloudFormationOperationsWithClient(mockClient)
+	ctx := context.Background()
+
+	changeSetID := "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/test-stack"
+
+	executeInput := &cloudformation.ExecuteChangeSetInput{
+		ChangeSetName: aws.String(changeSetID),
+	}
+
+	expectedError := errors.New("changeset execution failed")
+
+	mockClient.On("ExecuteChangeSet", ctx, executeInput).Return((*cloudformation.ExecuteChangeSetOutput)(nil), expectedError)
+
+	output, err := cfOps.ExecuteChangeSet(ctx, executeInput)
+
+	assert.Nil(t, output)
+	assert.Error(t, err)
+	assert.Equal(t, expectedError, err)
 	mockClient.AssertExpectations(t)
 }

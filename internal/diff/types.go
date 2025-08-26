@@ -143,5 +143,6 @@ type TagComparator interface {
 // ChangeSetManager handles AWS CloudFormation changeset operations
 type ChangeSetManager interface {
 	CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
+	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 	DeleteChangeSet(ctx context.Context, changeSetID string) error
 }

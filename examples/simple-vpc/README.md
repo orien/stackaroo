@@ -9,6 +9,7 @@ This example demonstrates basic Stackaroo usage with a simple VPC deployment acr
 - **Cross-account deployment** - Production uses a separate AWS account
 - **Parameter inheritance** - Global defaults with environment-specific overrides
 - **Tag management** - Consistent tagging across environments
+- **Change preview** - See exactly what infrastructure changes before deployment
 
 ## Prerequisites
 
@@ -50,12 +51,12 @@ The `stackaroo.yaml` file defines:
    cd examples/simple-vpc
    ```
 
-3. **Deploy to development**:
+3. **Deploy to development** (shows preview before applying changes):
    ```bash
    ../../stackaroo deploy vpc --environment dev
    ```
 
-4. **Deploy to staging**:
+4. **Deploy to staging** (shows preview before applying changes):
    ```bash
    ../../stackaroo deploy vpc --environment staging
    ```
@@ -64,6 +65,36 @@ The `stackaroo.yaml` file defines:
    ```bash
    ../../stackaroo deploy vpc --environment prod
    ```
+
+## Preview Output
+
+When you run the deploy commands, Stackaroo will show you exactly what changes will be made:
+
+```
+=== Calculating changes for stack vpc ===
+Changes to be applied to stack vpc:
+
+Status: CHANGES DETECTED (for updates) or Creating new stack: vpc (for new deployments)
+
+Template Changes:
+-----------------
+✓ Template has been modified (if updating)
+Resource changes:
+  + 6 resources to be added (for new stacks)
+
+AWS CloudFormation Preview:
+---------------------------
+Resource Changes:
+  + VPC (AWS::EC2::VPC)
+  + InternetGateway (AWS::EC2::InternetGateway)
+  + PublicSubnet (AWS::EC2::Subnet)
+  + PrivateSubnet (AWS::EC2::Subnet)
+  + PublicRouteTable (AWS::EC2::RouteTable)
+  + PrivateRouteTable (AWS::EC2::RouteTable)
+
+=== Deploying stack vpc ===
+[Live deployment events appear here...]
+```
 
 ## What Gets Deployed
 
@@ -108,6 +139,7 @@ This example demonstrates:
 3. **Cross-account deployment** - Managing resources across AWS accounts
 4. **Infrastructure consistency** - Identical setup with environment-appropriate sizing
 5. **Tag management** - Consistent tagging strategy across environments
+6. **Change preview** - How Stackaroo shows you exactly what will change before deployment
 
 ## Next Steps
 

@@ -25,6 +25,25 @@ var (
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy CloudFormation stacks",
+	Long: `Deploy CloudFormation stacks with integrated change preview.
+
+This command automatically shows you exactly what changes will be made before 
+applying them to your infrastructure. For existing stacks, it uses AWS CloudFormation 
+ChangeSets to provide accurate previews including:
+
+• Template changes (resources added, modified, or removed)
+• Parameter changes (current vs new values)  
+• Tag changes (added, modified, or removed tags)
+• Resource-level impact analysis with replacement warnings
+
+For new stacks, the command proceeds directly with stack creation.
+
+Examples:
+  stackaroo deploy vpc --environment dev
+  stackaroo deploy app --environment prod
+
+The preview shows the same detailed diff information as 'stackaroo diff' but 
+automatically proceeds with deployment after displaying the changes.`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]

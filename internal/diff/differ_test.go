@@ -89,6 +89,11 @@ func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params
 	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
 }
 
+func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	args := m.Called(ctx, params)
+	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
+}
+
 func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
 	args := m.Called(ctx, stackName)
 	return args.Get(0).([]aws.StackEvent), args.Error(1)
@@ -132,6 +137,11 @@ type MockChangeSetManager struct {
 
 func (m *MockChangeSetManager) CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error) {
 	args := m.Called(ctx, stackName, template, parameters)
+	return args.Get(0).(*ChangeSetInfo), args.Error(1)
+}
+
+func (m *MockChangeSetManager) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error) {
+	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
 	return args.Get(0).(*ChangeSetInfo), args.Error(1)
 }
 

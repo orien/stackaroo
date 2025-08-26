@@ -38,6 +38,17 @@ func NewDefaultDiffer(ctx context.Context) (*DefaultDiffer, error) {
 	}, nil
 }
 
+// NewDiffer creates a new DefaultDiffer with provided CloudFormation operations
+func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
+	return &DefaultDiffer{
+		cfClient:            cfClient,
+		templateComparator:  NewYAMLTemplateComparator(),
+		parameterComparator: NewParameterComparator(),
+		tagComparator:       NewTagComparator(),
+		changeSetManager:    NewChangeSetManager(cfClient),
+	}
+}
+
 // DiffStack compares a resolved stack configuration with the deployed stack
 func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stack, options Options) (*Result, error) {
 	result := &Result{

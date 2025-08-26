@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Stackaroo is a command-line tool for managing AWS CloudFormation stacks as code, written in Go. It provides declarative configuration, environment management, template validation, and dependency management for CloudFormation deployments.
+Stackaroo is a command-line tool for managing AWS CloudFormation stacks as code, written in Go. It provides declarative configuration, environment management, change preview, template validation, and dependency management for CloudFormation deployments.
 
 **Key Technologies:**
 - Go 1.24
@@ -71,7 +71,7 @@ cmd/           - CLI commands and subcommands
 internal/      - Internal packages (not importable by other projects)
   aws/         - AWS service interactions
   config/      - Configuration handling
-  deploy/      - Deployment logic
+  deploy/      - Deployment logic with integrated change preview
   resolve/     - Dependency resolution
 examples/      - Usage examples
 docs/          - Documentation

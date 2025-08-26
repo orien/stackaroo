@@ -103,6 +103,10 @@ func (m *MockCloudFormationClient) CreateChangeSet(ctx context.Context, params *
 	return nil, nil
 }
 
+func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	return nil, nil
+}
+
 func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
 	return nil, nil
 }

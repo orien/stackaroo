@@ -84,6 +84,84 @@ func (m *DefaultChangeSetManager) CreateChangeSet(ctx context.Context, stackName
 	return changeSetInfo, nil
 }
 
+// CreateChangeSetForDeployment creates a changeset for deployment (doesn't auto-delete)
+func (m *DefaultChangeSetManager) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error) {
+	// Generate a unique changeset name
+	changeSetName := fmt.Sprintf("stackaroo-deploy-%d", time.Now().Unix())
+
+	// Convert parameters to AWS format
+	awsParameters := make([]types.Parameter, 0, len(parameters))
+	for key, value := range parameters {
+		awsParameters = append(awsParameters, types.Parameter{
+			ParameterKey:   awssdk.String(key),
+			ParameterValue: awssdk.String(value),
+		})
+	}
+
+	// Convert tags to AWS format
+	awsTags := make([]types.Tag, 0, len(tags))
+	for key, value := range tags {
+		awsTags = append(awsTags, types.Tag{
+			Key:   awssdk.String(key),
+			Value: awssdk.String(value),
+		})
+	}
+
+	// Convert capabilities to AWS format
+	awsCapabilities := make([]types.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		awsCapabilities = append(awsCapabilities, types.Capability(capability))
+	}
+
+	// Determine changeset type based on whether stack exists
+	exists, err := m.cfClient.StackExists(ctx, stackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if stack exists: %w", err)
+	}
+
+	changeSetType := types.ChangeSetTypeUpdate
+	if !exists {
+		changeSetType = types.ChangeSetTypeCreate
+	}
+
+	// Create the changeset
+	createInput := &cloudformation.CreateChangeSetInput{
+		StackName:     awssdk.String(stackName),
+		ChangeSetName: awssdk.String(changeSetName),
+		TemplateBody:  awssdk.String(template),
+		Parameters:    awsParameters,
+		Tags:          awsTags,
+		Capabilities:  awsCapabilities,
+		ChangeSetType: changeSetType,
+	}
+
+	createOutput, err := m.cfClient.CreateChangeSet(ctx, createInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create changeset: %w", err)
+	}
+
+	changeSetID := awssdk.ToString(createOutput.Id)
+
+	// Wait for changeset to be created
+	err = m.waitForChangeSet(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset if it failed
+		_ = m.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("changeset creation failed: %w", err)
+	}
+
+	// Describe the changeset to get the actual changes
+	changeSetInfo, err := m.describeChangeSet(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset
+		_ = m.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("failed to describe changeset: %w", err)
+	}
+
+	// DO NOT delete the changeset - it will be used for deployment
+	return changeSetInfo, nil
+}
+
 // DeleteChangeSet deletes a CloudFormation changeset
 func (m *DefaultChangeSetManager) DeleteChangeSet(ctx context.Context, changeSetID string) error {
 	_, err := m.cfClient.DeleteChangeSet(ctx, &cloudformation.DeleteChangeSetInput{
