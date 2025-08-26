@@ -50,7 +50,7 @@ func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Con
 	resolvedContext := fp.resolveContext(context, rawContext)
 
 	// Resolve all stacks for this context
-	resolvedStacks, err := fp.resolveStacks(context)
+	stacks, err := fp.resolveStacks(context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve stacks for context '%s': %w", context, err)
 	}
@@ -61,7 +61,7 @@ func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Con
 		Region:  fp.rawConfig.Region, // Global default
 		Tags:    fp.copyStringMap(fp.rawConfig.Tags),
 		Context: resolvedContext,
-		Stacks:  resolvedStacks,
+		Stacks:  stacks,
 	}
 
 	return cfg, nil
@@ -101,12 +101,12 @@ func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, er
 	}
 
 	// Resolve the stack for the given context
-	resolvedStack, err := fp.resolveStack(rawStack, context)
+	stack, err := fp.resolveStack(rawStack, context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve stack '%s' for context '%s': %w", stackName, context, err)
 	}
 
-	return resolvedStack, nil
+	return stack, nil
 }
 
 // Validate checks the configuration for consistency and errors
@@ -194,11 +194,11 @@ func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error)
 	resolved := make([]*config.StackConfig, 0, len(fp.rawConfig.Stacks))
 
 	for _, rawStack := range fp.rawConfig.Stacks {
-		resolvedStack, err := fp.resolveStack(rawStack, context)
+		stack, err := fp.resolveStack(rawStack, context)
 		if err != nil {
 			return nil, err
 		}
-		resolved = append(resolved, resolvedStack)
+		resolved = append(resolved, stack)
 	}
 
 	return resolved, nil

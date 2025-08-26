@@ -13,7 +13,7 @@ import (
 // Differ defines the interface for performing stack diffs
 type Differ interface {
 	// DiffStack compares a resolved stack configuration with the deployed stack
-	DiffStack(ctx context.Context, resolvedStack *model.Stack, options Options) (*Result, error)
+	DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error)
 }
 
 // Options configures what aspects of the stack to compare and how to format output

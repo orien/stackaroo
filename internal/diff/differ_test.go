@@ -215,7 +215,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	currentStack := &aws.StackInfo{
 		Name:       "test-stack",
 		Parameters: map[string]string{"Param1": "value1", "Param2": "value2"},
@@ -229,17 +229,17 @@ func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	cfClient.On("DescribeStack", ctx, "test-stack").Return(currentStack, nil)
 	cfClient.On("GetTemplate", ctx, "test-stack").Return(currentStack.Template, nil)
 
-	templateComp.On("Compare", ctx, currentStack.Template, resolvedStack.TemplateBody).Return(&TemplateChange{
+	templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return(&TemplateChange{
 		HasChanges:   false,
 		CurrentHash:  "hash1",
 		ProposedHash: "hash1",
 	}, nil)
 
-	paramComp.On("Compare", currentStack.Parameters, resolvedStack.Parameters).Return([]ParameterDiff{}, nil)
-	tagComp.On("Compare", currentStack.Tags, resolvedStack.Tags).Return([]TagDiff{}, nil)
+	paramComp.On("Compare", currentStack.Parameters, stack.Parameters).Return([]ParameterDiff{}, nil)
+	tagComp.On("Compare", currentStack.Tags, stack.Tags).Return([]TagDiff{}, nil)
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	currentStack := createTestStackInfo()
 	options := Options{Format: "text"}
 
@@ -288,15 +288,15 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	cfClient.On("DescribeStack", ctx, "test-stack").Return(currentStack, nil)
 	cfClient.On("GetTemplate", ctx, "test-stack").Return(currentStack.Template, nil)
 
-	templateComp.On("Compare", ctx, currentStack.Template, resolvedStack.TemplateBody).Return(&TemplateChange{
+	templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return(&TemplateChange{
 		HasChanges:   true,
 		CurrentHash:  "hash1",
 		ProposedHash: "hash2",
 		Diff:         "Template has changes",
 	}, nil)
 
-	paramComp.On("Compare", currentStack.Parameters, resolvedStack.Parameters).Return(paramDiffs, nil)
-	tagComp.On("Compare", currentStack.Tags, resolvedStack.Tags).Return(tagDiffs, nil)
+	paramComp.On("Compare", currentStack.Parameters, stack.Parameters).Return(paramDiffs, nil)
+	tagComp.On("Compare", currentStack.Tags, stack.Tags).Return(tagDiffs, nil)
 
 	// Mock changeset creation
 	changeSet := &ChangeSetInfo{
@@ -306,10 +306,10 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 			{Action: "Modify", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
 		},
 	}
-	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", resolvedStack.TemplateBody, resolvedStack.Parameters).Return(changeSet, nil)
+	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return(changeSet, nil)
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify
 	require.NoError(t, err)
@@ -344,14 +344,14 @@ func TestDefaultDiffer_DiffStack_NewStack(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	options := Options{Format: "text"}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(false, nil)
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify
 	require.NoError(t, err)
@@ -392,14 +392,14 @@ func TestDefaultDiffer_DiffStack_StackExistsError(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	options := Options{Format: "text"}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(false, errors.New("AWS connection error"))
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify
 	assert.Error(t, err)
@@ -423,7 +423,7 @@ func TestDefaultDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	options := Options{Format: "text"}
 
 	// Set up expectations
@@ -431,7 +431,7 @@ func TestDefaultDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	cfClient.On("DescribeStack", ctx, "test-stack").Return((*aws.StackInfo)(nil), errors.New("access denied"))
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify
 	assert.Error(t, err)
@@ -494,7 +494,7 @@ func TestDefaultDiffer_DiffStack_FilterOptions(t *testing.T) {
 			differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 			// Test data
-			resolvedStack := createTestResolvedStack()
+			stack := createTestResolvedStack()
 			currentStack := createTestStackInfo()
 
 			// Set up expectations
@@ -503,17 +503,17 @@ func TestDefaultDiffer_DiffStack_FilterOptions(t *testing.T) {
 
 			if tt.expectTemplateCompare {
 				cfClient.On("GetTemplate", ctx, "test-stack").Return(currentStack.Template, nil)
-				templateComp.On("Compare", ctx, currentStack.Template, resolvedStack.TemplateBody).Return(&TemplateChange{HasChanges: false}, nil)
+				templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return(&TemplateChange{HasChanges: false}, nil)
 			}
 			if tt.expectParameterCompare {
-				paramComp.On("Compare", currentStack.Parameters, resolvedStack.Parameters).Return([]ParameterDiff{}, nil)
+				paramComp.On("Compare", currentStack.Parameters, stack.Parameters).Return([]ParameterDiff{}, nil)
 			}
 			if tt.expectTagCompare {
-				tagComp.On("Compare", currentStack.Tags, resolvedStack.Tags).Return([]TagDiff{}, nil)
+				tagComp.On("Compare", currentStack.Tags, stack.Tags).Return([]TagDiff{}, nil)
 			}
 
 			// Execute
-			result, err := differ.DiffStack(ctx, resolvedStack, tt.options)
+			result, err := differ.DiffStack(ctx, stack, tt.options)
 
 			// Verify
 			require.NoError(t, err)
@@ -541,7 +541,7 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	currentStack := createTestStackInfo()
 	options := Options{Format: "text"}
 
@@ -550,15 +550,15 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	cfClient.On("DescribeStack", ctx, "test-stack").Return(currentStack, nil)
 	cfClient.On("GetTemplate", ctx, "test-stack").Return(currentStack.Template, nil)
 
-	templateComp.On("Compare", ctx, currentStack.Template, resolvedStack.TemplateBody).Return(&TemplateChange{HasChanges: true}, nil)
-	paramComp.On("Compare", currentStack.Parameters, resolvedStack.Parameters).Return([]ParameterDiff{{Key: "test", ChangeType: ChangeTypeAdd}}, nil)
-	tagComp.On("Compare", currentStack.Tags, resolvedStack.Tags).Return([]TagDiff{}, nil)
+	templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return(&TemplateChange{HasChanges: true}, nil)
+	paramComp.On("Compare", currentStack.Parameters, stack.Parameters).Return([]ParameterDiff{{Key: "test", ChangeType: ChangeTypeAdd}}, nil)
+	tagComp.On("Compare", currentStack.Tags, stack.Tags).Return([]TagDiff{}, nil)
 
 	// Mock changeset creation failure
-	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", resolvedStack.TemplateBody, resolvedStack.Parameters).Return((*ChangeSetInfo)(nil), errors.New("changeset failed"))
+	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return((*ChangeSetInfo)(nil), errors.New("changeset failed"))
 
 	// Execute
-	result, err := differ.DiffStack(ctx, resolvedStack, options)
+	result, err := differ.DiffStack(ctx, stack, options)
 
 	// Verify - should succeed even though changeset failed
 	require.NoError(t, err)
@@ -581,15 +581,15 @@ func TestDefaultDiffer_HandleNewStack(t *testing.T) {
 	differ := &DefaultDiffer{}
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	result := &Result{
-		StackName:   resolvedStack.Name,
-		Environment: resolvedStack.Environment,
+		StackName:   stack.Name,
+		Environment: stack.Environment,
 		Options:     Options{Format: "text"},
 	}
 
 	// Execute
-	result, err := differ.handleNewStack(ctx, resolvedStack, result)
+	result, err := differ.handleNewStack(ctx, stack, result)
 
 	// Verify
 	require.NoError(t, err)
@@ -631,17 +631,17 @@ func TestDefaultDiffer_CompareTemplates_Error(t *testing.T) {
 	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
 
 	// Test data
-	resolvedStack := createTestResolvedStack()
+	stack := createTestResolvedStack()
 	currentStack := createTestStackInfo()
 
 	// Set up expectation for GetTemplate call
 	cfClient.On("GetTemplate", ctx, "test-stack").Return(currentStack.Template, nil)
 
 	// Set up expectation for template comparison error
-	templateComp.On("Compare", ctx, currentStack.Template, resolvedStack.TemplateBody).Return((*TemplateChange)(nil), errors.New("template parse error"))
+	templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return((*TemplateChange)(nil), errors.New("template parse error"))
 
 	// Execute compareTemplates directly (this tests internal method)
-	result, err := differ.compareTemplates(ctx, resolvedStack, currentStack)
+	result, err := differ.compareTemplates(ctx, stack, currentStack)
 
 	// Verify
 	assert.Error(t, err)

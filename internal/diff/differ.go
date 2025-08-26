@@ -50,15 +50,15 @@ func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 }
 
 // DiffStack compares a resolved stack configuration with the deployed stack
-func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stack, options Options) (*Result, error) {
+func (d *DefaultDiffer) DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error) {
 	result := &Result{
-		StackName:   resolvedStack.Name,
-		Environment: resolvedStack.Environment,
+		StackName:   stack.Name,
+		Environment: stack.Environment,
 		Options:     options,
 	}
 
 	// Check if stack exists in AWS
-	stackExists, err := d.cfClient.StackExists(ctx, resolvedStack.Name)
+	stackExists, err := d.cfClient.StackExists(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if stack exists: %w", err)
 	}
@@ -67,18 +67,18 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stac
 
 	// If stack doesn't exist, this is a new stack scenario
 	if !stackExists {
-		return d.handleNewStack(ctx, resolvedStack, result)
+		return d.handleNewStack(ctx, stack, result)
 	}
 
 	// Get current stack state from AWS
-	currentStack, err := d.cfClient.DescribeStack(ctx, resolvedStack.Name)
+	currentStack, err := d.cfClient.DescribeStack(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe stack: %w", err)
 	}
 
 	// Compare templates (if not filtered out)
 	if !options.ParametersOnly && !options.TagsOnly {
-		templateChange, err := d.compareTemplates(ctx, resolvedStack, currentStack)
+		templateChange, err := d.compareTemplates(ctx, stack, currentStack)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare templates: %w", err)
 		}
@@ -87,7 +87,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stac
 
 	// Compare parameters (if not filtered out)
 	if !options.TemplateOnly && !options.TagsOnly {
-		parameterDiffs, err := d.compareParameters(currentStack, resolvedStack)
+		parameterDiffs, err := d.compareParameters(currentStack, stack)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare parameters: %w", err)
 		}
@@ -96,7 +96,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stac
 
 	// Compare tags (if not filtered out)
 	if !options.TemplateOnly && !options.ParametersOnly {
-		tagDiffs, err := d.compareTags(currentStack, resolvedStack)
+		tagDiffs, err := d.compareTags(currentStack, stack)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare tags: %w", err)
 		}
@@ -105,7 +105,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stac
 
 	// Generate changeset if there are potential changes and we're doing a full diff
 	if result.HasChanges() && !options.TemplateOnly && !options.ParametersOnly && !options.TagsOnly {
-		changeSetInfo, err := d.generateChangeSet(ctx, resolvedStack)
+		changeSetInfo, err := d.generateChangeSet(ctx, stack)
 		if err != nil {
 			// Don't fail the entire diff if changeset generation fails
 			// Just log and continue without changeset info
@@ -119,7 +119,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stac
 }
 
 // handleNewStack handles the case where the stack doesn't exist yet
-func (d *DefaultDiffer) handleNewStack(ctx context.Context, resolvedStack *model.Stack, result *Result) (*Result, error) {
+func (d *DefaultDiffer) handleNewStack(ctx context.Context, stack *model.Stack, result *Result) (*Result, error) {
 	// For a new stack, everything is "added"
 
 	// Template is new
@@ -131,7 +131,7 @@ func (d *DefaultDiffer) handleNewStack(ctx context.Context, resolvedStack *model
 	}
 
 	// All parameters are new
-	for key, value := range resolvedStack.Parameters {
+	for key, value := range stack.Parameters {
 		result.ParameterDiffs = append(result.ParameterDiffs, ParameterDiff{
 			Key:           key,
 			CurrentValue:  "",
@@ -141,7 +141,7 @@ func (d *DefaultDiffer) handleNewStack(ctx context.Context, resolvedStack *model
 	}
 
 	// All tags are new
-	for key, value := range resolvedStack.Tags {
+	for key, value := range stack.Tags {
 		result.TagDiffs = append(result.TagDiffs, TagDiff{
 			Key:           key,
 			CurrentValue:  "",
@@ -154,15 +154,15 @@ func (d *DefaultDiffer) handleNewStack(ctx context.Context, resolvedStack *model
 }
 
 // compareTemplates compares the current deployed template with the resolved template
-func (d *DefaultDiffer) compareTemplates(ctx context.Context, resolvedStack *model.Stack, currentStack *aws.StackInfo) (*TemplateChange, error) {
+func (d *DefaultDiffer) compareTemplates(ctx context.Context, stack *model.Stack, currentStack *aws.StackInfo) (*TemplateChange, error) {
 	// Get current template from AWS
-	currentTemplate, err := d.cfClient.GetTemplate(ctx, resolvedStack.Name)
+	currentTemplate, err := d.cfClient.GetTemplate(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current template: %w", err)
 	}
 
 	// Get proposed template content
-	proposedTemplate, err := resolvedStack.GetTemplateContent()
+	proposedTemplate, err := stack.GetTemplateContent()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proposed template content: %w", err)
 	}
@@ -177,25 +177,25 @@ func (d *DefaultDiffer) compareTemplates(ctx context.Context, resolvedStack *mod
 }
 
 // compareParameters compares current stack parameters with resolved parameters
-func (d *DefaultDiffer) compareParameters(currentStack *aws.StackInfo, resolvedStack *model.Stack) ([]ParameterDiff, error) {
-	return d.parameterComparator.Compare(currentStack.Parameters, resolvedStack.Parameters)
+func (d *DefaultDiffer) compareParameters(currentStack *aws.StackInfo, stack *model.Stack) ([]ParameterDiff, error) {
+	return d.parameterComparator.Compare(currentStack.Parameters, stack.Parameters)
 }
 
 // compareTags compares current stack tags with resolved tags
-func (d *DefaultDiffer) compareTags(currentStack *aws.StackInfo, resolvedStack *model.Stack) ([]TagDiff, error) {
-	return d.tagComparator.Compare(currentStack.Tags, resolvedStack.Tags)
+func (d *DefaultDiffer) compareTags(currentStack *aws.StackInfo, stack *model.Stack) ([]TagDiff, error) {
+	return d.tagComparator.Compare(currentStack.Tags, stack.Tags)
 }
 
 // generateChangeSet creates an AWS changeset to preview changes
-func (d *DefaultDiffer) generateChangeSet(ctx context.Context, resolvedStack *model.Stack) (*ChangeSetInfo, error) {
+func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack) (*ChangeSetInfo, error) {
 	// Get proposed template content
-	templateContent, err := resolvedStack.GetTemplateContent()
+	templateContent, err := stack.GetTemplateContent()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template content: %w", err)
 	}
 
 	// Create changeset
-	changeSetInfo, err := d.changeSetManager.CreateChangeSet(ctx, resolvedStack.Name, templateContent, resolvedStack.Parameters)
+	changeSetInfo, err := d.changeSetManager.CreateChangeSet(ctx, stack.Name, templateContent, stack.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create changeset: %w", err)
 	}

@@ -189,7 +189,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{"Param1": "value1"},
@@ -199,7 +199,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, resolvedStack)
+	err = deployer.DeployStack(ctx, stack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -227,7 +227,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with empty template body
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{},
@@ -237,7 +237,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	}
 
 	// Execute
-	err := deployer.DeployStack(ctx, resolvedStack)
+	err := deployer.DeployStack(ctx, stack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -274,7 +274,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with template content
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -284,7 +284,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	}
 
 	// Execute
-	err = deployer.DeployStack(ctx, resolvedStack)
+	err = deployer.DeployStack(ctx, stack)
 
 	// Verify
 	assert.Error(t, err)
@@ -327,7 +327,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -337,7 +337,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	}
 
 	// Execute
-	err := deployer.DeployStack(ctx, resolvedStack)
+	err := deployer.DeployStack(ctx, stack)
 
 	// Verify - should succeed with no error despite NoChangesError
 	assert.NoError(t, err)
@@ -406,7 +406,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -416,7 +416,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	}
 
 	// Execute
-	err := deployer.DeployStack(ctx, resolvedStack)
+	err := deployer.DeployStack(ctx, stack)
 
 	// Verify - should succeed
 	assert.NoError(t, err)
@@ -544,7 +544,7 @@ Resources:
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
@@ -554,7 +554,7 @@ Resources:
 	}
 
 	// Execute
-	err := deployer.DeployStack(ctx, resolvedStack)
+	err := deployer.DeployStack(ctx, stack)
 
 	// Verify
 	assert.NoError(t, err)
@@ -587,7 +587,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	deployer := NewAWSDeployer(mockClient)
 
 	// Create resolved stack with parameters and tags
-	resolvedStack := &model.Stack{
+	stack := &model.Stack{
 		Name:         "test-stack",
 		TemplateBody: "",
 		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},
@@ -597,7 +597,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	}
 
 	// Execute
-	err := deployer.DeployStack(ctx, resolvedStack)
+	err := deployer.DeployStack(ctx, stack)
 
 	// Verify
 	assert.NoError(t, err)

@@ -44,7 +44,7 @@ Examples:
 
 The preview shows the same detailed diff information as 'stackaroo diff' but 
 automatically proceeds with deployment after displaying the changes.`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
 		ctx := context.Background()

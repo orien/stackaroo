@@ -18,7 +18,7 @@ import (
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
-	DeployStack(ctx context.Context, resolvedStack *model.Stack) error
+	DeployStack(ctx context.Context, stack *model.Stack) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
@@ -45,32 +45,32 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
-func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.Stack) error {
+func (d *AWSDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 
 	// Check if stack exists to determine deployment approach
-	exists, err := cfnOps.StackExists(ctx, resolvedStack.Name)
+	exists, err := cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
 
 	if !exists {
 		// For new stacks, use direct creation (changesets are less useful)
-		return d.deployNewStack(ctx, resolvedStack)
+		return d.deployNewStack(ctx, stack)
 	}
 
 	// For existing stacks, use changeset approach for preview + deployment
-	return d.deployWithChangeSet(ctx, resolvedStack)
+	return d.deployWithChangeSet(ctx, stack)
 }
 
 // deployNewStack handles deployment of new stacks using direct creation
-func (d *AWSDeployer) deployNewStack(ctx context.Context, resolvedStack *model.Stack) error {
-	fmt.Printf("=== Creating new stack %s ===\n", resolvedStack.Name)
+func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) error {
+	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
 
 	// Convert parameters to AWS format
-	awsParams := make([]awsinternal.Parameter, 0, len(resolvedStack.Parameters))
-	for key, value := range resolvedStack.Parameters {
+	awsParams := make([]awsinternal.Parameter, 0, len(stack.Parameters))
+	for key, value := range stack.Parameters {
 		awsParams = append(awsParams, awsinternal.Parameter{
 			Key:   key,
 			Value: value,
@@ -78,7 +78,7 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, resolvedStack *model.S
 	}
 
 	// Use capabilities from resolved stack, with default fallback
-	capabilities := resolvedStack.Capabilities
+	capabilities := stack.Capabilities
 	if len(capabilities) == 0 {
 		capabilities = []string{"CAPABILITY_IAM"} // Default capability
 	}
@@ -96,10 +96,10 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, resolvedStack *model.S
 	}
 
 	deployInput := awsinternal.DeployStackInput{
-		StackName:    resolvedStack.Name,
-		TemplateBody: resolvedStack.TemplateBody,
+		StackName:    stack.Name,
+		TemplateBody: stack.TemplateBody,
 		Parameters:   awsParams,
-		Tags:         resolvedStack.Tags,
+		Tags:         stack.Tags,
 		Capabilities: capabilities,
 	}
 
@@ -112,32 +112,32 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, resolvedStack *model.S
 		return fmt.Errorf("failed to create stack: %w", err)
 	}
 
-	fmt.Printf("Stack %s create completed successfully\n", resolvedStack.Name)
+	fmt.Printf("Stack %s create completed successfully\n", stack.Name)
 	return nil
 }
 
 // deployWithChangeSet handles deployment using changeset preview + execution
-func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, resolvedStack *model.Stack) error {
+func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack) error {
 	// Create differ for consistent change display
-	fmt.Printf("=== Calculating changes for stack %s ===\n", resolvedStack.Name)
+	fmt.Printf("=== Calculating changes for stack %s ===\n", stack.Name)
 
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 	differ := diff.NewDiffer(cfnOps)
 
 	// Generate diff result using the same system as 'stackaroo diff'
 	diffOptions := diff.Options{Format: "text"}
-	diffResult, err := differ.DiffStack(ctx, resolvedStack, diffOptions)
+	diffResult, err := differ.DiffStack(ctx, stack, diffOptions)
 	if err != nil {
 		return fmt.Errorf("failed to calculate changes: %w", err)
 	}
 
 	// Show preview using consistent formatting
 	if diffResult.HasChanges() {
-		fmt.Printf("Changes to be applied to stack %s:\n\n", resolvedStack.Name)
+		fmt.Printf("Changes to be applied to stack %s:\n\n", stack.Name)
 		fmt.Print(diffResult.String())
 		fmt.Println()
 	} else {
-		fmt.Printf("No changes detected for stack %s\n", resolvedStack.Name)
+		fmt.Printf("No changes detected for stack %s\n", stack.Name)
 		return nil
 	}
 
@@ -145,25 +145,25 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, resolvedStack *mo
 	changeSetMgr := diff.NewChangeSetManager(cfnOps)
 
 	// Use capabilities from resolved stack, with default fallback
-	capabilities := resolvedStack.Capabilities
+	capabilities := stack.Capabilities
 	if len(capabilities) == 0 {
 		capabilities = []string{"CAPABILITY_IAM"} // Default capability
 	}
 
 	changeSetInfo, err := changeSetMgr.CreateChangeSetForDeployment(
 		ctx,
-		resolvedStack.Name,
-		resolvedStack.TemplateBody,
-		resolvedStack.Parameters,
+		stack.Name,
+		stack.TemplateBody,
+		stack.Parameters,
 		capabilities,
-		resolvedStack.Tags,
+		stack.Tags,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create changeset for execution: %w", err)
 	}
 
 	// Execute the changeset
-	fmt.Printf("=== Deploying stack %s ===\n", resolvedStack.Name)
+	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
 	executeInput := &cloudformation.ExecuteChangeSetInput{
 		ChangeSetName: aws.String(changeSetInfo.ChangeSetID),
@@ -187,7 +187,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, resolvedStack *mo
 		)
 	}
 
-	err = cfnOps.WaitForStackOperation(ctx, resolvedStack.Name, eventCallback)
+	err = cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
 	if err != nil {
 		return fmt.Errorf("stack deployment failed: %w", err)
 	}
@@ -195,7 +195,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, resolvedStack *mo
 	// Clean up changeset after successful deployment
 	_ = changeSetMgr.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 
-	fmt.Printf("Stack %s update completed successfully\n", resolvedStack.Name)
+	fmt.Printf("Stack %s update completed successfully\n", stack.Name)
 	return nil
 }
 

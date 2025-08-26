@@ -21,8 +21,8 @@ type MockDiffer struct {
 	mock.Mock
 }
 
-func (m *MockDiffer) DiffStack(ctx context.Context, resolvedStack *model.Stack, options diff.Options) (*diff.Result, error) {
-	args := m.Called(ctx, resolvedStack, options)
+func (m *MockDiffer) DiffStack(ctx context.Context, stack *model.Stack, options diff.Options) (*diff.Result, error) {
+	args := m.Called(ctx, stack, options)
 	return args.Get(0).(*diff.Result), args.Error(1)
 }
 
