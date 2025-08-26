@@ -42,7 +42,7 @@ func TestStack_GetTemplateContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rs := &Stack{
 				Name:         "test-stack",
-				Environment:  "dev",
+				Context:      "dev",
 				TemplateBody: tt.templateBody,
 				Parameters:   map[string]string{},
 				Tags:         map[string]string{},
@@ -66,7 +66,7 @@ func TestStack_Creation(t *testing.T) {
 	t.Run("create resolved stack with all fields", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "test-stack",
-			Environment:  "production",
+			Context:      "production",
 			TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 			Parameters: map[string]string{
 				"Environment":  "prod",
@@ -81,7 +81,7 @@ func TestStack_Creation(t *testing.T) {
 		}
 
 		assert.Equal(t, "test-stack", rs.Name)
-		assert.Equal(t, "production", rs.Environment)
+		assert.Equal(t, "production", rs.Context)
 		assert.Equal(t, `{"AWSTemplateFormatVersion": "2010-09-09"}`, rs.TemplateBody)
 		assert.Equal(t, 2, len(rs.Parameters))
 		assert.Equal(t, "prod", rs.Parameters["Environment"])
@@ -100,7 +100,7 @@ func TestStack_Creation(t *testing.T) {
 	t.Run("create resolved stack with minimal fields", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "minimal-stack",
-			Environment:  "dev",
+			Context:      "dev",
 			TemplateBody: "",
 			Parameters:   map[string]string{},
 			Tags:         map[string]string{},
@@ -109,7 +109,7 @@ func TestStack_Creation(t *testing.T) {
 		}
 
 		assert.Equal(t, "minimal-stack", rs.Name)
-		assert.Equal(t, "dev", rs.Environment)
+		assert.Equal(t, "dev", rs.Context)
 		assert.Equal(t, "", rs.TemplateBody)
 		assert.Empty(t, rs.Parameters)
 		assert.Empty(t, rs.Tags)
@@ -122,13 +122,13 @@ func TestResolvedStacks_Creation(t *testing.T) {
 	t.Run("create resolved stacks with multiple stacks", func(t *testing.T) {
 		stack1 := &Stack{
 			Name:        "vpc-stack",
-			Environment: "dev",
+			Context:     "dev",
 			Parameters:  map[string]string{"VpcCidr": "10.0.0.0/16"},
 		}
 
 		stack2 := &Stack{
 			Name:         "app-stack",
-			Environment:  "dev",
+			Context:      "dev",
 			Parameters:   map[string]string{"Environment": "dev"},
 			Dependencies: []string{"vpc-stack"},
 		}
@@ -165,7 +165,7 @@ func TestStack_NilMaps(t *testing.T) {
 	t.Run("resolved stack with nil maps should work", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "test-stack",
-			Environment:  "dev",
+			Context:      "dev",
 			TemplateBody: "test template",
 			Parameters:   nil,
 			Tags:         nil,
@@ -173,9 +173,9 @@ func TestStack_NilMaps(t *testing.T) {
 			Dependencies: nil,
 		}
 
-		// Should not panic when accessing nil maps/slices
+		// These should all work without panicking
 		assert.Equal(t, "test-stack", rs.Name)
-		assert.Equal(t, "dev", rs.Environment)
+		assert.Equal(t, "dev", rs.Context)
 		assert.Equal(t, "test template", rs.TemplateBody)
 		assert.Nil(t, rs.Parameters)
 		assert.Nil(t, rs.Tags)

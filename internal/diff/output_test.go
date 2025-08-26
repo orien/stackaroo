@@ -16,14 +16,14 @@ import (
 func TestResult_String_TextFormat(t *testing.T) {
 	result := &Result{
 		StackName:   "test-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: true,
 		Options:     Options{Format: "text"},
 	}
 
 	output := result.String()
 
-	assert.Contains(t, output, "Stack: test-stack (Environment: dev)")
+	assert.Contains(t, output, "Stack: test-stack (Context: dev)")
 	assert.Contains(t, output, "Status: NO CHANGES")
 	assert.Contains(t, output, "The deployed stack matches your local configuration.")
 }
@@ -31,7 +31,7 @@ func TestResult_String_TextFormat(t *testing.T) {
 func TestResult_String_JSONFormat(t *testing.T) {
 	result := &Result{
 		StackName:   "test-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: true,
 		Options:     Options{Format: "json"},
 	}
@@ -43,8 +43,7 @@ func TestResult_String_JSONFormat(t *testing.T) {
 	err := json.Unmarshal([]byte(output), &jsonData)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-stack", jsonData["stackName"])
-	assert.Equal(t, "dev", jsonData["environment"])
+	assert.Equal(t, "dev", jsonData["context"])
 	assert.Equal(t, true, jsonData["stackExists"])
 	assert.Equal(t, false, jsonData["hasChanges"])
 }
@@ -52,7 +51,7 @@ func TestResult_String_JSONFormat(t *testing.T) {
 func TestResult_ToText_NewStack(t *testing.T) {
 	result := &Result{
 		StackName:   "new-stack",
-		Environment: "prod",
+		Context:     "prod",
 		StackExists: false,
 		ParameterDiffs: []ParameterDiff{
 			{Key: "InstanceType", ProposedValue: "t3.micro", ChangeType: ChangeTypeAdd},
@@ -62,12 +61,11 @@ func TestResult_ToText_NewStack(t *testing.T) {
 			{Key: "Owner", ProposedValue: "team-a", ChangeType: ChangeTypeAdd},
 			{Key: "Project", ProposedValue: "webapp", ChangeType: ChangeTypeAdd},
 		},
-		Options: Options{Format: "text"},
 	}
 
 	output := result.toText()
 
-	assert.Contains(t, output, "Stack: new-stack (Environment: prod)")
+	assert.Contains(t, output, "Stack: new-stack (Context: prod)")
 	assert.Contains(t, output, "Status: NEW STACK")
 	assert.Contains(t, output, "This stack does not exist in AWS and will be created.")
 	assert.Contains(t, output, "Parameters to be set:")
@@ -81,7 +79,7 @@ func TestResult_ToText_NewStack(t *testing.T) {
 func TestResult_ToText_WithChanges(t *testing.T) {
 	result := &Result{
 		StackName:   "existing-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: true,
 		TemplateChange: &TemplateChange{
 			HasChanges:   true,
@@ -122,7 +120,7 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 	output := result.toText()
 
 	// Header checks
-	assert.Contains(t, output, "Stack: existing-stack (Environment: dev)")
+	assert.Contains(t, output, "Stack: existing-stack (Context: dev)")
 	assert.Contains(t, output, "Status: CHANGES DETECTED")
 
 	// Template changes
@@ -183,7 +181,7 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &Result{
 				StackName:      "test-stack",
-				Environment:    "dev",
+				Context:        "dev",
 				StackExists:    true,
 				TemplateChange: &TemplateChange{HasChanges: true, Diff: "template changes"},
 				ParameterDiffs: []ParameterDiff{{Key: "test", ChangeType: ChangeTypeAdd}},
@@ -206,7 +204,7 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 func TestResult_ToJSON_Complete(t *testing.T) {
 	result := &Result{
 		StackName:   "test-stack",
-		Environment: "prod",
+		Context:     "prod",
 		StackExists: true,
 		TemplateChange: &TemplateChange{
 			HasChanges:   true,
@@ -241,7 +239,7 @@ func TestResult_ToJSON_Complete(t *testing.T) {
 
 	// Check top-level fields
 	assert.Equal(t, "test-stack", data["stackName"])
-	assert.Equal(t, "prod", data["environment"])
+	assert.Equal(t, "prod", data["context"])
 	assert.Equal(t, true, data["stackExists"])
 	assert.Equal(t, true, data["hasChanges"])
 
@@ -290,7 +288,7 @@ func TestResult_ToJSON_Complete(t *testing.T) {
 func TestResult_ToJSON_MinimalData(t *testing.T) {
 	result := &Result{
 		StackName:   "minimal-stack",
-		Environment: "test",
+		Context:     "test",
 		StackExists: false,
 		Options:     Options{Format: "json"},
 	}
@@ -302,7 +300,7 @@ func TestResult_ToJSON_MinimalData(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "minimal-stack", data["stackName"])
-	assert.Equal(t, "test", data["environment"])
+	assert.Equal(t, "test", data["context"])
 	assert.Equal(t, false, data["stackExists"])
 	assert.Equal(t, true, data["hasChanges"]) // New stack (StackExists: false) always has changes
 
@@ -318,7 +316,7 @@ func TestResult_ToJSON_InvalidJSON(t *testing.T) {
 	// We can't easily force json.Marshal to fail in Go, so we test the structure is correct
 	result := &Result{
 		StackName:   "test-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: true,
 		Options:     Options{Format: "json"},
 	}
@@ -330,7 +328,7 @@ func TestResult_ToJSON_InvalidJSON(t *testing.T) {
 
 	// Should be properly formatted
 	assert.Contains(t, jsonOutput, `"stackName": "test-stack"`)
-	assert.Contains(t, jsonOutput, `"environment": "dev"`)
+	assert.Contains(t, jsonOutput, `"context": "dev"`)
 }
 
 func TestResult_FormatNewStackText(t *testing.T) {

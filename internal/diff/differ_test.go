@@ -165,7 +165,7 @@ func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemp
 func createTestResolvedStack() *model.Stack {
 	return &model.Stack{
 		Name:         "test-stack",
-		Environment:  "dev",
+		Context:      "dev",
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 		Parameters:   map[string]string{"Param1": "value1", "Param2": "value2"},
 		Tags:         map[string]string{"Environment": "dev", "Project": "test"},
@@ -243,9 +243,10 @@ func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 
 	// Verify
 	require.NoError(t, err)
+	// Verify result structure
 	assert.NotNil(t, result)
 	assert.Equal(t, "test-stack", result.StackName)
-	assert.Equal(t, "dev", result.Environment)
+	assert.Equal(t, "dev", result.Context)
 	assert.True(t, result.StackExists)
 	assert.False(t, result.HasChanges())
 	assert.Empty(t, result.ParameterDiffs)
@@ -583,9 +584,9 @@ func TestDefaultDiffer_HandleNewStack(t *testing.T) {
 	// Test data
 	stack := createTestResolvedStack()
 	result := &Result{
-		StackName:   stack.Name,
-		Environment: stack.Environment,
-		Options:     Options{Format: "text"},
+		StackName: stack.Name,
+		Context:   stack.Context,
+		Options:   Options{Format: "text"},
 	}
 
 	// Execute

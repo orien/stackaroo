@@ -52,9 +52,9 @@ func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 // DiffStack compares a resolved stack configuration with the deployed stack
 func (d *DefaultDiffer) DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error) {
 	result := &Result{
-		StackName:   stack.Name,
-		Environment: stack.Environment,
-		Options:     options,
+		StackName: stack.Name,
+		Context:   stack.Context,
+		Options:   options,
 	}
 
 	// Check if stack exists in AWS

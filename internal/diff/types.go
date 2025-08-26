@@ -33,7 +33,7 @@ type Options struct {
 // Result contains the results of a stack diff operation
 type Result struct {
 	StackName      string
-	Environment    string
+	Context        string
 	StackExists    bool // Whether the stack exists in AWS
 	TemplateChange *TemplateChange
 	ParameterDiffs []ParameterDiff

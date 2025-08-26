@@ -54,7 +54,7 @@ func TestResult_DefaultValues(t *testing.T) {
 	result := Result{}
 
 	assert.Equal(t, "", result.StackName)
-	assert.Equal(t, "", result.Environment)
+	assert.Equal(t, "", result.Context)
 	assert.False(t, result.StackExists)
 	assert.Nil(t, result.TemplateChange)
 	assert.Nil(t, result.ParameterDiffs)
@@ -73,7 +73,7 @@ func TestResult_FieldAssignment(t *testing.T) {
 
 	result := Result{
 		StackName:      "test-stack",
-		Environment:    "prod",
+		Context:        "prod",
 		StackExists:    true,
 		TemplateChange: templateChange,
 		ParameterDiffs: paramDiffs,
@@ -83,7 +83,7 @@ func TestResult_FieldAssignment(t *testing.T) {
 	}
 
 	assert.Equal(t, "test-stack", result.StackName)
-	assert.Equal(t, "prod", result.Environment)
+	assert.Equal(t, "prod", result.Context)
 	assert.True(t, result.StackExists)
 	assert.Equal(t, templateChange, result.TemplateChange)
 	assert.Equal(t, paramDiffs, result.ParameterDiffs)
@@ -523,7 +523,7 @@ func TestResult_StringMethod_CallsCorrectFormatter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := Result{
 				StackName:   "test-stack",
-				Environment: "dev",
+				Context:     "dev",
 				StackExists: true,
 				Options:     Options{Format: tt.format},
 			}

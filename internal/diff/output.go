@@ -15,7 +15,7 @@ func (r *Result) toText() string {
 	var output strings.Builder
 
 	// Header
-	output.WriteString(fmt.Sprintf("Stack: %s (Environment: %s)\n", r.StackName, r.Environment))
+	output.WriteString(fmt.Sprintf("Stack: %s (Context: %s)\n", r.StackName, r.Context))
 	output.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	// Handle new stack case
@@ -197,7 +197,7 @@ func (r *Result) toJSON() string {
 	// Create a simplified structure for JSON output
 	jsonResult := map[string]interface{}{
 		"stackName":   r.StackName,
-		"environment": r.Environment,
+		"context": r.Context,
 		"stackExists": r.StackExists,
 		"hasChanges":  r.HasChanges(),
 		"options":     r.Options,

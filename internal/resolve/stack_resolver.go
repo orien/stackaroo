@@ -58,7 +58,7 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 
 	return &model.Stack{
 		Name:         stackConfig.Name,
-		Environment:  context,
+		Context:      context,
 		TemplateBody: templateBody,
 		Parameters:   parameters,
 		Tags:         tags,

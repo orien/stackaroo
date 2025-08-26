@@ -7,7 +7,7 @@ package model
 // Stack represents a fully resolved stack ready for deployment
 type Stack struct {
 	Name         string
-	Environment  string
+	Context      string
 	TemplateBody string
 	Parameters   map[string]string
 	Tags         map[string]string
