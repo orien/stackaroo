@@ -30,6 +30,7 @@ stackaroo
 !.github
 
 # Temporary files
+tmp/
 *.tmp
 *.temp
 
