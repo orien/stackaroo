@@ -125,7 +125,8 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 	differ := diff.NewDiffer(cfnOps)
 
 	// Generate diff result using the same system as 'stackaroo diff'
-	diffOptions := diff.Options{Format: "text"}
+	// Keep changeset alive for deployment use
+	diffOptions := diff.Options{Format: "text", KeepChangeSet: true}
 	diffResult, err := differ.DiffStack(ctx, stack, diffOptions)
 	if err != nil {
 		return fmt.Errorf("failed to calculate changes: %w", err)
@@ -141,26 +142,12 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		return nil
 	}
 
-	// Create separate changeset for execution (since differ deletes its changesets)
+	// Get changeset from diff result (kept alive for deployment)
+	if diffResult.ChangeSet == nil {
+		return fmt.Errorf("no changeset available for deployment")
+	}
+	changeSetInfo := diffResult.ChangeSet
 	changeSetMgr := diff.NewChangeSetManager(cfnOps)
-
-	// Use capabilities from resolved stack, with default fallback
-	capabilities := stack.Capabilities
-	if len(capabilities) == 0 {
-		capabilities = []string{"CAPABILITY_IAM"} // Default capability
-	}
-
-	changeSetInfo, err := changeSetMgr.CreateChangeSetForDeployment(
-		ctx,
-		stack.Name,
-		stack.TemplateBody,
-		stack.Parameters,
-		capabilities,
-		stack.Tags,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create changeset for execution: %w", err)
-	}
 
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)

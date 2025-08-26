@@ -105,7 +105,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, stack *model.Stack, optio
 
 	// Generate changeset if there are potential changes and we're doing a full diff
 	if result.HasChanges() && !options.TemplateOnly && !options.ParametersOnly && !options.TagsOnly {
-		changeSetInfo, err := d.generateChangeSet(ctx, stack)
+		changeSetInfo, err := d.generateChangeSet(ctx, stack, options)
 		if err != nil {
 			// Don't fail the entire diff if changeset generation fails
 			// Just log and continue without changeset info
@@ -187,15 +187,35 @@ func (d *DefaultDiffer) compareTags(currentStack *aws.StackInfo, stack *model.St
 }
 
 // generateChangeSet creates an AWS changeset to preview changes
-func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack) (*ChangeSetInfo, error) {
+func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*ChangeSetInfo, error) {
 	// Get proposed template content
 	templateContent, err := stack.GetTemplateContent()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template content: %w", err)
 	}
 
-	// Create changeset
-	changeSetInfo, err := d.changeSetManager.CreateChangeSet(ctx, stack.Name, templateContent, stack.Parameters)
+	// Create changeset - use deployment version if we need to keep it alive
+	var changeSetInfo *ChangeSetInfo
+	if options.KeepChangeSet {
+		// Use deployment-style changeset that doesn't auto-delete
+		capabilities := stack.Capabilities
+		if len(capabilities) == 0 {
+			capabilities = []string{"CAPABILITY_IAM"} // Default capability
+		}
+
+		changeSetInfo, err = d.changeSetManager.CreateChangeSetForDeployment(
+			ctx,
+			stack.Name,
+			templateContent,
+			stack.Parameters,
+			capabilities,
+			stack.Tags,
+		)
+	} else {
+		// Use standard changeset that auto-deletes for preview only
+		changeSetInfo, err = d.changeSetManager.CreateChangeSet(ctx, stack.Name, templateContent, stack.Parameters)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create changeset: %w", err)
 	}

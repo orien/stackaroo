@@ -25,6 +25,9 @@ type Options struct {
 
 	// Output format
 	Format string // "text" or "json"
+
+	// Changeset lifecycle control
+	KeepChangeSet bool // Keep changeset alive after diff (for deployment use)
 }
 
 // Result contains the results of a stack diff operation

@@ -374,7 +374,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	changeSetOutput := &cloudformation.CreateChangeSetOutput{
 		Id: aws.String("test-changeset-id"),
 	}
-	mockCfnOps.On("CreateChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return(changeSetOutput, nil).Times(2)
+	mockCfnOps.On("CreateChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return(changeSetOutput, nil)
 
 	// Mock describe changeset - return complete status with changes
 	describeOutput := &cloudformation.DescribeChangeSetOutput{
@@ -391,7 +391,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 			},
 		},
 	}
-	mockCfnOps.On("DescribeChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(describeOutput, nil).Times(4)
+	mockCfnOps.On("DescribeChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(describeOutput, nil).Times(2)
 
 	// Mock execute changeset
 	mockCfnOps.On("ExecuteChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.ExecuteChangeSetInput")).Return(&cloudformation.ExecuteChangeSetOutput{}, nil)
@@ -400,7 +400,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("WaitForStackOperation", mock.Anything, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Mock delete changeset (cleanup after successful deployment - both differ and deployer delete changesets)
-	mockCfnOps.On("DeleteChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil).Times(2)
+	mockCfnOps.On("DeleteChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
