@@ -31,6 +31,13 @@ Stackaroo simplifies CloudFormation stack management by providing:
 - Parameter validation against template requirements
 - Circular dependency detection
 
+### Real-time Event Streaming
+
+- Live CloudFormation events during deployment operations
+- See resource creation, updates, and completion status in real-time
+- Smart detection of create vs update operations
+- Graceful handling of "no changes" scenarios
+
 ## Installation
 
 ```bash

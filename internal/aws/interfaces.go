@@ -23,6 +23,7 @@ type CloudFormationClient interface {
 	CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
 	DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
 	DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
+	DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error)
 }
 
 // Ensure that the actual CloudFormation client implements our interface
@@ -42,6 +43,7 @@ type Client interface {
 // CloudFormationOperations defines the interface for CloudFormation operations
 type CloudFormationOperations interface {
 	DeployStack(ctx context.Context, input DeployStackInput) error
+	DeployStackWithCallback(ctx context.Context, input DeployStackInput, eventCallback func(StackEvent)) error
 	UpdateStack(ctx context.Context, input UpdateStackInput) error
 	DeleteStack(ctx context.Context, input DeleteStackInput) error
 	GetStack(ctx context.Context, stackName string) (*Stack, error)
@@ -53,4 +55,6 @@ type CloudFormationOperations interface {
 	CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
 	DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
 	DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
+	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
+	WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
 }

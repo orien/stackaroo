@@ -39,6 +39,11 @@ func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aw
 	return args.Error(0)
 }
 
+func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, input, eventCallback)
+	return args.Error(0)
+}
+
 func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
@@ -94,6 +99,16 @@ func (m *MockCloudFormationOperations) DescribeChangeSet(ctx context.Context, pa
 	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
 }
 
+func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+	args := m.Called(ctx, stackName)
+	return args.Get(0).([]aws.StackEvent), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, stackName, eventCallback)
+	return args.Error(0)
+}
+
 func TestNewAWSDeployer(t *testing.T) {
 	// Test that NewAWSDeployer creates a deployer with the provided client
 	mockClient := &MockAWSClient{}
@@ -146,8 +161,12 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	// Set up mock expectations - now expecting resolved parameters and tags from Stack
-	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	// Set up mock expectations - now expecting DeployStackWithCallback
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" &&
 			input.TemplateBody == templateContent &&
 			len(input.Parameters) == 1 &&
@@ -157,7 +176,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 			input.Tags["Environment"] == "test" &&
 			len(input.Capabilities) == 1 &&
 			input.Capabilities[0] == "CAPABILITY_IAM"
-	})).Return(nil)
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
@@ -190,9 +209,13 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
-	})).Return(nil)
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	deployer := NewAWSDeployer(mockClient)
 
@@ -232,9 +255,13 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" && input.TemplateBody == templateContent
-	})).Return(errors.New("AWS deployment error"))
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
@@ -257,6 +284,48 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to deploy stack")
 	assert.Contains(t, err.Error(), "AWS deployment error")
 
+	mockClient.AssertExpectations(t)
+	mockCfnOps.AssertExpectations(t)
+}
+
+func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
+	// Test deploy stack when there are no changes to deploy
+	ctx := context.Background()
+
+	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+
+	// Set up mocks
+	mockCfnOps := &MockCloudFormationOperations{}
+	mockClient := &MockAWSClient{}
+
+	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
+
+	// Mock StackExists call (existing stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
+
+	// Mock DeployStackWithCallback to return NoChangesError
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+		return input.StackName == "test-stack" && input.TemplateBody == templateContent
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(aws.NoChangesError{StackName: "test-stack"})
+
+	// Create deployer with mock client
+	deployer := NewAWSDeployer(mockClient)
+
+	// Create resolved stack
+	resolvedStack := &model.Stack{
+		Name:         "test-stack",
+		TemplateBody: templateContent,
+		Parameters:   map[string]string{},
+		Tags:         map[string]string{},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute
+	err := deployer.DeployStack(ctx, resolvedStack)
+
+	// Verify - should succeed with no error despite NoChangesError
+	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
@@ -367,11 +436,15 @@ Resources:
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		// Verify the template content was passed correctly
 		return input.TemplateBody == templateContent &&
 			input.StackName == "test-stack"
-	})).Return(nil)
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
@@ -404,13 +477,17 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	mockClient := &MockAWSClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
-	mockCfnOps.On("DeployStack", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.TemplateBody == "" &&
 			input.StackName == "test-stack" &&
 			len(input.Parameters) == 2 &&
 			len(input.Tags) == 2 &&
 			len(input.Capabilities) == 2
-	})).Return(nil)
+	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)

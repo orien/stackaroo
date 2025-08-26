@@ -44,6 +44,11 @@ func (m *MockCloudFormationClient) DeployStack(ctx context.Context, input aws.De
 	return args.Error(0)
 }
 
+func (m *MockCloudFormationClient) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, input, eventCallback)
+	return args.Error(0)
+}
+
 func (m *MockCloudFormationClient) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
@@ -82,6 +87,16 @@ func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, params *
 func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
 	args := m.Called(ctx, params)
 	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
+}
+
+func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+	args := m.Called(ctx, stackName)
+	return args.Get(0).([]aws.StackEvent), args.Error(1)
+}
+
+func (m *MockCloudFormationClient) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, stackName, eventCallback)
+	return args.Error(0)
 }
 
 type MockTemplateComparator struct {

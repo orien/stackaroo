@@ -95,6 +95,27 @@ type DeleteStackInput struct {
 	StackName string
 }
 
+// StackEvent represents a CloudFormation stack event
+type StackEvent struct {
+	EventId              string
+	StackName            string
+	LogicalResourceId    string
+	PhysicalResourceId   string
+	ResourceType         string
+	Timestamp            time.Time
+	ResourceStatus       string
+	ResourceStatusReason string
+}
+
+// NoChangesError indicates that a stack operation had no changes to apply
+type NoChangesError struct {
+	StackName string
+}
+
+func (e NoChangesError) Error() string {
+	return fmt.Sprintf("stack %s is already up to date - no changes to deploy", e.StackName)
+}
+
 // DefaultCloudFormationOperations provides CloudFormation-specific operations
 type DefaultCloudFormationOperations struct {
 	client CloudFormationClient
@@ -114,8 +135,15 @@ func NewCloudFormationOperationsWithClient(client CloudFormationClient) *Default
 	}
 }
 
-// DeployStack creates a new CloudFormation stack
+// DeployStack creates or updates a CloudFormation stack and waits for completion
 func (cf *DefaultCloudFormationOperations) DeployStack(ctx context.Context, input DeployStackInput) error {
+	return cf.DeployStackWithCallback(ctx, input, nil)
+}
+
+// DeployStackWithCallback creates or updates a CloudFormation stack and waits for completion,
+// calling the provided callback for each event
+func (cf *DefaultCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input DeployStackInput, eventCallback func(StackEvent)) error {
+	// Convert parameters to AWS format
 	params := make([]types.Parameter, len(input.Parameters))
 	for i, p := range input.Parameters {
 		params[i] = types.Parameter{
@@ -137,19 +165,64 @@ func (cf *DefaultCloudFormationOperations) DeployStack(ctx context.Context, inpu
 		capabilities[i] = types.Capability(cap)
 	}
 
-	_, err := cf.client.CreateStack(ctx, &cloudformation.CreateStackInput{
-		StackName:    aws.String(input.StackName),
-		TemplateBody: aws.String(input.TemplateBody),
-		Parameters:   params,
-		Tags:         tags,
-		Capabilities: capabilities,
-	})
-
+	// Check if stack exists
+	exists, err := cf.StackExists(ctx, input.StackName)
 	if err != nil {
-		return fmt.Errorf("failed to create stack %s: %w", input.StackName, err)
+		return fmt.Errorf("failed to check if stack exists: %w", err)
+	}
+
+	var operationType string
+	if exists {
+		// Update existing stack
+		operationType = "update"
+		_, err = cf.client.UpdateStack(ctx, &cloudformation.UpdateStackInput{
+			StackName:    aws.String(input.StackName),
+			TemplateBody: aws.String(input.TemplateBody),
+			Parameters:   params,
+			Tags:         tags,
+			Capabilities: capabilities,
+		})
+
+		if err != nil {
+			// Check if it's a "no changes" error
+			if isNoChangesError(err) {
+				return NoChangesError{StackName: input.StackName}
+			}
+			return fmt.Errorf("failed to update stack %s: %w", input.StackName, err)
+		}
+	} else {
+		// Create new stack
+		operationType = "create"
+		_, err = cf.client.CreateStack(ctx, &cloudformation.CreateStackInput{
+			StackName:    aws.String(input.StackName),
+			TemplateBody: aws.String(input.TemplateBody),
+			Parameters:   params,
+			Tags:         tags,
+			Capabilities: capabilities,
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to create stack %s: %w", input.StackName, err)
+		}
+	}
+
+	// Wait for operation to complete
+	err = cf.WaitForStackOperation(ctx, input.StackName, eventCallback)
+	if err != nil {
+		return fmt.Errorf("stack %s operation failed: %w", operationType, err)
 	}
 
 	return nil
+}
+
+// isNoChangesError checks if the error indicates no changes are needed
+func isNoChangesError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errorStr := err.Error()
+	return contains(errorStr, "No updates are to be performed") ||
+		contains(errorStr, "ValidationError")
 }
 
 // UpdateStack updates an existing CloudFormation stack
@@ -371,6 +444,120 @@ func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, 
 // DescribeChangeSet describes a CloudFormation changeset
 func (cf *DefaultCloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
 	return cf.client.DescribeChangeSet(ctx, params, optFns...)
+}
+
+// DescribeStackEvents retrieves events for a CloudFormation stack
+func (cf *DefaultCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error) {
+	var events []StackEvent
+	paginator := cloudformation.NewDescribeStackEventsPaginator(cf.client, &cloudformation.DescribeStackEventsInput{
+		StackName: aws.String(stackName),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe stack events for %s: %w", stackName, err)
+		}
+
+		for _, event := range page.StackEvents {
+			stackEvent := StackEvent{
+				EventId:              aws.ToString(event.EventId),
+				StackName:            aws.ToString(event.StackName),
+				LogicalResourceId:    aws.ToString(event.LogicalResourceId),
+				PhysicalResourceId:   aws.ToString(event.PhysicalResourceId),
+				ResourceType:         aws.ToString(event.ResourceType),
+				Timestamp:            aws.ToTime(event.Timestamp),
+				ResourceStatus:       string(event.ResourceStatus),
+				ResourceStatusReason: aws.ToString(event.ResourceStatusReason),
+			}
+			events = append(events, stackEvent)
+		}
+	}
+
+	return events, nil
+}
+
+// WaitForStackOperation waits for a CloudFormation stack operation to complete,
+// calling the provided callback for each new event
+func (cf *DefaultCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error {
+	const pollInterval = 5 * time.Second
+	seenEvents := make(map[string]bool)
+
+	for {
+		// Check stack status
+		stack, err := cf.GetStack(ctx, stackName)
+		if err != nil {
+			return fmt.Errorf("failed to get stack status: %w", err)
+		}
+
+		// Get latest events
+		events, err := cf.DescribeStackEvents(ctx, stackName)
+		if err != nil {
+			return fmt.Errorf("failed to get stack events: %w", err)
+		}
+
+		// Process new events (events are returned in reverse chronological order)
+		for i := len(events) - 1; i >= 0; i-- {
+			event := events[i]
+			if !seenEvents[event.EventId] {
+				seenEvents[event.EventId] = true
+				if eventCallback != nil {
+					eventCallback(event)
+				}
+			}
+		}
+
+		// Check if operation is complete
+		if isStackOperationComplete(stack.Status) {
+			if isStackOperationSuccessful(stack.Status) {
+				return nil
+			}
+			return fmt.Errorf("stack operation failed with status: %s", stack.Status)
+		}
+
+		// Wait before next poll
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(pollInterval):
+			continue
+		}
+	}
+}
+
+// isStackOperationComplete checks if a stack operation has completed
+func isStackOperationComplete(status StackStatus) bool {
+	switch status {
+	case StackStatusCreateComplete,
+		StackStatusCreateFailed,
+		StackStatusUpdateComplete,
+		StackStatusUpdateFailed,
+		StackStatusUpdateRollbackComplete,
+		StackStatusUpdateRollbackFailed,
+		StackStatusDeleteComplete,
+		StackStatusDeleteFailed,
+		StackStatusRollbackComplete,
+		StackStatusRollbackFailed,
+		StackStatusImportComplete,
+		StackStatusImportRollbackComplete,
+		StackStatusImportRollbackFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// isStackOperationSuccessful checks if a completed stack operation was successful
+func isStackOperationSuccessful(status StackStatus) bool {
+	switch status {
+	case StackStatusCreateComplete,
+		StackStatusUpdateComplete,
+		StackStatusDeleteComplete,
+		StackStatusImportComplete:
+		return true
+	default:
+		return false
+	}
 }
 
 // contains is a simple string contains check

@@ -77,6 +77,7 @@ The operations implement the `CloudFormationOperations` interface:
 
 type CloudFormationOperations interface {
     DeployStack(ctx context.Context, input DeployStackInput) error
+    DeployStackWithCallback(ctx context.Context, input DeployStackInput, eventCallback func(StackEvent)) error
     UpdateStack(ctx context.Context, input UpdateStackInput) error
     DeleteStack(ctx context.Context, input DeleteStackInput) error
     GetStack(ctx context.Context, stackName string) (*Stack, error)
@@ -85,6 +86,8 @@ type CloudFormationOperations interface {
     StackExists(ctx context.Context, stackName string) (bool, error)
     GetTemplate(ctx context.Context, stackName string) (string, error)
     DescribeStack(ctx context.Context, stackName string) (*StackInfo, error)
+    DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
+    WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
     CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
     DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
     DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
@@ -92,7 +95,8 @@ type CloudFormationOperations interface {
 ```
 
 **Core Operations:**
-- `DeployStack()` - Create new CloudFormation stacks
+- `DeployStack()` - Create or update CloudFormation stacks (simple version)
+- `DeployStackWithCallback()` - Create or update stacks with real-time event streaming
 - `UpdateStack()` - Update existing stacks
 - `DeleteStack()` - Delete stacks
 - `GetStack()` - Retrieve stack information
@@ -101,6 +105,8 @@ type CloudFormationOperations interface {
 - `StackExists()` - Check stack existence
 - `GetTemplate()` - Retrieve template content for existing stacks
 - `DescribeStack()` - Get detailed stack information including template
+- `DescribeStackEvents()` - Retrieve CloudFormation events for a stack
+- `WaitForStackOperation()` - Wait for stack operation completion with event streaming
 - `CreateChangeSet()` - Create CloudFormation changesets for diff operations
 - `DeleteChangeSet()` - Remove CloudFormation changesets
 - `DescribeChangeSet()` - Get changeset details and proposed changes
@@ -108,8 +114,10 @@ type CloudFormationOperations interface {
 **Data Types:**
 - `Stack` - Represents CloudFormation stack with cleaned-up fields
 - `StackInfo` - Detailed stack information including template content
+- `StackEvent` - Represents CloudFormation stack events with timestamp and resource information
 - `Parameter` - Key-value pairs for stack parameters
 - `StackStatus` - Enumerated stack status values
+- `NoChangesError` - Special error type indicating no changes need to be deployed
 - Input structs for each operation with required and optional fields
 
 **Interface Design:**
@@ -139,8 +147,14 @@ client, err := aws.NewDefaultClient(ctx, aws.Config{
 // Get CloudFormation operations (returns interface)
 cfnOps := client.NewCloudFormationOperations()
 
-// Deploy a stack
-err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
+// Deploy a stack with event streaming
+eventCallback := func(event aws.StackEvent) {
+    timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
+    fmt.Printf("[%s] %-20s %-40s %s\n", 
+        timestamp, event.ResourceStatus, event.ResourceType, event.LogicalResourceId)
+}
+
+err := cfnOps.DeployStackWithCallback(ctx, aws.DeployStackInput{
     StackName:    "my-stack",
     TemplateBody: templateContent,
     Parameters: []aws.Parameter{
@@ -149,6 +163,19 @@ err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
     Tags: map[string]string{
         "Project": "stackaroo",
     },
+}, eventCallback)
+
+// Handle no changes scenario
+if errors.As(err, &aws.NoChangesError{}) {
+    fmt.Println("Stack is already up to date - no changes to deploy")
+} else if err != nil {
+    return fmt.Errorf("deployment failed: %w", err)
+}
+
+// Simple deployment without events
+err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
+    StackName:    "my-stack",
+    TemplateBody: templateContent,
 })
 
 // Check stack status
@@ -169,6 +196,86 @@ result, err := cfnClient.DescribeStackEvents(ctx, &cloudformation.DescribeStackE
     StackName: aws.String("my-stack"),
 })
 ```
+
+## Advanced Deployment Features
+
+### Smart Create vs Update Detection
+
+The `DeployStack()` and `DeployStackWithCallback()` methods automatically detect whether a stack exists and perform the appropriate operation:
+
+- **New stacks**: Calls CloudFormation `CreateStack` operation
+- **Existing stacks**: Calls CloudFormation `UpdateStack` operation
+- **No changes needed**: Returns `NoChangesError` for graceful handling
+
+```go
+// This automatically determines create vs update
+err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
+    StackName:    "my-stack",
+    TemplateBody: templateContent,
+})
+
+// Handle the no changes scenario
+var noChangesErr aws.NoChangesError
+if errors.As(err, &noChangesErr) {
+    fmt.Printf("Stack %s is already up to date\n", noChangesErr.StackName)
+    return nil
+}
+```
+
+### Real-time Event Streaming
+
+The `DeployStackWithCallback()` method provides real-time CloudFormation event streaming during deployment operations:
+
+```go
+// Define event callback for real-time feedback
+eventCallback := func(event aws.StackEvent) {
+    timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
+    fmt.Printf("[%s] %-20s %-40s %s %s\n", 
+        timestamp,
+        event.ResourceStatus,
+        event.ResourceType, 
+        event.LogicalResourceId,
+        event.ResourceStatusReason,
+    )
+}
+
+// Deploy with event streaming
+err := cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
+```
+
+**Event Output Example:**
+```
+Starting create operation for stack my-app...
+[2025-01-09 15:30:45] CREATE_IN_PROGRESS   AWS::CloudFormation::Stack  my-app       User Initiated
+[2025-01-09 15:30:46] CREATE_IN_PROGRESS   AWS::S3::Bucket              AppBucket    
+[2025-01-09 15:30:48] CREATE_COMPLETE      AWS::S3::Bucket              AppBucket    
+[2025-01-09 15:30:50] CREATE_IN_PROGRESS   AWS::Lambda::Function        AppFunction  
+[2025-01-09 15:30:55] CREATE_COMPLETE      AWS::Lambda::Function        AppFunction  
+[2025-01-09 15:30:56] CREATE_COMPLETE      AWS::CloudFormation::Stack  my-app       
+Stack my-app create completed successfully
+```
+
+### Operation Waiting and Polling
+
+The deployment operations automatically wait for completion:
+
+- **Polling interval**: 5 seconds between status checks
+- **Event deduplication**: Only new events are reported via callback
+- **Completion detection**: Monitors stack status for terminal states
+- **Error handling**: Distinguishes between successful and failed operations
+
+```go
+// This will wait until the operation completes or fails
+err := cfnOps.WaitForStackOperation(ctx, "my-stack", eventCallback)
+if err != nil {
+    // Handle deployment failure
+    return fmt.Errorf("stack operation failed: %w", err)
+}
+```
+
+**Terminal Stack States:**
+- **Success**: `CREATE_COMPLETE`, `UPDATE_COMPLETE`, `DELETE_COMPLETE`
+- **Failure**: `CREATE_FAILED`, `UPDATE_FAILED`, `ROLLBACK_COMPLETE`, etc.
 
 ## Configuration Hierarchy
 
@@ -196,6 +303,24 @@ Common error scenarios are identified and handled appropriately:
 - **Permission denied**: Clear indication of IAM policy issues
 - **Template validation**: Detailed error messages for template problems
 - **Rate limiting**: Retryable errors with appropriate backoff
+- **No changes needed**: Special `NoChangesError` type for update operations with no changes
+
+### Special Error Types
+
+#### NoChangesError
+When updating a stack that requires no changes, a special `NoChangesError` is returned:
+
+```go
+type NoChangesError struct {
+    StackName string
+}
+
+func (e NoChangesError) Error() string {
+    return fmt.Sprintf("stack %s is already up to date - no changes to deploy", e.StackName)
+}
+```
+
+This allows applications to distinguish between actual deployment failures and successful "no changes" scenarios.
 
 ### Error Examples
 
@@ -208,6 +333,17 @@ if err != nil {
     } else {
         // Handle other errors
     }
+}
+
+// Handle deployment with no changes
+err := cfnOps.DeployStack(ctx, deployInput)
+if err != nil {
+    var noChangesErr aws.NoChangesError
+    if errors.As(err, &noChangesErr) {
+        fmt.Printf("Stack %s is already up to date\n", noChangesErr.StackName)
+        return nil // This is success, not an error
+    }
+    return fmt.Errorf("deployment failed: %w", err)
 }
 ```
 
@@ -279,6 +415,21 @@ func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aw
     args := m.Called(ctx, input)
     return args.Error(0)
 }
+
+func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
+    args := m.Called(ctx, input, eventCallback)
+    return args.Error(0)
+}
+
+func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+    args := m.Called(ctx, stackName)
+    return args.Get(0).([]aws.StackEvent), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
+    args := m.Called(ctx, stackName, eventCallback)
+    return args.Error(0)
+}
 ```
 
 #### Integration with Business Logic
@@ -298,6 +449,40 @@ deployer := deploy.NewAWSDeployer(mockClient)
 - Use `testify/mock` for professional mocking with expectations
 - Test business logic in isolation from AWS SDK
 - Fast, deterministic tests with no external dependencies
+
+#### Event Callback Testing
+When testing operations with event callbacks, use function type matchers:
+
+```go
+// Test deployment with event streaming
+mockCfnOps.On("DeployStackWithCallback", 
+    ctx,
+    mock.MatchedBy(func(input aws.DeployStackInput) bool {
+        return input.StackName == "test-stack"
+    }),
+    mock.AnythingOfType("func(aws.StackEvent)"),  // Event callback matcher
+).Return(nil)
+
+// Test event callback invocation
+var capturedEvents []aws.StackEvent
+eventCallback := func(event aws.StackEvent) {
+    capturedEvents = append(capturedEvents, event)
+}
+
+err := cfnOps.DeployStackWithCallback(ctx, input, eventCallback)
+assert.NoError(t, err)
+assert.Len(t, capturedEvents, expectedEventCount)
+```
+
+#### Testing NoChangesError
+```go
+// Test no changes scenario
+mockCfnOps.On("DeployStackWithCallback", ctx, input, mock.AnythingOfType("func(aws.StackEvent)")).
+    Return(aws.NoChangesError{StackName: "test-stack"})
+
+err := deployer.DeployStack(ctx, stack)
+assert.NoError(t, err)  // Should handle NoChangesError gracefully
+```
 
 ### Integration Testing  
 - Use AWS localstack or moto for local AWS service simulation

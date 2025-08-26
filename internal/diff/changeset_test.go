@@ -46,6 +46,11 @@ func (m *MockChangeSetClient) DeployStack(ctx context.Context, input aws.DeployS
 	return args.Error(0)
 }
 
+func (m *MockChangeSetClient) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, input, eventCallback)
+	return args.Error(0)
+}
+
 func (m *MockChangeSetClient) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
@@ -84,6 +89,16 @@ func (m *MockChangeSetClient) GetTemplate(ctx context.Context, stackName string)
 func (m *MockChangeSetClient) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
 	args := m.Called(ctx, stackName)
 	return args.Get(0).(*aws.StackInfo), args.Error(1)
+}
+
+func (m *MockChangeSetClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+	args := m.Called(ctx, stackName)
+	return args.Get(0).([]aws.StackEvent), args.Error(1)
+}
+
+func (m *MockChangeSetClient) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
+	args := m.Called(ctx, stackName, eventCallback)
+	return args.Error(0)
 }
 
 // Helper functions for creating test data

@@ -6,6 +6,7 @@ package deploy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -41,7 +42,7 @@ func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
 	return NewAWSDeployer(client), nil
 }
 
-// DeployStack deploys a CloudFormation stack
+// DeployStack deploys a CloudFormation stack with user presentation and event streaming
 func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.Stack) error {
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(resolvedStack.Parameters))
@@ -61,19 +62,52 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, resolvedStack *model.Stac
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 
-	// Deploy the stack
-	err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
+	// Check if stack exists to determine operation type
+	exists, err := cfnOps.StackExists(ctx, resolvedStack.Name)
+	if err != nil {
+		return fmt.Errorf("failed to check if stack exists: %w", err)
+	}
+
+	operationType := "create"
+	if exists {
+		operationType = "update"
+	}
+
+	// Set up event callback for user feedback
+	fmt.Printf("Starting %s operation for stack %s...\n", operationType, resolvedStack.Name)
+
+	eventCallback := func(event aws.StackEvent) {
+		timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
+		fmt.Printf("[%s] %-20s %-40s %s %s\n",
+			timestamp,
+			event.ResourceStatus,
+			event.ResourceType,
+			event.LogicalResourceId,
+			event.ResourceStatusReason,
+		)
+	}
+
+	deployInput := aws.DeployStackInput{
 		StackName:    resolvedStack.Name,
 		TemplateBody: resolvedStack.TemplateBody,
 		Parameters:   awsParams,
 		Tags:         resolvedStack.Tags,
 		Capabilities: capabilities,
-	})
+	}
 
+	// Deploy the stack with event streaming
+	err = cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
 	if err != nil {
+		// Check if it's a "no changes" error
+		var noChangesErr aws.NoChangesError
+		if errors.As(err, &noChangesErr) {
+			fmt.Printf("Stack %s is already up to date - no changes to deploy\n", resolvedStack.Name)
+			return nil
+		}
 		return fmt.Errorf("failed to deploy stack: %w", err)
 	}
 
+	fmt.Printf("Stack %s %s completed successfully\n", resolvedStack.Name, operationType)
 	return nil
 }
 

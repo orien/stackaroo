@@ -111,6 +111,10 @@ func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params
 	return nil, nil
 }
 
+func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+	return nil, nil
+}
+
 func TestConfig_RegionHandling(t *testing.T) {
 	tests := []struct {
 		name           string
