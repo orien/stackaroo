@@ -197,7 +197,7 @@ func (r *Result) toJSON() string {
 	// Create a simplified structure for JSON output
 	jsonResult := map[string]interface{}{
 		"stackName":   r.StackName,
-		"context": r.Context,
+		"context":     r.Context,
 		"stackExists": r.StackExists,
 		"hasChanges":  r.HasChanges(),
 		"options":     r.Options,

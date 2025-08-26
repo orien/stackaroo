@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	diffContextName    string
 	diffTemplateOnly   bool
 	diffParametersOnly bool
 	diffTagsOnly       bool
@@ -27,7 +26,7 @@ var (
 
 // diffCmd represents the diff command
 var diffCmd = &cobra.Command{
-	Use:   "diff [stack-name]",
+	Use:   "diff <context> <stack-name>",
 	Short: "Show differences between deployed stack and local configuration",
 	Long: `Compare the currently deployed CloudFormation stack with your local configuration.
 
@@ -40,26 +39,22 @@ the current configuration. It compares:
 • Resource-level changes (when possible via AWS ChangeSets)
 
 Examples:
-  stackaroo diff vpc --context dev              # Show all changes
-  stackaroo diff vpc --context prod --template  # Template diff only
-  stackaroo diff vpc --context dev --parameters # Parameter diff only
-  stackaroo diff vpc --context dev --format json # JSON output`,
-	Args: cobra.ExactArgs(1),
+  stackaroo diff dev vpc                        # Show all changes
+  stackaroo diff prod vpc --template            # Template diff only
+  stackaroo diff dev vpc --parameters           # Parameter diff only
+  stackaroo diff dev vpc --format json          # JSON output`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stackName := args[0]
+		contextName := args[0]
+		stackName := args[1]
 		ctx := context.Background()
-
-		// Context must be provided
-		if diffContextName == "" {
-			return fmt.Errorf("--context must be specified")
-		}
 
 		// Validate format option
 		if diffFormat != "text" && diffFormat != "json" {
 			return fmt.Errorf("--format must be 'text' or 'json'")
 		}
 
-		return diffWithConfig(ctx, stackName, diffContextName)
+		return diffWithConfig(ctx, stackName, contextName)
 	},
 }
 
@@ -144,12 +139,6 @@ func diffWithConfig(ctx context.Context, stackName, contextName string) error {
 
 func init() {
 	rootCmd.AddCommand(diffCmd)
-
-	// Required flags
-	diffCmd.Flags().StringVar(&diffContextName, "context", "", "deployment context")
-	if err := diffCmd.MarkFlagRequired("context"); err != nil {
-		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
-	}
 
 	// Optional flags for filtering diff output
 	diffCmd.Flags().BoolVar(&diffTemplateOnly, "template", false, "show only template differences")

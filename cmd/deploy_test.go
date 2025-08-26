@@ -41,7 +41,7 @@ func TestDeployCommand_Exists(t *testing.T) {
 	deployCmd := findCommand(rootCmd, "deploy")
 
 	assert.NotNil(t, deployCmd, "deploy command should be registered")
-	assert.Equal(t, "deploy", deployCmd.Use)
+	assert.Equal(t, "deploy <context> <stack-name>", deployCmd.Use)
 }
 
 func TestDeployCommand_AcceptsStackName(t *testing.T) {
@@ -53,19 +53,24 @@ func TestDeployCommand_AcceptsStackName(t *testing.T) {
 	assert.NotNil(t, deployCmd.Args, "deploy command should have Args validation set")
 }
 
-func TestDeployCommand_HasContextFlag(t *testing.T) {
-	// Test that deploy command has a --context flag
+func TestDeployCommand_AcceptsTwoArgs(t *testing.T) {
+	// Test that deploy command accepts exactly two arguments (context and stack name)
 	deployCmd := findCommand(rootCmd, "deploy")
 	assert.NotNil(t, deployCmd)
 
-	// Check that --context flag exists
-	contextFlag := deployCmd.Flags().Lookup("context")
-	assert.NotNil(t, contextFlag, "deploy command should have --context flag")
-	assert.Equal(t, "context", contextFlag.Name)
+	// Test that Args validation requires exactly 2 arguments
+	err := deployCmd.Args(deployCmd, []string{"dev", "vpc"})
+	assert.NoError(t, err, "Two arguments should be valid")
+
+	err = deployCmd.Args(deployCmd, []string{"dev"})
+	assert.Error(t, err, "One argument should be invalid")
+
+	err = deployCmd.Args(deployCmd, []string{})
+	assert.Error(t, err, "No arguments should be invalid")
 }
 
-func TestDeployCommand_RequiresContext(t *testing.T) {
-	// Test that deploy command requires --context flag
+func TestDeployCommand_RequiresTwoArgs(t *testing.T) {
+	// Test that deploy command requires both context and stack name arguments
 
 	// Mock deployer that shouldn't be called
 	mockDeployer := &MockDeployer{}
@@ -74,12 +79,12 @@ func TestDeployCommand_RequiresContext(t *testing.T) {
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer)
 
-	// Execute without context flag - should fail
+	// Execute with only one argument - should fail
 	rootCmd.SetArgs([]string{"deploy", "test-stack"})
 
 	err := rootCmd.Execute()
-	assert.Error(t, err, "deploy command should require --context flag")
-	assert.Contains(t, err.Error(), "required flag(s) \"context\" not set")
+	assert.Error(t, err, "deploy command should require both context and stack name arguments")
+	assert.Contains(t, err.Error(), "accepts 2 arg(s), received 1")
 
 	// Verify no deployer calls were made
 	mockDeployer.AssertExpectations(t)
@@ -129,7 +134,7 @@ stacks:
 	}()
 
 	// Execute the root command with deploy subcommand and arguments
-	rootCmd.SetArgs([]string{"deploy", "test-stack", "--context", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test", "test-stack"})
 
 	// Execute the command - should return error
 	err = rootCmd.Execute()
@@ -139,7 +144,7 @@ stacks:
 }
 
 func TestDeployCommand_RequiresStackName(t *testing.T) {
-	// Test that deploy command requires exactly one argument (stack name)
+	// Test that deploy command requires exactly two arguments (context and stack name)
 
 	// Mock deployer that shouldn't be called (no expectations set)
 	mockDeployer := &MockDeployer{}
@@ -151,10 +156,15 @@ func TestDeployCommand_RequiresStackName(t *testing.T) {
 	// Test with no arguments
 	rootCmd.SetArgs([]string{"deploy"})
 	err := rootCmd.Execute()
-	assert.Error(t, err, "should error when no stack name provided")
+	assert.Error(t, err, "should error when no arguments provided")
+
+	// Test with one argument (missing stack name)
+	rootCmd.SetArgs([]string{"deploy", "dev"})
+	err = rootCmd.Execute()
+	assert.Error(t, err, "should error when only context provided")
 
 	// Test with too many arguments
-	rootCmd.SetArgs([]string{"deploy", "stack1", "stack2"})
+	rootCmd.SetArgs([]string{"deploy", "dev", "stack1", "stack2"})
 	err = rootCmd.Execute()
 	assert.Error(t, err, "should error when too many arguments provided")
 
@@ -224,12 +234,12 @@ stacks:
 	}()
 
 	// First deployment should succeed
-	rootCmd.SetArgs([]string{"deploy", "stack-1", "--context", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test", "stack-1"})
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "first deployment should succeed")
 
 	// Second deployment should fail
-	rootCmd.SetArgs([]string{"deploy", "stack-2", "--context", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test", "stack-2"})
 	err = rootCmd.Execute()
 	assert.Error(t, err, "second deployment should fail")
 	assert.Contains(t, err.Error(), "second deployment failed", "error should contain expected message")
@@ -316,8 +326,8 @@ stacks:
 		require.NoError(t, err)
 	}()
 
-	// Execute deploy command with context flag
-	rootCmd.SetArgs([]string{"deploy", "vpc", "--context", "dev"})
+	// Execute deploy command with context and stack name
+	rootCmd.SetArgs([]string{"deploy", "dev", "vpc"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy command should execute successfully with config")
@@ -402,7 +412,7 @@ stacks:
 
 	// This should resolve dependencies and deploy: vpc → database → app
 	// But current implementation will only deploy app
-	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test", "app"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy should succeed")
@@ -478,7 +488,7 @@ stacks:
 	}()
 
 	// Deploy app - should trigger resolver to deploy vpc → database → app
-	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test", "app"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy should succeed")
@@ -576,7 +586,7 @@ stacks:
 // Helper function to find a command by name
 func findCommand(parent *cobra.Command, name string) *cobra.Command {
 	for _, cmd := range parent.Commands() {
-		if cmd.Use == name {
+		if cmd.Name() == name {
 			return cmd
 		}
 	}

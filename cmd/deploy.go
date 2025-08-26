@@ -16,14 +16,13 @@ import (
 )
 
 var (
-	contextName string
 	// deployer can be injected for testing
 	deployer deploy.Deployer
 )
 
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
-	Use:   "deploy",
+	Use:   "deploy <context> <stack-name>",
 	Short: "Deploy CloudFormation stacks",
 	Long: `Deploy CloudFormation stacks with integrated change preview.
 
@@ -39,20 +38,16 @@ ChangeSets to provide accurate previews including:
 For new stacks, the command proceeds directly with stack creation.
 
 Examples:
-  stackaroo deploy vpc --context dev
-  stackaroo deploy app --context prod
+  stackaroo deploy dev vpc
+  stackaroo deploy prod app
 
 The preview shows the same detailed diff information as 'stackaroo diff' but 
 automatically proceeds with deployment after displaying the changes.`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stackName := args[0]
+		contextName := args[0]
+		stackName := args[1]
 		ctx := context.Background()
-
-		// Context must be provided
-		if contextName == "" {
-			return fmt.Errorf("--context must be specified")
-		}
 
 		return deployWithConfig(ctx, stackName, contextName)
 	},
@@ -125,8 +120,4 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVar(&contextName, "context", "", "deployment context")
-	if err := deployCmd.MarkFlagRequired("context"); err != nil {
-		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
-	}
 }

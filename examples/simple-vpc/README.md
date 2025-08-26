@@ -53,17 +53,17 @@ The `stackaroo.yaml` file defines:
 
 3. **Deploy to development** (shows preview before applying changes):
    ```bash
-   ../../stackaroo deploy vpc --context dev
+   ../../stackaroo deploy dev vpc
    ```
 
 4. **Deploy to staging** (shows preview before applying changes):
    ```bash
-   ../../stackaroo deploy vpc --context staging
+   ../../stackaroo deploy staging vpc
    ```
 
 5. **Deploy to production** (requires production account access):
    ```bash
-   ../../stackaroo deploy vpc --context prod
+   ../../stackaroo deploy prod vpc
    ```
 
 ## Preview Output
@@ -118,16 +118,16 @@ Each deployment creates:
 
 Check the status of your deployments:
 ```bash
-../../stackaroo status vpc --context dev
+../../stackaroo status dev vpc
 ```
 
 ## Cleanup
 
 To remove the infrastructure:
 ```bash
-../../stackaroo delete vpc --context dev
-../../stackaroo delete vpc --context staging
-../../stackaroo delete vpc --context prod
+../../stackaroo delete dev vpc
+../../stackaroo delete staging vpc
+../../stackaroo delete prod vpc
 ```
 
 ## Learning Points

@@ -121,9 +121,9 @@ func TestStack_Creation(t *testing.T) {
 func TestResolvedStacks_Creation(t *testing.T) {
 	t.Run("create resolved stacks with multiple stacks", func(t *testing.T) {
 		stack1 := &Stack{
-			Name:        "vpc-stack",
-			Context:     "dev",
-			Parameters:  map[string]string{"VpcCidr": "10.0.0.0/16"},
+			Name:       "vpc-stack",
+			Context:    "dev",
+			Parameters: map[string]string{"VpcCidr": "10.0.0.0/16"},
 		}
 
 		stack2 := &Stack{

@@ -28,17 +28,12 @@ func (m *MockDiffer) DiffStack(ctx context.Context, stack *model.Stack, options 
 
 func TestDiffCmd_Structure(t *testing.T) {
 	// Test command structure
-	assert.Equal(t, "diff [stack-name]", diffCmd.Use)
+	assert.Equal(t, "diff <context> <stack-name>", diffCmd.Use)
 	assert.Equal(t, "Show differences between deployed stack and local configuration", diffCmd.Short)
 	assert.NotEmpty(t, diffCmd.Long)
 
 	// Test flags
 	flags := diffCmd.Flags()
-
-	// Required context flag
-	contextFlag := flags.Lookup("context")
-	require.NotNil(t, contextFlag)
-	assert.Equal(t, "", contextFlag.DefValue)
 
 	// Optional filter flags
 	templateFlag := flags.Lookup("template")
@@ -60,37 +55,34 @@ func TestDiffCmd_Structure(t *testing.T) {
 
 func TestDiffCmd_RequiredArgs(t *testing.T) {
 	// Test with correct number of arguments using Cobra's validation
-	err := diffCmd.Args(diffCmd, []string{"stack-name"})
-	assert.NoError(t, err, "One argument should be valid")
+	err := diffCmd.Args(diffCmd, []string{"dev", "stack-name"})
+	assert.NoError(t, err, "Two arguments should be valid")
 
 	// Test with no arguments - should fail
 	err = diffCmd.Args(diffCmd, []string{})
 	assert.Error(t, err, "No arguments should be invalid")
 
+	// Test with one argument - should fail
+	err = diffCmd.Args(diffCmd, []string{"dev"})
+	assert.Error(t, err, "One argument should be invalid")
+
 	// Test with too many arguments - should fail
-	err = diffCmd.Args(diffCmd, []string{"stack1", "stack2"})
+	err = diffCmd.Args(diffCmd, []string{"dev", "stack1", "stack2"})
 	assert.Error(t, err, "Too many arguments should be invalid")
 }
 
 func TestDiffCmd_MissingContext(t *testing.T) {
-	// Setup
-	diffContextName = ""
-
-	// Execute
-	err := diffCmd.RunE(diffCmd, []string{"test-stack"})
-
-	// Verify
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "--context must be specified")
+	// This test is no longer needed since context is now a positional argument
+	// The Args validation will handle missing context
+	t.Skip("Context is now a positional argument, validated by Args")
 }
 
 func TestDiffCmd_InvalidFormat(t *testing.T) {
 	// Setup
-	diffContextName = "dev"
 	diffFormat = "invalid"
 
 	// Execute
-	err := diffCmd.RunE(diffCmd, []string{"test-stack"})
+	err := diffCmd.RunE(diffCmd, []string{"dev", "test-stack"})
 
 	// Verify
 	assert.Error(t, err)
@@ -112,16 +104,16 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 
 	// Create test resolved stack
 	testStack := &model.Stack{
-		Name:        "test-stack",
-		Environment: "dev",
-		Parameters:  map[string]string{"Param1": "value1"},
-		Tags:        map[string]string{"Environment": "dev"},
+		Name:       "test-stack",
+		Context:    "dev",
+		Parameters: map[string]string{"Param1": "value1"},
+		Tags:       map[string]string{"Environment": "dev"},
 	}
 
 	// Create test result with no changes
 	testResult := &diff.Result{
 		StackName:   "test-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: true,
 		Options:     diff.Options{Format: "text"},
 	}
@@ -154,16 +146,16 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 
 	// Create test resolved stack
 	testStack := &model.Stack{
-		Name:        "test-stack",
-		Environment: "dev",
-		Parameters:  map[string]string{"Param1": "newvalue"},
-		Tags:        map[string]string{"Environment": "dev"},
+		Name:       "test-stack",
+		Context:    "dev",
+		Parameters: map[string]string{"Param1": "newvalue"},
+		Tags:       map[string]string{"Environment": "dev"},
 	}
 
 	// Create test result with changes
 	testResult := &diff.Result{
 		StackName:      "test-stack",
-		Environment:    "dev",
+		Context:        "dev",
 		StackExists:    true,
 		ParameterDiffs: []diff.ParameterDiff{{Key: "Param1", CurrentValue: "oldvalue", ProposedValue: "newvalue", ChangeType: diff.ChangeTypeModify}},
 		Options:        diff.Options{Format: "text"},
@@ -198,7 +190,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	// Create test resolved stack
 	testStack := &model.Stack{
 		Name:         "test-stack",
-		Environment:  "dev",
+		Context:      "dev",
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 		Parameters:   map[string]string{"Param1": "value1"},
 		Tags:         map[string]string{"Environment": "dev"},
@@ -208,7 +200,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	// Create test result for new stack
 	testResult := &diff.Result{
 		StackName:   "test-stack",
-		Environment: "dev",
+		Context:     "dev",
 		StackExists: false, // New stack
 		TemplateChange: &diff.TemplateChange{
 			HasChanges: true,
@@ -244,10 +236,10 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 
 	// Create test resolved stack
 	testStack := &model.Stack{
-		Name:        "test-stack",
-		Environment: "dev",
-		Parameters:  map[string]string{},
-		Tags:        map[string]string{},
+		Name:       "test-stack",
+		Context:    "dev",
+		Parameters: map[string]string{},
+		Tags:       map[string]string{},
 	}
 
 	// Setup expectations - differ returns error
@@ -338,10 +330,10 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 
 			// Create test resolved stack
 			testStack := &model.Stack{
-				Name:        "test-stack",
-				Environment: "dev",
-				Parameters:  map[string]string{},
-				Tags:        map[string]string{},
+				Name:       "test-stack",
+				Context:    "dev",
+				Parameters: map[string]string{},
+				Tags:       map[string]string{},
 			}
 
 			// Setup mock differ
@@ -353,7 +345,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			// Create test result
 			testResult := &diff.Result{
 				StackName:   "test-stack",
-				Environment: "dev",
+				Context:     "dev",
 				StackExists: true,
 				Options:     tt.expectedOptions,
 			}
@@ -409,7 +401,6 @@ func TestGetDiffer_DefaultCreation(t *testing.T) {
 
 // Test helper to reset command flags to defaults
 func resetDiffFlags() {
-	diffContextName = ""
 	diffTemplateOnly = false
 	diffParametersOnly = false
 	diffTagsOnly = false
