@@ -23,7 +23,7 @@ func TestRootCmd_Structure(t *testing.T) {
 	// Test that the long description contains expected content
 	assert.Contains(t, rootCmd.Long, "Stackaroo is a CLI tool")
 	assert.Contains(t, rootCmd.Long, "Declarative configuration in YAML files")
-	assert.Contains(t, rootCmd.Long, "Environment-specific parameter management")
+	assert.Contains(t, rootCmd.Long, "Context-specific parameter management")
 	assert.Contains(t, rootCmd.Long, "Stack dependency resolution")
 	assert.Contains(t, rootCmd.Long, "Template validation and deployment")
 }
@@ -218,13 +218,13 @@ func TestRootCmd_LongDescription_Content(t *testing.T) {
 
 	// Should mention key features
 	assert.Contains(t, longDesc, "• Declarative configuration in YAML files")
-	assert.Contains(t, longDesc, "• Environment-specific parameter management")
+	assert.Contains(t, longDesc, "• Context-specific parameter management")
 	assert.Contains(t, longDesc, "• Stack dependency resolution")
 	assert.Contains(t, longDesc, "• Template validation and deployment")
 	assert.Contains(t, longDesc, "• Rich terminal output with progress indicators")
 
 	// Should mention usage
 	assert.Contains(t, longDesc, "Use stackaroo to deploy, update, delete, diff, and monitor")
-	assert.Contains(t, longDesc, "multiple environments")
+	assert.Contains(t, longDesc, "multiple contexts")
 	assert.Contains(t, longDesc, "consistent, repeatable configurations")
 }

@@ -145,9 +145,9 @@ For straightforward command handlers and basic functionality:
 ```go
 func TestFunctionName_Scenario_ExpectedBehaviour(t *testing.T) {
     // Arrange - Set up test data and mocks
-    
+
     // Act - Execute the function under test
-    
+
     // Assert - Verify the expected behaviour
     require.NoError(t, err)
     assert.Equal(t, expected, actual)
@@ -160,17 +160,17 @@ func TestCloudFormationService_CreateStack_Success(t *testing.T) {
     // Arrange
     mockCF := &mockCloudFormationAPI{}
     service := NewCloudFormationService(mockCF)
-    
+
     expectedInput := &cloudformation.CreateStackInput{
         StackName: aws.String("test-stack"),
     }
-    
+
     mockCF.On("CreateStack", mock.AnythingOfType("*context.emptyCtx"), expectedInput).
         Return(&cloudformation.CreateStackOutput{}, nil)
-    
+
     // Act
     result, err := service.CreateStack(context.Background(), "test-stack", template)
-    
+
     // Assert
     require.NoError(t, err)
     assert.NotNil(t, result)
@@ -279,18 +279,13 @@ All tests must pass before merging. Run `make commit-check` before committing.
 
 ### YAML Configuration
 - Stack definitions in YAML format
-- Environment-specific parameter overrides
+- Context-specific parameter overrides
 - Template path resolution
 - Dependency declarations with `depends_on`
 
 ### File Structure Expectations
 ```
 stackaroo.yml           # Main configuration
-environments/
-  dev/
-    parameters.yml      # Dev environment parameters
-  prod/
-    parameters.yml      # Prod environment parameters
 templates/
   vpc.yml              # CloudFormation templates
   app.yml
@@ -318,7 +313,7 @@ make version            # Show version info
 
 ### Supported Platforms
 - Linux (AMD64, ARM64)
-- macOS (AMD64, ARM64) 
+- macOS (AMD64, ARM64)
 - Windows (AMD64, ARM64)
 
 ## Common Development Tasks

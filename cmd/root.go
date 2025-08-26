@@ -18,14 +18,14 @@ var rootCmd = &cobra.Command{
 	Long: `Stackaroo is a CLI tool that simplifies CloudFormation stack management by providing:
 
 • Declarative configuration in YAML files
-• Environment-specific parameter management
+• Context-specific parameter management
 • Stack dependency resolution
 • Change preview before deployment
 • Template validation and deployment
 • Rich terminal output with progress indicators
 
 Use stackaroo to deploy, update, delete, diff, and monitor your CloudFormation stacks
-across multiple environments with consistent, repeatable configurations.`,
+across multiple contexts with consistent, repeatable configurations.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

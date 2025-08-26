@@ -35,10 +35,10 @@ func TestDiffCmd_Structure(t *testing.T) {
 	// Test flags
 	flags := diffCmd.Flags()
 
-	// Required environment flag
-	envFlag := flags.Lookup("environment")
-	require.NotNil(t, envFlag)
-	assert.Equal(t, "", envFlag.DefValue)
+	// Required context flag
+	contextFlag := flags.Lookup("context")
+	require.NotNil(t, contextFlag)
+	assert.Equal(t, "", contextFlag.DefValue)
 
 	// Optional filter flags
 	templateFlag := flags.Lookup("template")
@@ -72,21 +72,21 @@ func TestDiffCmd_RequiredArgs(t *testing.T) {
 	assert.Error(t, err, "Too many arguments should be invalid")
 }
 
-func TestDiffCmd_MissingEnvironment(t *testing.T) {
+func TestDiffCmd_MissingContext(t *testing.T) {
 	// Setup
-	diffEnvironmentName = ""
+	diffContextName = ""
 
 	// Execute
 	err := diffCmd.RunE(diffCmd, []string{"test-stack"})
 
 	// Verify
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "--environment must be specified")
+	assert.Contains(t, err.Error(), "--context must be specified")
 }
 
 func TestDiffCmd_InvalidFormat(t *testing.T) {
 	// Setup
-	diffEnvironmentName = "dev"
+	diffContextName = "dev"
 	diffFormat = "invalid"
 
 	// Execute
@@ -409,7 +409,7 @@ func TestGetDiffer_DefaultCreation(t *testing.T) {
 
 // Test helper to reset command flags to defaults
 func resetDiffFlags() {
-	diffEnvironmentName = ""
+	diffContextName = ""
 	diffTemplateOnly = false
 	diffParametersOnly = false
 	diffTagsOnly = false

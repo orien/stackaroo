@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	environmentName string
+	contextName string
 	// deployer can be injected for testing
 	deployer deploy.Deployer
 )
@@ -39,8 +39,8 @@ ChangeSets to provide accurate previews including:
 For new stacks, the command proceeds directly with stack creation.
 
 Examples:
-  stackaroo deploy vpc --environment dev
-  stackaroo deploy app --environment prod
+  stackaroo deploy vpc --context dev
+  stackaroo deploy app --context prod
 
 The preview shows the same detailed diff information as 'stackaroo diff' but 
 automatically proceeds with deployment after displaying the changes.`,
@@ -49,12 +49,12 @@ automatically proceeds with deployment after displaying the changes.`,
 		stackName := args[0]
 		ctx := context.Background()
 
-		// Environment must be provided
-		if environmentName == "" {
-			return fmt.Errorf("--environment must be specified")
+		// Context must be provided
+		if contextName == "" {
+			return fmt.Errorf("--context must be specified")
 		}
 
-		return deployWithConfig(ctx, stackName, environmentName)
+		return deployWithConfig(ctx, stackName, contextName)
 	},
 }
 
@@ -82,13 +82,13 @@ func SetDeployer(d deploy.Deployer) {
 }
 
 // deployWithConfig handles deployment using configuration file
-func deployWithConfig(ctx context.Context, stackName, environmentName string) error {
+func deployWithConfig(ctx context.Context, stackName, contextName string) error {
 	// Create configuration provider and resolver
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 
 	// Resolve stack and all its dependencies
-	resolved, err := resolver.Resolve(ctx, environmentName, []string{stackName})
+	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
@@ -117,7 +117,7 @@ func deployWithConfig(ctx context.Context, stackName, environmentName string) er
 			return fmt.Errorf("error deploying stack %s: %w", stackName, err)
 		}
 
-		fmt.Printf("Successfully deployed stack %s in environment %s\n", stackName, environmentName)
+		fmt.Printf("Successfully deployed stack %s in context %s\n", stackName, contextName)
 	}
 
 	return nil
@@ -125,8 +125,8 @@ func deployWithConfig(ctx context.Context, stackName, environmentName string) er
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVar(&environmentName, "environment", "", "deployment environment")
-	if err := deployCmd.MarkFlagRequired("environment"); err != nil {
-		panic(fmt.Sprintf("failed to mark environment flag as required: %v", err))
+	deployCmd.Flags().StringVar(&contextName, "context", "", "deployment context")
+	if err := deployCmd.MarkFlagRequired("context"); err != nil {
+		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
 	}
 }

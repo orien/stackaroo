@@ -18,14 +18,14 @@ contexts:
     tags:
       Environment: dev
       CostCenter: engineering
-      
+
   staging:
     account: "123456789012"  # Same account as dev
     region: us-east-1        # Different region
     tags:
       Environment: staging
       CostCenter: engineering
-      
+
   prod:
     account: "987654321098"  # Production account
     region: us-east-1
@@ -43,7 +43,7 @@ stacks:
       EnableDnsSupport: "true"
     tags:
       Component: networking
-    capabilities: 
+    capabilities:
       - CAPABILITY_IAM
     contexts:
       dev:
@@ -62,6 +62,6 @@ stacks:
           Monitoring: enabled
 
 # Usage examples:
-#   stackaroo deploy vpc --environment dev     # Deploy to dev environment
-#   stackaroo deploy vpc --environment prod    # Deploy to production
-#   stackaroo list --environment staging       # List stacks in staging
+#   stackaroo deploy vpc --context dev     # Deploy to dev environment
+#   stackaroo deploy vpc --context prod    # Deploy to production
+#   stackaroo list --context staging       # List stacks in staging

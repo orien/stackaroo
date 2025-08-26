@@ -62,7 +62,7 @@ graph TB
 ```mermaid
 classDiagram
     class DiffCommand {
-        +diffEnvironmentName: string
+        +diffContextName: string
         +diffTemplateOnly: bool
         +diffParametersOnly: bool
         +diffTagsOnly: bool
@@ -282,7 +282,7 @@ sequenceDiagram
 
 **Enhanced Integration:**
 - `ResolvedStack.GetTemplateContent()` - Access resolved template
-- `ResolvedStack.Environment` - Track deployment context
+- `ResolvedStacks.Context` - Track deployment context
 - Dependency resolution for complete stack information
 
 ### 4. Deployment Integration (`internal/deploy`)

@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	diffEnvironmentName string
-	diffTemplateOnly    bool
-	diffParametersOnly  bool
-	diffTagsOnly        bool
-	diffFormat          string
+	diffContextName    string
+	diffTemplateOnly   bool
+	diffParametersOnly bool
+	diffTagsOnly       bool
+	diffFormat         string
 	// differ can be injected for testing
 	differ diff.Differ
 )
@@ -40,18 +40,18 @@ the current configuration. It compares:
 • Resource-level changes (when possible via AWS ChangeSets)
 
 Examples:
-  stackaroo diff vpc --environment dev              # Show all changes
-  stackaroo diff vpc --environment prod --template  # Template diff only
-  stackaroo diff vpc --environment dev --parameters # Parameter diff only
-  stackaroo diff vpc --environment dev --format json # JSON output`,
+  stackaroo diff vpc --context dev              # Show all changes
+  stackaroo diff vpc --context prod --template  # Template diff only
+  stackaroo diff vpc --context dev --parameters # Parameter diff only
+  stackaroo diff vpc --context dev --format json # JSON output`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
 		ctx := context.Background()
 
-		// Environment must be provided
-		if diffEnvironmentName == "" {
-			return fmt.Errorf("--environment must be specified")
+		// Context must be provided
+		if diffContextName == "" {
+			return fmt.Errorf("--context must be specified")
 		}
 
 		// Validate format option
@@ -59,7 +59,7 @@ Examples:
 			return fmt.Errorf("--format must be 'text' or 'json'")
 		}
 
-		return diffWithConfig(ctx, stackName, diffEnvironmentName)
+		return diffWithConfig(ctx, stackName, diffContextName)
 	},
 }
 
@@ -87,13 +87,13 @@ func SetDiffer(d diff.Differ) {
 }
 
 // diffWithConfig handles diff using configuration file
-func diffWithConfig(ctx context.Context, stackName, environmentName string) error {
+func diffWithConfig(ctx context.Context, stackName, contextName string) error {
 	// Create configuration provider and resolver
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 
 	// Resolve stack and all its dependencies
-	resolved, err := resolver.Resolve(ctx, environmentName, []string{stackName})
+	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
@@ -134,9 +134,9 @@ func diffWithConfig(ctx context.Context, stackName, environmentName string) erro
 	// Set exit code based on whether changes were found
 	if result.HasChanges() {
 		// Exit with code 1 if changes detected (similar to git diff)
-		fmt.Printf("\nChanges detected for stack %s in environment %s\n", stackName, environmentName)
+		fmt.Printf("\nChanges detected for stack %s in context %s\n", stackName, contextName)
 	} else {
-		fmt.Printf("\nNo changes detected for stack %s in environment %s\n", stackName, environmentName)
+		fmt.Printf("\nNo changes detected for stack %s in context %s\n", stackName, contextName)
 	}
 
 	return nil
@@ -146,9 +146,9 @@ func init() {
 	rootCmd.AddCommand(diffCmd)
 
 	// Required flags
-	diffCmd.Flags().StringVar(&diffEnvironmentName, "environment", "", "deployment environment")
-	if err := diffCmd.MarkFlagRequired("environment"); err != nil {
-		panic(fmt.Sprintf("failed to mark environment flag as required: %v", err))
+	diffCmd.Flags().StringVar(&diffContextName, "context", "", "deployment context")
+	if err := diffCmd.MarkFlagRequired("context"); err != nil {
+		panic(fmt.Sprintf("failed to mark context flag as required: %v", err))
 	}
 
 	// Optional flags for filtering diff output

@@ -53,19 +53,19 @@ func TestDeployCommand_AcceptsStackName(t *testing.T) {
 	assert.NotNil(t, deployCmd.Args, "deploy command should have Args validation set")
 }
 
-func TestDeployCommand_HasEnvironmentFlag(t *testing.T) {
-	// Test that deploy command has a --environment flag
+func TestDeployCommand_HasContextFlag(t *testing.T) {
+	// Test that deploy command has a --context flag
 	deployCmd := findCommand(rootCmd, "deploy")
 	assert.NotNil(t, deployCmd)
 
-	// Check that --environment flag exists
-	environmentFlag := deployCmd.Flags().Lookup("environment")
-	assert.NotNil(t, environmentFlag, "deploy command should have --environment flag")
-	assert.Equal(t, "environment", environmentFlag.Name)
+	// Check that --context flag exists
+	contextFlag := deployCmd.Flags().Lookup("context")
+	assert.NotNil(t, contextFlag, "deploy command should have --context flag")
+	assert.Equal(t, "context", contextFlag.Name)
 }
 
-func TestDeployCommand_RequiresEnvironment(t *testing.T) {
-	// Test that deploy command requires --environment flag
+func TestDeployCommand_RequiresContext(t *testing.T) {
+	// Test that deploy command requires --context flag
 
 	// Mock deployer that shouldn't be called
 	mockDeployer := &MockDeployer{}
@@ -74,12 +74,12 @@ func TestDeployCommand_RequiresEnvironment(t *testing.T) {
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer)
 
-	// Execute without environment flag - should fail
+	// Execute without context flag - should fail
 	rootCmd.SetArgs([]string{"deploy", "test-stack"})
 
 	err := rootCmd.Execute()
-	assert.Error(t, err, "deploy command should require --environment flag")
-	assert.Contains(t, err.Error(), "required flag(s) \"environment\" not set")
+	assert.Error(t, err, "deploy command should require --context flag")
+	assert.Contains(t, err.Error(), "required flag(s) \"context\" not set")
 
 	// Verify no deployer calls were made
 	mockDeployer.AssertExpectations(t)
@@ -129,7 +129,7 @@ stacks:
 	}()
 
 	// Execute the root command with deploy subcommand and arguments
-	rootCmd.SetArgs([]string{"deploy", "test-stack", "--environment", "test"})
+	rootCmd.SetArgs([]string{"deploy", "test-stack", "--context", "test"})
 
 	// Execute the command - should return error
 	err = rootCmd.Execute()
@@ -224,12 +224,12 @@ stacks:
 	}()
 
 	// First deployment should succeed
-	rootCmd.SetArgs([]string{"deploy", "stack-1", "--environment", "test"})
+	rootCmd.SetArgs([]string{"deploy", "stack-1", "--context", "test"})
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "first deployment should succeed")
 
 	// Second deployment should fail
-	rootCmd.SetArgs([]string{"deploy", "stack-2", "--environment", "test"})
+	rootCmd.SetArgs([]string{"deploy", "stack-2", "--context", "test"})
 	err = rootCmd.Execute()
 	assert.Error(t, err, "second deployment should fail")
 	assert.Contains(t, err.Error(), "second deployment failed", "error should contain expected message")
@@ -294,7 +294,7 @@ stacks:
 
 	// Set up mock deployer that expects config-resolved values
 	mockDeployer := &MockDeployer{}
-	// Expect Stack with resolved parameters from dev environment
+	// Expect Stack with resolved parameters from dev context
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "vpc" &&
 			stack.Parameters["VpcCidr"] == "10.1.0.0/16" &&
@@ -316,8 +316,8 @@ stacks:
 		require.NoError(t, err)
 	}()
 
-	// Execute deploy command with environment flag
-	rootCmd.SetArgs([]string{"deploy", "vpc", "--environment", "dev"})
+	// Execute deploy command with context flag
+	rootCmd.SetArgs([]string{"deploy", "vpc", "--context", "dev"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy command should execute successfully with config")
@@ -402,7 +402,7 @@ stacks:
 
 	// This should resolve dependencies and deploy: vpc → database → app
 	// But current implementation will only deploy app
-	rootCmd.SetArgs([]string{"deploy", "app", "--environment", "test"})
+	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy should succeed")
@@ -478,7 +478,7 @@ stacks:
 	}()
 
 	// Deploy app - should trigger resolver to deploy vpc → database → app
-	rootCmd.SetArgs([]string{"deploy", "app", "--environment", "test"})
+	rootCmd.SetArgs([]string{"deploy", "app", "--context", "test"})
 
 	err = rootCmd.Execute()
 	assert.NoError(t, err, "deploy should succeed")
@@ -501,11 +501,11 @@ contexts:
 stacks:
   - name: vpc
     template: templates/vpc.yaml
-    
+
   - name: database
     template: templates/db.yaml
     depends_on: [vpc]
-      
+
   - name: app
     template: templates/app.yaml
     depends_on: [database]
