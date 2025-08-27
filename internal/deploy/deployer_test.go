@@ -11,10 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	awsinternal "github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/stretchr/testify/assert"
@@ -27,9 +24,9 @@ type MockAWSClient struct {
 	mock.Mock
 }
 
-func (m *MockAWSClient) NewCloudFormationOperations() awsinternal.CloudFormationOperations {
+func (m *MockAWSClient) NewCloudFormationOperations() aws.CloudFormationOperations {
 	args := m.Called()
-	return args.Get(0).(awsinternal.CloudFormationOperations)
+	return args.Get(0).(aws.CloudFormationOperations)
 }
 
 // MockPrompter is a mock implementation of the Prompter interface for testing
@@ -48,34 +45,34 @@ type MockCloudFormationOperations struct {
 	mock.Mock
 }
 
-func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input awsinternal.DeployStackInput) error {
+func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input awsinternal.DeployStackInput, eventCallback func(awsinternal.StackEvent)) error {
+func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
 	args := m.Called(ctx, input, eventCallback)
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input awsinternal.UpdateStackInput) error {
+func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) DeleteStack(ctx context.Context, input awsinternal.DeleteStackInput) error {
+func (m *MockCloudFormationOperations) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*awsinternal.Stack, error) {
+func (m *MockCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
 	args := m.Called(ctx, stackName)
-	return args.Get(0).(*awsinternal.Stack), args.Error(1)
+	return args.Get(0).(*aws.Stack), args.Error(1)
 }
 
-func (m *MockCloudFormationOperations) ListStacks(ctx context.Context) ([]*awsinternal.Stack, error) {
+func (m *MockCloudFormationOperations) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*awsinternal.Stack), args.Error(1)
+	return args.Get(0).([]*aws.Stack), args.Error(1)
 }
 
 func (m *MockCloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
@@ -93,45 +90,40 @@ func (m *MockCloudFormationOperations) GetTemplate(ctx context.Context, stackNam
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*awsinternal.StackInfo, error) {
+func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
 	args := m.Called(ctx, stackName)
-	return args.Get(0).(*awsinternal.StackInfo), args.Error(1)
+	return args.Get(0).(*aws.StackInfo), args.Error(1)
 }
 
-func (m *MockCloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.CreateChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DeleteChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
-}
-
-// ExecuteChangeSetByID executes a changeset by ID (abstracted method)
-func (m *MockCloudFormationOperations) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, changeSetID string) error {
 	args := m.Called(ctx, changeSetID)
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]awsinternal.StackEvent, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).([]awsinternal.StackEvent), args.Error(1)
+// ExecuteChangeSet executes a changeset by ID (abstracted method)
+func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
+	args := m.Called(ctx, changeSetID)
+	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(awsinternal.StackEvent)) error {
+func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+	args := m.Called(ctx, stackName)
+	return args.Get(0).([]aws.StackEvent), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
 	args := m.Called(ctx, stackName, eventCallback)
 	return args.Error(0)
+}
+
+func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
+	args := m.Called(ctx, stackName, template, parameters)
+	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
+}
+
+func (m *MockCloudFormationOperations) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
+	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
+	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
 }
 
 func TestNewAWSDeployer(t *testing.T) {
@@ -191,7 +183,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
 	// Set up mock expectations - now expecting DeployStackWithCallback
-	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input awsinternal.DeployStackInput) bool {
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" &&
 			input.TemplateBody == templateContent &&
 			len(input.Parameters) == 1 &&
@@ -238,7 +230,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
-	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input awsinternal.DeployStackInput) bool {
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
@@ -284,7 +276,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
-	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input awsinternal.DeployStackInput) bool {
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.StackName == "test-stack" && input.TemplateBody == templateContent
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
@@ -329,7 +321,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
 
 	// Mock differ operations
-	currentStackInfo := &awsinternal.StackInfo{
+	currentStackInfo := &aws.StackInfo{
 		Name:       "test-stack",
 		Status:     "UPDATE_COMPLETE",
 		Parameters: map[string]string{},
@@ -387,7 +379,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
 
 	// Mock differ operations
-	currentStackInfo := &awsinternal.StackInfo{
+	currentStackInfo := &aws.StackInfo{
 		Name:       "test-stack",
 		Status:     "UPDATE_COMPLETE",
 		Parameters: map[string]string{},
@@ -396,37 +388,31 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("DescribeStack", mock.Anything, "test-stack").Return(currentStackInfo, nil)
 	mockCfnOps.On("GetTemplate", mock.Anything, "test-stack").Return(`{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"OldBucket": {"Type": "AWS::S3::Bucket"}}}`, nil)
 
-	// Mock changeset operations for changes scenario (both differ and deployer create changesets)
-	changeSetOutput := &cloudformation.CreateChangeSetOutput{
-		Id: aws.String("test-changeset-id"),
-	}
-	mockCfnOps.On("CreateChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return(changeSetOutput, nil)
-
-	// Mock describe changeset - return complete status with changes
-	describeOutput := &cloudformation.DescribeChangeSetOutput{
-		Status: types.ChangeSetStatusCreateComplete,
-		Changes: []types.Change{
+	// Mock changeset operations for the differ
+	changeSetInfo := &aws.ChangeSetInfo{
+		ChangeSetID: "test-changeset-id",
+		Status:      "CREATE_COMPLETE",
+		Changes: []aws.ResourceChange{
 			{
-				ResourceChange: &types.ResourceChange{
-					Action:             types.ChangeActionModify,
-					ResourceType:       aws.String("AWS::S3::Bucket"),
-					LogicalResourceId:  aws.String("TestBucket"),
-					PhysicalResourceId: aws.String("test-bucket-123"),
-					Replacement:        types.ReplacementFalse,
-				},
+				Action:       "Modify",
+				ResourceType: "AWS::S3::Bucket",
+				LogicalID:    "TestBucket",
+				PhysicalID:   "test-bucket-123",
+				Replacement:  "False",
+				Details:      []string{},
 			},
 		},
 	}
-	mockCfnOps.On("DescribeChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(describeOutput, nil).Times(2)
+	mockCfnOps.On("CreateChangeSetForDeployment", mock.Anything, "test-stack", templateContent, map[string]string{}, []string{"CAPABILITY_IAM"}, map[string]string{}).Return(changeSetInfo, nil)
 
 	// Mock execute changeset using abstracted method
-	mockCfnOps.On("ExecuteChangeSetByID", mock.Anything, "test-changeset-id").Return(nil)
+	mockCfnOps.On("ExecuteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Mock wait for stack operation
 	mockCfnOps.On("WaitForStackOperation", mock.Anything, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Mock delete changeset (cleanup after successful deployment - both differ and deployer delete changesets)
-	mockCfnOps.On("DeleteChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
+	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Create deployer with mock client
 	deployer := NewAWSDeployer(mockClient)
@@ -561,7 +547,7 @@ Resources:
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
-	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input awsinternal.DeployStackInput) bool {
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		// Verify the template content was passed correctly
 		return input.TemplateBody == templateContent &&
 			input.StackName == "test-stack"
@@ -602,7 +588,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
-	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input awsinternal.DeployStackInput) bool {
+	mockCfnOps.On("DeployStackWithCallback", mock.Anything, mock.MatchedBy(func(input aws.DeployStackInput) bool {
 		return input.TemplateBody == "" &&
 			input.StackName == "test-stack" &&
 			len(input.Parameters) == 2 &&

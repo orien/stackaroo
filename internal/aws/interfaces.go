@@ -53,13 +53,14 @@ type CloudFormationOperations interface {
 	StackExists(ctx context.Context, stackName string) (bool, error)
 	GetTemplate(ctx context.Context, stackName string) (string, error)
 	DescribeStack(ctx context.Context, stackName string) (*StackInfo, error)
-	CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
-	ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error)
-	ExecuteChangeSetByID(ctx context.Context, changeSetID string) error
-	DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
-	DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
+	ExecuteChangeSet(ctx context.Context, changeSetID string) error
+	DeleteChangeSet(ctx context.Context, changeSetID string) error
 	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
 	WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
+
+	// High-level changeset workflow methods
+	CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
+	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 }
 
 // ChangeSetInfo contains information from AWS CloudFormation changeset
@@ -77,11 +78,4 @@ type ResourceChange struct {
 	PhysicalID   string
 	Replacement  string // True, False, or Conditional
 	Details      []string
-}
-
-// ChangeSetManager handles AWS CloudFormation changeset operations
-type ChangeSetManager interface {
-	CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
-	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
-	DeleteChangeSet(ctx context.Context, changeSetID string) error
 }

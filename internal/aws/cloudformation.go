@@ -431,18 +431,8 @@ func (cf *DefaultCloudFormationOperations) DescribeStack(ctx context.Context, st
 	return stackInfo, nil
 }
 
-// CreateChangeSet creates a CloudFormation changeset
-func (cf *DefaultCloudFormationOperations) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
-	return cf.client.CreateChangeSet(ctx, params, optFns...)
-}
-
-// ExecuteChangeSet executes a CloudFormation changeset
-func (cf *DefaultCloudFormationOperations) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
-	return cf.client.ExecuteChangeSet(ctx, params, optFns...)
-}
-
-// ExecuteChangeSetByID executes a CloudFormation changeset by ID, abstracting AWS SDK details
-func (cf *DefaultCloudFormationOperations) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+// ExecuteChangeSet executes a CloudFormation changeset by ID, abstracting AWS SDK details
+func (cf *DefaultCloudFormationOperations) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
 	executeInput := &cloudformation.ExecuteChangeSetInput{
 		ChangeSetName: aws.String(changeSetID),
 	}
@@ -456,13 +446,16 @@ func (cf *DefaultCloudFormationOperations) ExecuteChangeSetByID(ctx context.Cont
 }
 
 // DeleteChangeSet deletes a CloudFormation changeset
-func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
-	return cf.client.DeleteChangeSet(ctx, params, optFns...)
-}
+func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, changeSetID string) error {
+	_, err := cf.client.DeleteChangeSet(ctx, &cloudformation.DeleteChangeSetInput{
+		ChangeSetName: aws.String(changeSetID),
+	})
 
-// DescribeChangeSet describes a CloudFormation changeset
-func (cf *DefaultCloudFormationOperations) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
-	return cf.client.DescribeChangeSet(ctx, params, optFns...)
+	if err != nil {
+		return fmt.Errorf("failed to delete changeset %s: %w", changeSetID, err)
+	}
+
+	return nil
 }
 
 // DescribeStackEvents retrieves events for a CloudFormation stack
@@ -596,4 +589,230 @@ func indexString(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// CreateChangeSetPreview creates a CloudFormation changeset for preview, describes it, then deletes it
+func (cf *DefaultCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error) {
+	// Generate a unique changeset name
+	changeSetName := fmt.Sprintf("stackaroo-diff-%d", time.Now().Unix())
+
+	// Convert parameters to AWS format
+	awsParameters := make([]types.Parameter, 0, len(parameters))
+	for key, value := range parameters {
+		awsParameters = append(awsParameters, types.Parameter{
+			ParameterKey:   aws.String(key),
+			ParameterValue: aws.String(value),
+		})
+	}
+
+	// Create the changeset
+	createInput := &cloudformation.CreateChangeSetInput{
+		StackName:     aws.String(stackName),
+		ChangeSetName: aws.String(changeSetName),
+		TemplateBody:  aws.String(template),
+		Parameters:    awsParameters,
+		ChangeSetType: types.ChangeSetTypeUpdate, // Assume it's an update for existing stacks
+	}
+
+	createOutput, err := cf.client.CreateChangeSet(ctx, createInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create changeset: %w", err)
+	}
+
+	changeSetID := aws.ToString(createOutput.Id)
+
+	// Wait for changeset to be created
+	err = cf.waitForChangeSet(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset if it failed
+		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("changeset creation failed: %w", err)
+	}
+
+	// Describe the changeset to get the actual changes
+	changeSetInfo, err := cf.describeChangeSetInternal(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset
+		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("failed to describe changeset: %w", err)
+	}
+
+	// Clean up the changeset (we only needed it for preview)
+	defer func() {
+		if deleteErr := cf.DeleteChangeSet(ctx, changeSetID); deleteErr != nil {
+			// Log the error but don't fail the operation
+			fmt.Printf("Warning: failed to delete changeset %s: %v\n", changeSetID, deleteErr)
+		}
+	}()
+
+	return changeSetInfo, nil
+}
+
+// CreateChangeSetForDeployment creates a changeset for deployment (doesn't auto-delete)
+func (cf *DefaultCloudFormationOperations) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error) {
+	// Generate a unique changeset name
+	changeSetName := fmt.Sprintf("stackaroo-deploy-%d", time.Now().Unix())
+
+	// Convert parameters to AWS format
+	awsParameters := make([]types.Parameter, 0, len(parameters))
+	for key, value := range parameters {
+		awsParameters = append(awsParameters, types.Parameter{
+			ParameterKey:   aws.String(key),
+			ParameterValue: aws.String(value),
+		})
+	}
+
+	// Convert tags to AWS format
+	awsTags := make([]types.Tag, 0, len(tags))
+	for key, value := range tags {
+		awsTags = append(awsTags, types.Tag{
+			Key:   aws.String(key),
+			Value: aws.String(value),
+		})
+	}
+
+	// Convert capabilities to AWS format
+	awsCapabilities := make([]types.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		awsCapabilities = append(awsCapabilities, types.Capability(capability))
+	}
+
+	// Determine changeset type based on whether stack exists
+	exists, err := cf.StackExists(ctx, stackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if stack exists: %w", err)
+	}
+
+	changeSetType := types.ChangeSetTypeUpdate
+	if !exists {
+		changeSetType = types.ChangeSetTypeCreate
+	}
+
+	// Create the changeset
+	createInput := &cloudformation.CreateChangeSetInput{
+		StackName:     aws.String(stackName),
+		ChangeSetName: aws.String(changeSetName),
+		TemplateBody:  aws.String(template),
+		Parameters:    awsParameters,
+		Tags:          awsTags,
+		Capabilities:  awsCapabilities,
+		ChangeSetType: changeSetType,
+	}
+
+	createOutput, err := cf.client.CreateChangeSet(ctx, createInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create changeset: %w", err)
+	}
+
+	changeSetID := aws.ToString(createOutput.Id)
+
+	// Wait for changeset to be created
+	err = cf.waitForChangeSet(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset if it failed
+		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("changeset creation failed: %w", err)
+	}
+
+	// Describe the changeset to get the actual changes
+	changeSetInfo, err := cf.describeChangeSetInternal(ctx, changeSetID)
+	if err != nil {
+		// Clean up the changeset
+		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		return nil, fmt.Errorf("failed to describe changeset: %w", err)
+	}
+
+	// DO NOT delete the changeset - it will be used for deployment
+	return changeSetInfo, nil
+}
+
+// waitForChangeSet waits for a changeset to reach a terminal state
+func (cf *DefaultCloudFormationOperations) waitForChangeSet(ctx context.Context, changeSetID string) error {
+	// Set a reasonable timeout for changeset creation
+	timeout := 5 * time.Minute
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Describe the changeset to check its status
+		describeOutput, err := cf.client.DescribeChangeSet(ctx, &cloudformation.DescribeChangeSetInput{
+			ChangeSetName: aws.String(changeSetID),
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to describe changeset while waiting: %w", err)
+		}
+
+		status := describeOutput.Status
+		switch status {
+		case types.ChangeSetStatusCreateComplete:
+			return nil
+		case types.ChangeSetStatusFailed:
+			reason := aws.ToString(describeOutput.StatusReason)
+			if reason == "" {
+				reason = "unknown reason"
+			}
+			return fmt.Errorf("changeset creation failed: %s", reason)
+		case types.ChangeSetStatusCreatePending, types.ChangeSetStatusCreateInProgress:
+			// Still creating, wait a bit more
+			time.Sleep(2 * time.Second)
+			continue
+		default:
+			return fmt.Errorf("unexpected changeset status: %s", status)
+		}
+	}
+
+	return fmt.Errorf("timeout waiting for changeset to be created")
+}
+
+// describeChangeSetInternal gets the detailed information about a changeset
+func (cf *DefaultCloudFormationOperations) describeChangeSetInternal(ctx context.Context, changeSetID string) (*ChangeSetInfo, error) {
+	describeOutput, err := cf.client.DescribeChangeSet(ctx, &cloudformation.DescribeChangeSetInput{
+		ChangeSetName: aws.String(changeSetID),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe changeset: %w", err)
+	}
+
+	// Convert AWS changeset to our format
+	changeSetInfo := &ChangeSetInfo{
+		ChangeSetID: changeSetID,
+		Status:      string(describeOutput.Status),
+		Changes:     make([]ResourceChange, 0, len(describeOutput.Changes)),
+	}
+
+	// Convert each change
+	for _, awsChange := range describeOutput.Changes {
+		if awsChange.ResourceChange != nil {
+			resourceChange := ResourceChange{
+				Action:       string(awsChange.ResourceChange.Action),
+				ResourceType: aws.ToString(awsChange.ResourceChange.ResourceType),
+				LogicalID:    aws.ToString(awsChange.ResourceChange.LogicalResourceId),
+				PhysicalID:   aws.ToString(awsChange.ResourceChange.PhysicalResourceId),
+				Replacement:  string(awsChange.ResourceChange.Replacement),
+				Details:      make([]string, 0),
+			}
+
+			// Extract details from the change
+			for _, detail := range awsChange.ResourceChange.Details {
+				if detail.Target != nil {
+					detailText := fmt.Sprintf("Property: %s", aws.ToString(detail.Target.Name))
+					if detail.Target.Attribute != "" {
+						detailText += fmt.Sprintf(" (%s)", detail.Target.Attribute)
+					}
+					resourceChange.Details = append(resourceChange.Details, detailText)
+				}
+			}
+
+			changeSetInfo.Changes = append(changeSetInfo.Changes, resourceChange)
+		}
+	}
+
+	return changeSetInfo, nil
 }

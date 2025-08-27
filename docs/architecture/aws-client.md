@@ -88,9 +88,11 @@ type CloudFormationOperations interface {
     DescribeStack(ctx context.Context, stackName string) (*StackInfo, error)
     DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
     WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
-    CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
-    DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
-    DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
+    // Changeset operations
+    ExecuteChangeSet(ctx context.Context, changeSetID string) error
+    DeleteChangeSet(ctx context.Context, changeSetID string) error
+    CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
+    CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 }
 ```
 
@@ -277,6 +279,66 @@ if err != nil {
 - **Success**: `CREATE_COMPLETE`, `UPDATE_COMPLETE`, `DELETE_COMPLETE`
 - **Failure**: `CREATE_FAILED`, `UPDATE_FAILED`, `ROLLBACK_COMPLETE`, etc.
 
+## Changeset Operations
+
+The CloudFormation operations include high-level changeset methods for advanced deployment workflows with automatic cleanup and error handling.
+
+### Changeset Workflow Methods
+
+#### Preview Changes (Auto-Cleanup)
+
+Use `CreateChangeSetPreview()` to preview changes without deploying. The changeset is automatically deleted after analysis:
+
+```go
+// Preview changes (changeset auto-deleted)
+changeSetInfo, err := cfnOps.CreateChangeSetPreview(ctx, stackName, template, parameters)
+if err != nil {
+    return fmt.Errorf("failed to preview changes: %w", err)
+}
+
+// Analyze changes
+for _, change := range changeSetInfo.Changes {
+    fmt.Printf("%s: %s (%s)\n", change.Action, change.LogicalID, change.ResourceType)
+}
+```
+
+#### Deploy with Changeset
+
+Use `CreateChangeSetForDeployment()` to create a changeset for execution (persists until executed):
+
+```go
+// Create changeset for deployment
+changeSetInfo, err := cfnOps.CreateChangeSetForDeployment(ctx, 
+    stackName, template, parameters, capabilities, tags)
+if err != nil {
+    return fmt.Errorf("failed to create changeset: %w", err)
+}
+
+// Execute the changeset
+err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
+```
+
+### ChangeSetInfo Structure
+
+The high-level methods return a `ChangeSetInfo` struct with parsed change details:
+
+```go
+type ChangeSetInfo struct {
+    ChangeSetID string
+    Status      string
+    Changes     []ResourceChange
+}
+
+type ResourceChange struct {
+    Action       string   // CREATE, UPDATE, DELETE
+    ResourceType string   // AWS::S3::Bucket, etc.
+    LogicalID    string   // Resource name in template
+    PhysicalID   string   // AWS resource ID
+    Replacement  string   // True, False, or Conditional
+    Details      []string // Property change details
+}
+```
+
 ## Configuration Hierarchy
 
 The client respects the standard AWS configuration hierarchy:
@@ -403,34 +465,45 @@ client, err := aws.NewDefaultClient(ctx, aws.Config{
 The AWS client architecture is designed for comprehensive testing using interface-based mocking:
 
 #### Primary Testing Pattern
+
+The AWS package provides a comprehensive `MockCloudFormationClient` that implements the `CloudFormationClient` interface for testing all CloudFormation operations, including changeset functionality:
+
 ```go
 import "github.com/stretchr/testify/mock"
 
-// MockCloudFormationOperations implements CloudFormationOperations
-type MockCloudFormationOperations struct {
+// MockCloudFormationClient implements CloudFormationClient for testing
+type MockCloudFormationClient struct {
     mock.Mock
 }
 
-func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-    args := m.Called(ctx, input)
-    return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
-    args := m.Called(ctx, input, eventCallback)
-    return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
-    args := m.Called(ctx, stackName)
-    return args.Get(0).([]aws.StackEvent), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
-    args := m.Called(ctx, stackName, eventCallback)
-    return args.Error(0)
+// Example: Testing high-level changeset operations
+func TestCreateChangeSetPreview(t *testing.T) {
+    ctx := context.Background()
+    mockClient := &MockCloudFormationClient{}
+    cf := &DefaultCloudFormationOperations{client: mockClient}
+    
+    // Mock the underlying AWS calls
+    mockClient.On("CreateChangeSet", ctx, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).
+        Return(createTestChangeSetOutput("changeset-123"), nil)
+    mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).
+        Return(createTestDescribeOutput(), nil)
+    mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).
+        Return(&cloudformation.DeleteChangeSetOutput{}, nil)
+    
+    // Test the high-level operation
+    changeSetInfo, err := cf.CreateChangeSetPreview(ctx, "test-stack", template, parameters)
+    
+    require.NoError(t, err)
+    assert.Equal(t, "changeset-123", changeSetInfo.ChangeSetID)
+    mockClient.AssertExpectations(t)
 }
 ```
+
+**Key Testing Benefits:**
+- **Single Mock**: One consolidated mock eliminates code duplication
+- **Full Coverage**: Tests both low-level SDK calls and high-level workflows  
+- **Changeset Support**: Complete testing of changeset preview and deployment flows
+- **Professional Mocking**: Uses testify/mock with expectations and assertions
 
 #### Integration with Business Logic
 The `internal/deploy` package uses dependency injection for testability:
@@ -445,6 +518,9 @@ deployer := deploy.NewAWSDeployer(mockClient)
 ```
 
 ### Unit Testing
+
+#### CloudFormation Operations Testing
+- **Mock Consolidation**: Single `MockCloudFormationClient` handles all testing scenarios
 - Mock all interfaces (`Client`, `CloudFormationOperations`)
 - Use `testify/mock` for professional mocking with expectations
 - Test business logic in isolation from AWS SDK

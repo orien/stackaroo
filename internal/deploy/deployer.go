@@ -142,8 +142,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
-				changeSetMgr := aws.NewChangeSetManager(cfnOps)
-				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			return fmt.Errorf("failed to get user confirmation: %w", err)
 		}
@@ -151,8 +150,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		if !confirmed {
 			// Clean up changeset when user cancels
 			if diffResult.ChangeSet != nil {
-				changeSetMgr := aws.NewChangeSetManager(cfnOps)
-				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
 			return nil
@@ -167,15 +165,14 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		return fmt.Errorf("no changeset available for deployment")
 	}
 	changeSetInfo := diffResult.ChangeSet
-	changeSetMgr := aws.NewChangeSetManager(cfnOps)
 
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
-	err = cfnOps.ExecuteChangeSetByID(ctx, changeSetInfo.ChangeSetID)
+	err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
 	if err != nil {
 		// Clean up changeset on failure
-		_ = changeSetMgr.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+		_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 		return fmt.Errorf("failed to execute changeset: %w", err)
 	}
 
@@ -197,7 +194,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 	}
 
 	// Clean up changeset after successful deployment
-	_ = changeSetMgr.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+	_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 
 	fmt.Printf("Stack %s update completed successfully\n", stack.Name)
 	return nil

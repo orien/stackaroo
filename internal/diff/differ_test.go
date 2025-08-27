@@ -9,7 +9,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -74,27 +73,12 @@ func (m *MockCloudFormationClient) ValidateTemplate(ctx context.Context, templat
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationClient) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.CreateChangeSetOutput), args.Error(1)
+func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, changeSetID string) error {
+	args := m.Called(ctx, changeSetID)
+	return args.Error(0)
 }
 
-func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DeleteChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
 	args := m.Called(ctx, changeSetID)
 	return args.Error(0)
 }
@@ -136,34 +120,25 @@ func (m *MockTagComparator) Compare(currentTags, proposedTags map[string]string)
 	return args.Get(0).([]TagDiff), args.Error(1)
 }
 
-type MockChangeSetManager struct {
-	mock.Mock
-}
-
-func (m *MockChangeSetManager) CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
+func (m *MockCloudFormationClient) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
 	args := m.Called(ctx, stackName, template, parameters)
 	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
 }
 
-func (m *MockChangeSetManager) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
+func (m *MockCloudFormationClient) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
 	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
 	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
 }
 
-func (m *MockChangeSetManager) DeleteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
 // Test helper functions
 
-func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator, changeSetMgr aws.ChangeSetManager) *DefaultDiffer {
+// Creates a test differ with provided dependencies
+func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *DefaultDiffer {
 	return &DefaultDiffer{
 		cfClient:            cfClient,
 		templateComparator:  templateComp,
 		parameterComparator: paramComp,
 		tagComparator:       tagComp,
-		changeSetManager:    changeSetMgr,
 	}
 }
 
@@ -215,9 +190,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -272,9 +245,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -312,7 +283,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 			{Action: "Modify", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
 		},
 	}
-	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return(changeSet, nil)
+	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return(changeSet, nil)
 
 	// Execute
 	result, err := differ.DiffStack(ctx, stack, options)
@@ -333,7 +304,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	templateComp.AssertExpectations(t)
 	paramComp.AssertExpectations(t)
 	tagComp.AssertExpectations(t)
-	changeSetMgr.AssertExpectations(t)
+	cfClient.AssertExpectations(t)
 }
 
 func TestDefaultDiffer_DiffStack_NewStack(t *testing.T) {
@@ -345,9 +316,7 @@ func TestDefaultDiffer_DiffStack_NewStack(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -393,9 +362,7 @@ func TestDefaultDiffer_DiffStack_StackExistsError(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -424,9 +391,7 @@ func TestDefaultDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -495,9 +460,7 @@ func TestDefaultDiffer_DiffStack_FilterOptions(t *testing.T) {
 			templateComp := &MockTemplateComparator{}
 			paramComp := &MockParameterComparator{}
 			tagComp := &MockTagComparator{}
-			changeSetMgr := &MockChangeSetManager{}
-
-			differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+			differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 			// Test data
 			stack := createTestResolvedStack()
@@ -542,9 +505,7 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
-
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -561,7 +522,7 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	tagComp.On("Compare", currentStack.Tags, stack.Tags).Return([]TagDiff{}, nil)
 
 	// Mock changeset creation failure
-	changeSetMgr.On("CreateChangeSet", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return((*aws.ChangeSetInfo)(nil), errors.New("changeset failed"))
+	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters).Return((*aws.ChangeSetInfo)(nil), errors.New("changeset failed"))
 
 	// Execute
 	result, err := differ.DiffStack(ctx, stack, options)
@@ -576,7 +537,7 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	templateComp.AssertExpectations(t)
 	paramComp.AssertExpectations(t)
 	tagComp.AssertExpectations(t)
-	changeSetMgr.AssertExpectations(t)
+	cfClient.AssertExpectations(t)
 }
 
 func TestDefaultDiffer_HandleNewStack(t *testing.T) {
@@ -632,9 +593,8 @@ func TestDefaultDiffer_CompareTemplates_Error(t *testing.T) {
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	changeSetMgr := &MockChangeSetManager{}
 
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp, changeSetMgr)
+	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()

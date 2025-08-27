@@ -18,7 +18,6 @@ type DefaultDiffer struct {
 	templateComparator  TemplateComparator
 	parameterComparator ParameterComparator
 	tagComparator       TagComparator
-	changeSetManager    aws.ChangeSetManager
 }
 
 // NewDefaultDiffer creates a new DefaultDiffer with AWS integration
@@ -34,7 +33,6 @@ func NewDefaultDiffer(ctx context.Context) (*DefaultDiffer, error) {
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
 		tagComparator:       NewTagComparator(),
-		changeSetManager:    aws.NewChangeSetManager(cfClient),
 	}, nil
 }
 
@@ -45,7 +43,6 @@ func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
 		tagComparator:       NewTagComparator(),
-		changeSetManager:    aws.NewChangeSetManager(cfClient),
 	}
 }
 
@@ -203,7 +200,7 @@ func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stac
 			capabilities = []string{"CAPABILITY_IAM"} // Default capability
 		}
 
-		changeSetInfo, err = d.changeSetManager.CreateChangeSetForDeployment(
+		changeSetInfo, err = d.cfClient.CreateChangeSetForDeployment(
 			ctx,
 			stack.Name,
 			templateContent,
@@ -213,7 +210,7 @@ func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stac
 		)
 	} else {
 		// Use standard changeset that auto-deletes for preview only
-		changeSetInfo, err = d.changeSetManager.CreateChangeSet(ctx, stack.Name, templateContent, stack.Parameters)
+		changeSetInfo, err = d.cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters)
 	}
 
 	if err != nil {
