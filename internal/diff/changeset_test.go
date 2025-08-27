@@ -44,6 +44,11 @@ func (m *MockChangeSetClient) ExecuteChangeSet(ctx context.Context, params *clou
 	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
 }
 
+func (m *MockChangeSetClient) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+	args := m.Called(ctx, changeSetID)
+	return args.Error(0)
+}
+
 // Additional methods to satisfy CloudFormationOperations
 
 func (m *MockChangeSetClient) DeployStack(ctx context.Context, input aws.DeployStackInput) error {

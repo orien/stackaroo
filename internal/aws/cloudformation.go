@@ -441,6 +441,20 @@ func (cf *DefaultCloudFormationOperations) ExecuteChangeSet(ctx context.Context,
 	return cf.client.ExecuteChangeSet(ctx, params, optFns...)
 }
 
+// ExecuteChangeSetByID executes a CloudFormation changeset by ID, abstracting AWS SDK details
+func (cf *DefaultCloudFormationOperations) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+	executeInput := &cloudformation.ExecuteChangeSetInput{
+		ChangeSetName: aws.String(changeSetID),
+	}
+
+	_, err := cf.client.ExecuteChangeSet(ctx, executeInput)
+	if err != nil {
+		return fmt.Errorf("failed to execute changeset %s: %w", changeSetID, err)
+	}
+
+	return nil
+}
+
 // DeleteChangeSet deletes a CloudFormation changeset
 func (cf *DefaultCloudFormationOperations) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
 	return cf.client.DeleteChangeSet(ctx, params, optFns...)

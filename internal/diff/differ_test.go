@@ -94,6 +94,11 @@ func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, params 
 	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
 }
 
+func (m *MockCloudFormationClient) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+	args := m.Called(ctx, changeSetID)
+	return args.Error(0)
+}
+
 func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
 	args := m.Called(ctx, stackName)
 	return args.Get(0).([]aws.StackEvent), args.Error(1)

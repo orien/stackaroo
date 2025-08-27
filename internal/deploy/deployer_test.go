@@ -118,6 +118,12 @@ func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, par
 	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
 }
 
+// ExecuteChangeSetByID executes a changeset by ID (abstracted method)
+func (m *MockCloudFormationOperations) ExecuteChangeSetByID(ctx context.Context, changeSetID string) error {
+	args := m.Called(ctx, changeSetID)
+	return args.Error(0)
+}
+
 func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]awsinternal.StackEvent, error) {
 	args := m.Called(ctx, stackName)
 	return args.Get(0).([]awsinternal.StackEvent), args.Error(1)
@@ -413,8 +419,8 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	}
 	mockCfnOps.On("DescribeChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(describeOutput, nil).Times(2)
 
-	// Mock execute changeset
-	mockCfnOps.On("ExecuteChangeSet", mock.Anything, mock.AnythingOfType("*cloudformation.ExecuteChangeSetInput")).Return(&cloudformation.ExecuteChangeSetOutput{}, nil)
+	// Mock execute changeset using abstracted method
+	mockCfnOps.On("ExecuteChangeSetByID", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Mock wait for stack operation
 	mockCfnOps.On("WaitForStackOperation", mock.Anything, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)

@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	awsinternal "github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/diff"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
@@ -25,11 +23,11 @@ type Deployer interface {
 
 // AWSDeployer implements Deployer using AWS CloudFormation
 type AWSDeployer struct {
-	awsClient awsinternal.Client
+	awsClient aws.Client
 }
 
 // NewAWSDeployer creates a new AWSDeployer
-func NewAWSDeployer(awsClient awsinternal.Client) *AWSDeployer {
+func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
 	return &AWSDeployer{
 		awsClient: awsClient,
 	}
@@ -37,7 +35,7 @@ func NewAWSDeployer(awsClient awsinternal.Client) *AWSDeployer {
 
 // NewDefaultDeployer creates a deployer with default AWS configuration
 func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
-	client, err := awsinternal.NewDefaultClient(ctx, awsinternal.Config{})
+	client, err := aws.NewDefaultClient(ctx, aws.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client: %w", err)
 	}
@@ -70,9 +68,9 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
 
 	// Convert parameters to AWS format
-	awsParams := make([]awsinternal.Parameter, 0, len(stack.Parameters))
+	awsParams := make([]aws.Parameter, 0, len(stack.Parameters))
 	for key, value := range stack.Parameters {
-		awsParams = append(awsParams, awsinternal.Parameter{
+		awsParams = append(awsParams, aws.Parameter{
 			Key:   key,
 			Value: value,
 		})
@@ -85,7 +83,7 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 	}
 
 	// Set up event callback for user feedback
-	eventCallback := func(event awsinternal.StackEvent) {
+	eventCallback := func(event aws.StackEvent) {
 		timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
 		fmt.Printf("[%s] %-20s %-40s %s %s\n",
 			timestamp,
@@ -96,7 +94,7 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 		)
 	}
 
-	deployInput := awsinternal.DeployStackInput{
+	deployInput := aws.DeployStackInput{
 		StackName:    stack.Name,
 		TemplateBody: stack.TemplateBody,
 		Parameters:   awsParams,
@@ -174,10 +172,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
-	executeInput := &cloudformation.ExecuteChangeSetInput{
-		ChangeSetName: aws.String(changeSetInfo.ChangeSetID),
-	}
-	_, err = cfnOps.ExecuteChangeSet(ctx, executeInput)
+	err = cfnOps.ExecuteChangeSetByID(ctx, changeSetInfo.ChangeSetID)
 	if err != nil {
 		// Clean up changeset on failure
 		_ = changeSetMgr.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
@@ -185,7 +180,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 	}
 
 	// Wait for deployment to complete with progress updates
-	eventCallback := func(event awsinternal.StackEvent) {
+	eventCallback := func(event aws.StackEvent) {
 		timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
 		fmt.Printf("[%s] %-20s %-40s %s %s\n",
 			timestamp,
