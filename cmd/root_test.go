@@ -46,12 +46,6 @@ func TestRootCmd_GlobalFlags(t *testing.T) {
 	assert.Equal(t, "v", verboseFlag.Shorthand)
 	assert.Contains(t, verboseFlag.Usage, "verbose output")
 
-	// Test dry-run flag
-	dryRunFlag := flags.Lookup("dry-run")
-	require.NotNil(t, dryRunFlag)
-	assert.Equal(t, "false", dryRunFlag.DefValue)
-	assert.Equal(t, "", dryRunFlag.Shorthand) // No shorthand for dry-run
-	assert.Contains(t, dryRunFlag.Usage, "show what would be done without executing")
 }
 
 func TestRootCmd_Help(t *testing.T) {
@@ -73,7 +67,6 @@ func TestRootCmd_Help(t *testing.T) {
 	assert.Contains(t, helpOutput, "Flags:")
 	assert.Contains(t, helpOutput, "--config")
 	assert.Contains(t, helpOutput, "--verbose")
-	assert.Contains(t, helpOutput, "--dry-run")
 
 	// Check for subcommands
 	assert.Contains(t, helpOutput, "Available Commands:")
@@ -186,9 +179,6 @@ func TestRootCmd_FlagTypes(t *testing.T) {
 	// Boolean flags
 	verboseFlag := flags.Lookup("verbose")
 	assert.Equal(t, "bool", verboseFlag.Value.Type())
-
-	dryRunFlag := flags.Lookup("dry-run")
-	assert.Equal(t, "bool", dryRunFlag.Value.Type())
 }
 
 func TestRootCmd_FlagInheritance(t *testing.T) {
@@ -202,7 +192,6 @@ func TestRootCmd_FlagInheritance(t *testing.T) {
 
 	assert.NotNil(t, inheritedFlags.Lookup("config"))
 	assert.NotNil(t, inheritedFlags.Lookup("verbose"))
-	assert.NotNil(t, inheritedFlags.Lookup("dry-run"))
 }
 
 func TestRootCmd_LongDescription_Content(t *testing.T) {

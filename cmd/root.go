@@ -42,5 +42,4 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "stackaroo.yaml", "config file (default is stackaroo.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().Bool("dry-run", false, "show what would be done without executing")
 }
