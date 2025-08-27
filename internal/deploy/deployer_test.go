@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	awsinternal "github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
+	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,18 @@ func (m *MockAWSClient) NewCloudFormationOperations() awsinternal.CloudFormation
 	return args.Get(0).(awsinternal.CloudFormationOperations)
 }
 
-// MockCloudFormationOperations is a mock implementation of aws.CloudFormationOperations
+// MockPrompter is a mock implementation of the Prompter interface for testing
+type MockPrompter struct {
+	mock.Mock
+}
+
+// ConfirmDeployment mock implementation
+func (m *MockPrompter) ConfirmDeployment(stackName string) (bool, error) {
+	args := m.Called(stackName)
+	return args.Bool(0), args.Error(1)
+}
+
+// MockCloudFormationOperations is a mock implementation of CloudFormationOperations
 type MockCloudFormationOperations struct {
 	mock.Mock
 }
@@ -346,8 +358,16 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 }
 
 func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
-	// Test deploy stack with changeset that has changes
+	// Test successful deployment with changes
 	ctx := context.Background()
+
+	// Set up mock prompter to auto-confirm deployment
+	mockPrompter := &MockPrompter{}
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil).Once()
+
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
 
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`
 
@@ -422,6 +442,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }
 
 func TestAWSDeployer_ValidateTemplate_Success(t *testing.T) {

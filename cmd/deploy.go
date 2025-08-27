@@ -24,29 +24,31 @@ var (
 var deployCmd = &cobra.Command{
 	Use:   "deploy <context> [stack-name]",
 	Short: "Deploy CloudFormation stacks",
-	Long: `Deploy CloudFormation stacks with integrated change preview.
+	Long: `Deploy CloudFormation stacks with integrated change preview and confirmation.
 
-This command automatically shows you exactly what changes will be made before 
-applying them to your infrastructure. For existing stacks, it uses AWS CloudFormation 
-ChangeSets to provide accurate previews including:
+This command shows you exactly what changes will be made and prompts for
+confirmation before applying them to your infrastructure. For existing stacks,
+it uses AWS CloudFormation ChangeSets to provide accurate previews including:
 
 • Template changes (resources added, modified, or removed)
-• Parameter changes (current vs new values)  
+• Parameter changes (current vs new values)
 • Tag changes (added, modified, or removed tags)
 • Resource-level impact analysis with replacement warnings
 
-For new stacks, the command proceeds directly with stack creation.
+After displaying the changes, you will be prompted to confirm before the
+deployment proceeds. For new stacks, the command prompts for confirmation
+before proceeding with stack creation.
 
-If no stack name is provided, all stacks in the context will be deployed in 
+If no stack name is provided, all stacks in the context will be deployed in
 dependency order.
 
 Examples:
-  stackaroo deploy dev            # Deploy all stacks in dev context
-  stackaroo deploy dev vpc        # Deploy only the vpc stack in dev context
-  stackaroo deploy prod app       # Deploy only the app stack in prod context
+  stackaroo deploy dev            # Deploy all stacks with confirmation prompts
+  stackaroo deploy dev vpc        # Deploy single stack with confirmation prompt
+  stackaroo deploy prod app       # Deploy stack after confirming changes
 
-The preview shows the same detailed diff information as 'stackaroo diff' but 
-automatically proceeds with deployment after displaying the changes.`,
+The preview shows the same detailed diff information as 'stackaroo diff' and
+waits for your confirmation before applying the changes.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]

@@ -14,6 +14,7 @@ import (
 	awsinternal "github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/diff"
 	"github.com/orien/stackaroo/internal/model"
+	"github.com/orien/stackaroo/internal/prompt"
 )
 
 // Deployer defines the interface for stack deployment operations
@@ -137,6 +138,27 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		fmt.Printf("Changes to be applied to stack %s:\n\n", stack.Name)
 		fmt.Print(diffResult.String())
 		fmt.Println()
+
+		// Prompt for user confirmation
+		confirmed, err := prompt.ConfirmDeployment(stack.Name)
+		if err != nil {
+			// Clean up changeset on error
+			if diffResult.ChangeSet != nil {
+				changeSetMgr := diff.NewChangeSetManager(cfnOps)
+				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+			}
+			return fmt.Errorf("failed to get user confirmation: %w", err)
+		}
+
+		if !confirmed {
+			// Clean up changeset when user cancels
+			if diffResult.ChangeSet != nil {
+				changeSetMgr := diff.NewChangeSetManager(cfnOps)
+				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+			}
+			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
+			return nil
+		}
 	} else {
 		fmt.Printf("No changes detected for stack %s\n", stack.Name)
 		return nil
