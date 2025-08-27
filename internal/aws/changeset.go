@@ -2,7 +2,7 @@
 Copyright © 2025 Stackaroo Contributors
 SPDX-License-Identifier: BSD-3-Clause
 */
-package diff
+package aws
 
 import (
 	"context"
@@ -12,16 +12,15 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/orien/stackaroo/internal/aws"
 )
 
 // DefaultChangeSetManager implements ChangeSetManager using AWS CloudFormation
 type DefaultChangeSetManager struct {
-	cfClient aws.CloudFormationOperations
+	cfClient CloudFormationOperations
 }
 
 // NewChangeSetManager creates a new changeset manager
-func NewChangeSetManager(cfClient aws.CloudFormationOperations) ChangeSetManager {
+func NewChangeSetManager(cfClient CloudFormationOperations) ChangeSetManager {
 	return &DefaultChangeSetManager{
 		cfClient: cfClient,
 	}

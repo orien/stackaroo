@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 func TestResult_String_TextFormat(t *testing.T) {
@@ -100,10 +102,10 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 		TagDiffs: []TagDiff{
 			{Key: "Environment", CurrentValue: "staging", ProposedValue: "dev", ChangeType: ChangeTypeModify},
 		},
-		ChangeSet: &ChangeSetInfo{
+		ChangeSet: &aws.ChangeSetInfo{
 			ChangeSetID: "test-changeset-123",
 			Status:      "CREATE_COMPLETE",
-			Changes: []ResourceChange{
+			Changes: []aws.ResourceChange{
 				{
 					Action:       "Modify",
 					ResourceType: "AWS::EC2::Instance",
@@ -220,10 +222,10 @@ func TestResult_ToJSON_Complete(t *testing.T) {
 		TagDiffs: []TagDiff{
 			{Key: "Env", CurrentValue: "dev", ProposedValue: "prod", ChangeType: ChangeTypeModify},
 		},
-		ChangeSet: &ChangeSetInfo{
+		ChangeSet: &aws.ChangeSetInfo{
 			ChangeSetID: "changeset-123",
 			Status:      "CREATE_COMPLETE",
-			Changes: []ResourceChange{
+			Changes: []aws.ResourceChange{
 				{Action: "Modify", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
 			},
 		},
@@ -458,10 +460,10 @@ func TestResult_FormatTagChangesText(t *testing.T) {
 
 func TestResult_FormatChangeSetText(t *testing.T) {
 	result := &Result{
-		ChangeSet: &ChangeSetInfo{
+		ChangeSet: &aws.ChangeSetInfo{
 			ChangeSetID: "test-changeset-456",
 			Status:      "CREATE_COMPLETE",
-			Changes: []ResourceChange{
+			Changes: []aws.ResourceChange{
 				{
 					Action:       "Add",
 					ResourceType: "AWS::S3::Bucket",

@@ -61,3 +61,27 @@ type CloudFormationOperations interface {
 	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
 	WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
 }
+
+// ChangeSetInfo contains information from AWS CloudFormation changeset
+type ChangeSetInfo struct {
+	ChangeSetID string
+	Status      string
+	Changes     []ResourceChange
+}
+
+// ResourceChange represents a change to a CloudFormation resource
+type ResourceChange struct {
+	Action       string // CREATE, UPDATE, DELETE
+	ResourceType string
+	LogicalID    string
+	PhysicalID   string
+	Replacement  string // True, False, or Conditional
+	Details      []string
+}
+
+// ChangeSetManager handles AWS CloudFormation changeset operations
+type ChangeSetManager interface {
+	CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
+	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
+	DeleteChangeSet(ctx context.Context, changeSetID string) error
+}

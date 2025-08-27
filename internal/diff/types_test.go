@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 func TestChangeType_Constants(t *testing.T) {
@@ -68,7 +70,7 @@ func TestResult_FieldAssignment(t *testing.T) {
 	templateChange := &TemplateChange{HasChanges: true}
 	paramDiffs := []ParameterDiff{{Key: "test"}}
 	tagDiffs := []TagDiff{{Key: "test"}}
-	changeSet := &ChangeSetInfo{ChangeSetID: "test"}
+	changeSet := &aws.ChangeSetInfo{ChangeSetID: "test"}
 	options := Options{Format: "text"}
 
 	result := Result{
@@ -270,7 +272,7 @@ func TestTagDiff_AllChangeTypes(t *testing.T) {
 
 func TestChangeSetInfo_DefaultValues(t *testing.T) {
 	// Test default zero values
-	info := ChangeSetInfo{}
+	info := aws.ChangeSetInfo{}
 
 	assert.Equal(t, "", info.ChangeSetID)
 	assert.Equal(t, "", info.Status)
@@ -279,11 +281,11 @@ func TestChangeSetInfo_DefaultValues(t *testing.T) {
 
 func TestChangeSetInfo_FieldAssignment(t *testing.T) {
 	// Test that ChangeSetInfo fields can be set and retrieved
-	changes := []ResourceChange{
+	changes := []aws.ResourceChange{
 		{Action: "Add", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
 	}
 
-	info := ChangeSetInfo{
+	info := aws.ChangeSetInfo{
 		ChangeSetID: "changeset-123",
 		Status:      "CREATE_COMPLETE",
 		Changes:     changes,
@@ -296,7 +298,7 @@ func TestChangeSetInfo_FieldAssignment(t *testing.T) {
 
 func TestResourceChange_DefaultValues(t *testing.T) {
 	// Test default zero values
-	change := ResourceChange{}
+	change := aws.ResourceChange{}
 
 	assert.Equal(t, "", change.Action)
 	assert.Equal(t, "", change.ResourceType)
@@ -310,7 +312,7 @@ func TestResourceChange_FieldAssignment(t *testing.T) {
 	// Test that ResourceChange fields can be set and retrieved
 	details := []string{"Property: BucketName", "Property: Tags"}
 
-	change := ResourceChange{
+	change := aws.ResourceChange{
 		Action:       "Modify",
 		ResourceType: "AWS::S3::Bucket",
 		LogicalID:    "MyBucket",
@@ -363,7 +365,7 @@ func TestResourceChange_AllActions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			change := ResourceChange{
+			change := aws.ResourceChange{
 				Action:       tt.action,
 				ResourceType: "AWS::S3::Bucket",
 				LogicalID:    "TestBucket",
@@ -404,7 +406,7 @@ func TestResourceChange_WithDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			change := ResourceChange{
+			change := aws.ResourceChange{
 				Action:       "Modify",
 				ResourceType: "AWS::S3::Bucket",
 				LogicalID:    "TestBucket",

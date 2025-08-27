@@ -2,7 +2,7 @@
 Copyright © 2025 Stackaroo Contributors
 SPDX-License-Identifier: BSD-3-Clause
 */
-package diff
+package aws
 
 import (
 	"context"
@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/orien/stackaroo/internal/aws"
 )
 
 // Mock CloudFormation operations for changeset testing
@@ -51,34 +49,34 @@ func (m *MockChangeSetClient) ExecuteChangeSetByID(ctx context.Context, changeSe
 
 // Additional methods to satisfy CloudFormationOperations
 
-func (m *MockChangeSetClient) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
+func (m *MockChangeSetClient) DeployStack(ctx context.Context, input DeployStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockChangeSetClient) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
+func (m *MockChangeSetClient) DeployStackWithCallback(ctx context.Context, input DeployStackInput, eventCallback func(StackEvent)) error {
 	args := m.Called(ctx, input, eventCallback)
 	return args.Error(0)
 }
 
-func (m *MockChangeSetClient) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
+func (m *MockChangeSetClient) UpdateStack(ctx context.Context, input UpdateStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockChangeSetClient) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
+func (m *MockChangeSetClient) DeleteStack(ctx context.Context, input DeleteStackInput) error {
 	args := m.Called(ctx, input)
 	return args.Error(0)
 }
 
-func (m *MockChangeSetClient) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
+func (m *MockChangeSetClient) GetStack(ctx context.Context, stackName string) (*Stack, error) {
 	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.Stack), args.Error(1)
+	return args.Get(0).(*Stack), args.Error(1)
 }
 
-func (m *MockChangeSetClient) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
+func (m *MockChangeSetClient) ListStacks(ctx context.Context) ([]*Stack, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*aws.Stack), args.Error(1)
+	return args.Get(0).([]*Stack), args.Error(1)
 }
 
 func (m *MockChangeSetClient) ValidateTemplate(ctx context.Context, templateBody string) error {
@@ -96,17 +94,17 @@ func (m *MockChangeSetClient) GetTemplate(ctx context.Context, stackName string)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockChangeSetClient) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
+func (m *MockChangeSetClient) DescribeStack(ctx context.Context, stackName string) (*StackInfo, error) {
 	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.StackInfo), args.Error(1)
+	return args.Get(0).(*StackInfo), args.Error(1)
 }
 
-func (m *MockChangeSetClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
+func (m *MockChangeSetClient) DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error) {
 	args := m.Called(ctx, stackName)
-	return args.Get(0).([]aws.StackEvent), args.Error(1)
+	return args.Get(0).([]StackEvent), args.Error(1)
 }
 
-func (m *MockChangeSetClient) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
+func (m *MockChangeSetClient) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error {
 	args := m.Called(ctx, stackName, eventCallback)
 	return args.Error(0)
 }

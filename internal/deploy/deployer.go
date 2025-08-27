@@ -142,7 +142,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
-				changeSetMgr := diff.NewChangeSetManager(cfnOps)
+				changeSetMgr := aws.NewChangeSetManager(cfnOps)
 				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			return fmt.Errorf("failed to get user confirmation: %w", err)
@@ -151,7 +151,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		if !confirmed {
 			// Clean up changeset when user cancels
 			if diffResult.ChangeSet != nil {
-				changeSetMgr := diff.NewChangeSetManager(cfnOps)
+				changeSetMgr := aws.NewChangeSetManager(cfnOps)
 				_ = changeSetMgr.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
@@ -167,7 +167,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		return fmt.Errorf("no changeset available for deployment")
 	}
 	changeSetInfo := diffResult.ChangeSet
-	changeSetMgr := diff.NewChangeSetManager(cfnOps)
+	changeSetMgr := aws.NewChangeSetManager(cfnOps)
 
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)

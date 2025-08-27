@@ -7,6 +7,7 @@ package diff
 import (
 	"context"
 
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 )
 
@@ -38,8 +39,8 @@ type Result struct {
 	TemplateChange *TemplateChange
 	ParameterDiffs []ParameterDiff
 	TagDiffs       []TagDiff
-	ChangeSet      *ChangeSetInfo // AWS changeset information when available
-	Options        Options        // Options used for this diff
+	ChangeSet      *aws.ChangeSetInfo // AWS changeset information when available
+	Options        Options            // Options used for this diff
 }
 
 // HasChanges returns true if any changes were detected
@@ -109,23 +110,6 @@ const (
 	ChangeTypeRemove ChangeType = "REMOVE"
 )
 
-// ChangeSetInfo contains information from AWS CloudFormation changeset
-type ChangeSetInfo struct {
-	ChangeSetID string
-	Status      string
-	Changes     []ResourceChange
-}
-
-// ResourceChange represents a change to a CloudFormation resource
-type ResourceChange struct {
-	Action       string // CREATE, UPDATE, DELETE
-	ResourceType string
-	LogicalID    string
-	PhysicalID   string
-	Replacement  string // True, False, or Conditional
-	Details      []string
-}
-
 // Comparator interfaces for different types of comparisons
 
 // TemplateComparator handles CloudFormation template comparisons
@@ -141,11 +125,4 @@ type ParameterComparator interface {
 // TagComparator handles tag comparisons
 type TagComparator interface {
 	Compare(currentTags, proposedTags map[string]string) ([]TagDiff, error)
-}
-
-// ChangeSetManager handles AWS CloudFormation changeset operations
-type ChangeSetManager interface {
-	CreateChangeSet(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
-	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
-	DeleteChangeSet(ctx context.Context, changeSetID string) error
 }

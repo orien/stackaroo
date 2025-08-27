@@ -18,7 +18,7 @@ type DefaultDiffer struct {
 	templateComparator  TemplateComparator
 	parameterComparator ParameterComparator
 	tagComparator       TagComparator
-	changeSetManager    ChangeSetManager
+	changeSetManager    aws.ChangeSetManager
 }
 
 // NewDefaultDiffer creates a new DefaultDiffer with AWS integration
@@ -34,7 +34,7 @@ func NewDefaultDiffer(ctx context.Context) (*DefaultDiffer, error) {
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
 		tagComparator:       NewTagComparator(),
-		changeSetManager:    NewChangeSetManager(cfClient),
+		changeSetManager:    aws.NewChangeSetManager(cfClient),
 	}, nil
 }
 
@@ -45,7 +45,7 @@ func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
 		tagComparator:       NewTagComparator(),
-		changeSetManager:    NewChangeSetManager(cfClient),
+		changeSetManager:    aws.NewChangeSetManager(cfClient),
 	}
 }
 
@@ -187,7 +187,7 @@ func (d *DefaultDiffer) compareTags(currentStack *aws.StackInfo, stack *model.St
 }
 
 // generateChangeSet creates an AWS changeset to preview changes
-func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*ChangeSetInfo, error) {
+func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*aws.ChangeSetInfo, error) {
 	// Get proposed template content
 	templateContent, err := stack.GetTemplateContent()
 	if err != nil {
@@ -195,7 +195,7 @@ func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stac
 	}
 
 	// Create changeset - use deployment version if we need to keep it alive
-	var changeSetInfo *ChangeSetInfo
+	var changeSetInfo *aws.ChangeSetInfo
 	if options.KeepChangeSet {
 		// Use deployment-style changeset that doesn't auto-delete
 		capabilities := stack.Capabilities
