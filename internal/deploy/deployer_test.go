@@ -158,6 +158,15 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	// Test successful stack deployment
 	ctx := context.Background()
 
+	// Set up mock prompter for confirmation
+	mockPrompter := &MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (new stack creation requires confirmation)
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+
 	// Create temporary template file
 	tmpDir := t.TempDir()
 	templateFile := filepath.Join(tmpDir, "test-template.json")
@@ -215,9 +224,18 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }
 
 func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
+	// Set up mock prompter for confirmation
+	mockPrompter := &MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (new stack creation requires confirmation)
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
 	// Test deploy stack with empty template body
 	ctx := context.Background()
 
@@ -253,9 +271,18 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }
 
 func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
+	// Set up mock prompter for confirmation
+	mockPrompter := &MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (new stack creation requires confirmation)
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
 	// Test deploy stack when AWS returns an error
 	ctx := context.Background()
 
@@ -303,6 +330,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }
 
 func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
@@ -349,7 +377,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	// Execute
 	err := deployer.DeployStack(ctx, stack)
 
-	// Verify - should succeed with no error despite NoChangesError
+	// Verify - should succeed with no error when no changes detected
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
@@ -528,6 +556,14 @@ func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 }
 
 func TestAWSDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
+	// Set up mock prompter for confirmation
+	mockPrompter := &MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (new stack creation requires confirmation)
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
 	// Test deploying stack with YAML template content
 	ctx := context.Background()
 
@@ -573,11 +609,21 @@ Resources:
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }
 
 func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
-	// Test deploying stack with multiple parameters and tags
+	// Test deployment with multiple parameters and tags
 	ctx := context.Background()
+
+	// Set up mock prompter for confirmation
+	mockPrompter := &MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (new stack creation requires confirmation)
+	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
 
 	// Set up mocks
 	mockCfnOps := &MockCloudFormationOperations{}
@@ -616,4 +662,5 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
 }

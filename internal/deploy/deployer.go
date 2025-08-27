@@ -67,6 +67,27 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stack *model.Stack) error
 func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) error {
 	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
 
+	// Show what will be created
+	fmt.Printf("This will create a new CloudFormation stack with:\n")
+	fmt.Printf("- Name: %s\n", stack.Name)
+	if len(stack.Parameters) > 0 {
+		fmt.Printf("- Parameters: %d\n", len(stack.Parameters))
+	}
+	if len(stack.Tags) > 0 {
+		fmt.Printf("- Tags: %d\n", len(stack.Tags))
+	}
+	fmt.Println()
+
+	// Prompt for confirmation before creating new resources
+	confirmed, err := prompt.ConfirmDeployment(stack.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get user confirmation: %w", err)
+	}
+	if !confirmed {
+		fmt.Printf("Stack creation cancelled for %s\n", stack.Name)
+		return nil
+	}
+
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(stack.Parameters))
 	for key, value := range stack.Parameters {
@@ -106,7 +127,7 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 
 	// Deploy the stack with event streaming
-	err := cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
+	err = cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
 	if err != nil {
 		return fmt.Errorf("failed to create stack: %w", err)
 	}
