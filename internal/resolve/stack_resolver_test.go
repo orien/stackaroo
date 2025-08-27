@@ -38,6 +38,14 @@ func (m *MockConfigProvider) GetStack(stackName, context string) (*config.StackC
 	return args.Get(0).(*config.StackConfig), args.Error(1)
 }
 
+func (m *MockConfigProvider) ListStacks(context string) ([]string, error) {
+	args := m.Called(context)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
 func (m *MockConfigProvider) ListContexts() ([]string, error) {
 	args := m.Called()
 	return args.Get(0).([]string), args.Error(1)

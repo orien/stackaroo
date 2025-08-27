@@ -34,6 +34,11 @@ func (m *MockConfigProvider) GetStack(stackName, context string) (*StackConfig, 
 	return args.Get(0).(*StackConfig), args.Error(1)
 }
 
+func (m *MockConfigProvider) ListStacks(context string) ([]string, error) {
+	args := m.Called(context)
+	return args.Get(0).([]string), args.Error(1)
+}
+
 func (m *MockConfigProvider) Validate() error {
 	args := m.Called()
 	return args.Error(0)
@@ -385,6 +390,20 @@ func TestMockConfigProvider_GetStack(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedStack, stack)
+	mockProvider.AssertExpectations(t)
+}
+
+func TestMockConfigProvider_ListStacks(t *testing.T) {
+	// Test MockConfigProvider ListStacks method
+	mockProvider := &MockConfigProvider{}
+
+	expectedStacks := []string{"vpc", "app", "database"}
+	mockProvider.On("ListStacks", "dev").Return(expectedStacks, nil)
+
+	stacks, err := mockProvider.ListStacks("dev")
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedStacks, stacks)
 	mockProvider.AssertExpectations(t)
 }
 

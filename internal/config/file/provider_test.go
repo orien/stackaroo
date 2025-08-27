@@ -187,6 +187,68 @@ stacks:
 	// Could test for specific validation errors, but keeping it simple for now
 }
 
+func TestFileProvider_ListStacks_ReturnsAllStackNames(t *testing.T) {
+	// Test that ListStacks returns all available stack names for a context
+	configContent := `
+project: test-project
+
+contexts:
+  dev:
+    region: us-west-2
+  prod:
+    region: us-east-1
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+  - name: app
+    template: templates/app.yaml
+  - name: database
+    template: templates/db.yaml
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewProvider(tmpFile)
+
+	// Test valid context
+	stackNames, err := provider.ListStacks("dev")
+	require.NoError(t, err, "should successfully list stacks for valid context")
+
+	expectedStacks := []string{"vpc", "app", "database"}
+	assert.ElementsMatch(t, expectedStacks, stackNames, "should return all stack names")
+
+	// Test another valid context
+	stackNames, err = provider.ListStacks("prod")
+	require.NoError(t, err, "should successfully list stacks for another valid context")
+	assert.ElementsMatch(t, expectedStacks, stackNames, "should return same stacks for different context")
+
+	// Test invalid context
+	stackNames, err = provider.ListStacks("nonexistent")
+	assert.Error(t, err, "should return error for nonexistent context")
+	assert.Nil(t, stackNames, "should return nil stack names on error")
+	assert.Contains(t, err.Error(), "context 'nonexistent' not found", "error should mention the missing context")
+}
+
+func TestFileProvider_ListStacks_HandlesEmptyConfiguration(t *testing.T) {
+	// Test that ListStacks handles configuration with no stacks
+	configContent := `
+project: test-project
+
+contexts:
+  dev:
+    region: us-west-2
+
+stacks: []
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewProvider(tmpFile)
+
+	stackNames, err := provider.ListStacks("dev")
+	require.NoError(t, err, "should successfully handle empty stacks list")
+	assert.Empty(t, stackNames, "should return empty list when no stacks are defined")
+}
+
 // Helper function to create a temporary config file for testing
 func createTempConfigFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()

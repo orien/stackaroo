@@ -20,6 +20,9 @@ type ConfigProvider interface {
 	// GetStack returns stack configuration for a specific stack and context
 	GetStack(stackName, context string) (*StackConfig, error)
 
+	// ListStacks returns all available stack names for a specific context
+	ListStacks(context string) ([]string, error)
+
 	// Validate checks the configuration for consistency and errors
 	Validate() error
 }

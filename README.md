@@ -55,3 +55,54 @@ go install github.com/orien/stackaroo@latest
 ```
 
 Or download a binary from the [releases page](https://github.com/orien/stackaroo/releases).
+
+## Quick Start
+
+### Configuration
+
+Create a `stackaroo.yaml` file defining your stacks and contexts:
+
+```yaml
+project: my-infrastructure
+region: us-east-1
+
+contexts:
+  development:
+    account: "123456789012"
+    region: ap-southeast-4
+    tags:
+      Environment: development
+  production:
+    account: "987654321098"
+    region: us-east-1
+    tags:
+      Environment: production
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+  - name: app
+    template: templates/app.yaml
+    depends_on:
+      - vpc
+```
+
+### Deployment
+
+Deploy stacks using either pattern:
+
+```bash
+# Deploy all stacks in a context (with dependency ordering)
+stackaroo deploy development
+
+# Deploy a specific stack (with its dependencies)
+stackaroo deploy development vpc
+
+# Preview changes before deployment
+stackaroo diff development app
+```
+
+### Key Commands
+
+- `deploy <context> [stack]` - Deploy all stacks or a specific stack
+- `diff <context> <stack>` - Preview changes before deployment

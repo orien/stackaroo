@@ -41,7 +41,7 @@ func TestDeployCommand_Exists(t *testing.T) {
 	deployCmd := findCommand(rootCmd, "deploy")
 
 	assert.NotNil(t, deployCmd, "deploy command should be registered")
-	assert.Equal(t, "deploy <context> <stack-name>", deployCmd.Use)
+	assert.Equal(t, "deploy <context> [stack-name]", deployCmd.Use)
 }
 
 func TestDeployCommand_AcceptsStackName(t *testing.T) {
@@ -54,23 +54,23 @@ func TestDeployCommand_AcceptsStackName(t *testing.T) {
 }
 
 func TestDeployCommand_AcceptsTwoArgs(t *testing.T) {
-	// Test that deploy command accepts exactly two arguments (context and stack name)
+	// Test that deploy command accepts one or two arguments (context and optional stack name)
 	deployCmd := findCommand(rootCmd, "deploy")
 	assert.NotNil(t, deployCmd)
 
-	// Test that Args validation requires exactly 2 arguments
+	// Test that Args validation accepts 1-2 arguments
 	err := deployCmd.Args(deployCmd, []string{"dev", "vpc"})
 	assert.NoError(t, err, "Two arguments should be valid")
 
 	err = deployCmd.Args(deployCmd, []string{"dev"})
-	assert.Error(t, err, "One argument should be invalid")
+	assert.NoError(t, err, "One argument should be valid")
 
 	err = deployCmd.Args(deployCmd, []string{})
 	assert.Error(t, err, "No arguments should be invalid")
 }
 
-func TestDeployCommand_RequiresTwoArgs(t *testing.T) {
-	// Test that deploy command requires both context and stack name arguments
+func TestDeployCommand_RequiresAtLeastOneArg(t *testing.T) {
+	// Test that deploy command requires at least a context argument
 
 	// Mock deployer that shouldn't be called
 	mockDeployer := &MockDeployer{}
@@ -79,12 +79,133 @@ func TestDeployCommand_RequiresTwoArgs(t *testing.T) {
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer)
 
-	// Execute with only one argument - should fail
-	rootCmd.SetArgs([]string{"deploy", "test-stack"})
+	// Execute with no arguments - should fail
+	rootCmd.SetArgs([]string{"deploy"})
 
 	err := rootCmd.Execute()
-	assert.Error(t, err, "deploy command should require both context and stack name arguments")
-	assert.Contains(t, err.Error(), "accepts 2 arg(s), received 1")
+	assert.Error(t, err, "deploy command should require at least a context argument")
+	assert.Contains(t, err.Error(), "accepts between 1 and 2 arg(s), received 0")
+
+	// Verify no deployer calls were made
+	mockDeployer.AssertExpectations(t)
+}
+
+func TestDeployCommand_DeployAllStacksInContext(t *testing.T) {
+	// Test that deploy command with single argument deploys all stacks in context
+
+	// Create a temporary config file with multiple stacks
+	configContent := `
+project: test-project
+
+contexts:
+  test-context:
+    region: us-east-1
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+  - name: app 
+    template: templates/app.yaml
+`
+	tmpDir := t.TempDir()
+	configFile := tmpDir + "/stackaroo.yaml"
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create template files
+	err = os.MkdirAll(tmpDir+"/templates", 0755)
+	require.NoError(t, err)
+
+	vpcTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  TestVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16`
+
+	appTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  TestApp:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-12345678
+      InstanceType: t2.micro`
+
+	err = os.WriteFile(tmpDir+"/templates/vpc.yaml", []byte(vpcTemplate), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(tmpDir+"/templates/app.yaml", []byte(appTemplate), 0644)
+	require.NoError(t, err)
+
+	// Mock deployer that expects two deployments
+	mockDeployer := &MockDeployer{}
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
+		return stack.Name == "vpc"
+	})).Return(nil).Once()
+
+	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
+		return stack.Name == "app"
+	})).Return(nil).Once()
+
+	oldDeployer := deployer
+	SetDeployer(mockDeployer)
+	defer SetDeployer(oldDeployer)
+
+	// Change to temp directory and execute
+	oldDir, _ := os.Getwd()
+	defer func() {
+		err := os.Chdir(oldDir)
+		require.NoError(t, err)
+	}()
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+
+	rootCmd.SetArgs([]string{"deploy", "test-context"})
+
+	err = rootCmd.Execute()
+	assert.NoError(t, err, "deploy command should successfully deploy all stacks")
+
+	// Verify both stacks were deployed
+	mockDeployer.AssertExpectations(t)
+}
+
+func TestDeployCommand_NoStacksInContext(t *testing.T) {
+	// Test that deploy command handles context with no stacks gracefully
+
+	// Create a temporary config file with no stacks
+	configContent := `
+project: test-project
+
+contexts:
+  empty-context:
+    region: us-east-1
+
+stacks: []
+`
+	tmpDir := t.TempDir()
+	configFile := tmpDir + "/stackaroo.yaml"
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Mock deployer that shouldn't be called
+	mockDeployer := &MockDeployer{}
+
+	oldDeployer := deployer
+	SetDeployer(mockDeployer)
+	defer SetDeployer(oldDeployer)
+
+	// Change to temp directory and execute
+	oldDir, _ := os.Getwd()
+	defer func() {
+		err := os.Chdir(oldDir)
+		require.NoError(t, err)
+	}()
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+
+	rootCmd.SetArgs([]string{"deploy", "empty-context"})
+
+	err = rootCmd.Execute()
+	assert.NoError(t, err, "deploy command should handle empty context without error")
 
 	// Verify no deployer calls were made
 	mockDeployer.AssertExpectations(t)

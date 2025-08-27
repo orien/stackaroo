@@ -109,6 +109,26 @@ func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, er
 	return stack, nil
 }
 
+// ListStacks returns all available stack names for a specific context
+func (fp *Provider) ListStacks(context string) ([]string, error) {
+	if err := fp.ensureLoaded(); err != nil {
+		return nil, err
+	}
+
+	// Check if the context exists
+	if _, exists := fp.rawConfig.Contexts[context]; !exists {
+		return nil, fmt.Errorf("context '%s' not found in configuration", context)
+	}
+
+	// Extract stack names
+	stackNames := make([]string, 0, len(fp.rawConfig.Stacks))
+	for _, stack := range fp.rawConfig.Stacks {
+		stackNames = append(stackNames, stack.Name)
+	}
+
+	return stackNames, nil
+}
+
 // Validate checks the configuration for consistency and errors
 func (fp *Provider) Validate() error {
 	if err := fp.ensureLoaded(); err != nil {

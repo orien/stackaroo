@@ -22,7 +22,7 @@ var (
 
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
-	Use:   "deploy <context> <stack-name>",
+	Use:   "deploy <context> [stack-name]",
 	Short: "Deploy CloudFormation stacks",
 	Long: `Deploy CloudFormation stacks with integrated change preview.
 
@@ -37,16 +37,23 @@ ChangeSets to provide accurate previews including:
 
 For new stacks, the command proceeds directly with stack creation.
 
+If no stack name is provided, all stacks in the context will be deployed in 
+dependency order.
+
 Examples:
-  stackaroo deploy dev vpc
-  stackaroo deploy prod app
+  stackaroo deploy dev            # Deploy all stacks in dev context
+  stackaroo deploy dev vpc        # Deploy only the vpc stack in dev context
+  stackaroo deploy prod app       # Deploy only the app stack in prod context
 
 The preview shows the same detailed diff information as 'stackaroo diff' but 
 automatically proceeds with deployment after displaying the changes.`,
-	Args: cobra.ExactArgs(2),
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
-		stackName := args[1]
+		var stackName string
+		if len(args) > 1 {
+			stackName = args[1]
+		}
 		ctx := context.Background()
 
 		return deployWithConfig(ctx, stackName, contextName)
@@ -82,8 +89,26 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 
-	// Resolve stack and all its dependencies
-	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
+	// Determine which stacks to deploy
+	var stackNames []string
+	if stackName != "" {
+		// Deploy single stack
+		stackNames = []string{stackName}
+	} else {
+		// Deploy all stacks in context
+		var err error
+		stackNames, err = provider.ListStacks(contextName)
+		if err != nil {
+			return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+		}
+		if len(stackNames) == 0 {
+			fmt.Printf("No stacks found in context %s\n", contextName)
+			return nil
+		}
+	}
+
+	// Resolve stack(s) and all their dependencies
+	resolved, err := resolver.Resolve(ctx, contextName, stackNames)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
