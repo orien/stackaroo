@@ -104,14 +104,14 @@ jobs:
       run: |
         TAG=${GITHUB_REF#refs/tags/}
         echo "Release tag: $TAG"
-        
+
         # Validate tag format (should be v*.*.* or similar)
         if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)*$ ]]; then
           echo "❌ Invalid tag format: $TAG"
           echo "Expected format: v1.2.3 or v1.2.3-rc1"
           exit 1
         fi
-        
+
         echo "✅ Tag format is valid: $TAG"
 
     - name: Check VERSION file consistency
@@ -119,10 +119,10 @@ jobs:
         TAG=${GITHUB_REF#refs/tags/}
         VERSION_FROM_FILE=$(cat VERSION)
         VERSION_FROM_TAG=${TAG#v}
-        
+
         echo "Tag version: $VERSION_FROM_TAG"
         echo "VERSION file: $VERSION_FROM_FILE"
-        
+
         # Allow some flexibility for pre-release tags
         if [[ "$VERSION_FROM_TAG" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
           MAJOR_VERSION=${BASH_REMATCH[1]}
@@ -168,14 +168,14 @@ jobs:
       run: |
         TAG=${GITHUB_REF#refs/tags/}
         echo "Checking if release $TAG was created..."
-        
+
         # Wait a moment for the release to be fully processed
         sleep 10
-        
+
         # Check if release exists using GitHub CLI
-        if gh release view "$TAG" --json tagName,draft,prerelease; then
+        if gh release view "$TAG" --json tagName,isDraft,isPrerelease; then
           echo "✅ Release $TAG was successfully created"
-          
+
           # List release assets
           echo "📦 Release assets:"
           gh release view "$TAG" --json assets --jq '.assets[].name' | sort
@@ -196,7 +196,7 @@ jobs:
     - name: Release Status
       run: |
         TAG=${GITHUB_REF#refs/tags/}
-        
+
         if [ "${{ needs.test.result }}" = "success" ] && \
            [ "${{ needs.lint.result }}" = "success" ] && \
            [ "${{ needs.security.result }}" = "success" ] && \
