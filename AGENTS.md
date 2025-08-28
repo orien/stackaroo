@@ -356,20 +356,20 @@ make commit-check      # Run comprehensive pre-commit checks
 ```
 
 ### Commit Messages
-- Do not use conventional commit format
+- Do use conventional commit format
 - Include context about AWS resources or stacks affected
 - Reference issue numbers when applicable
 
 ## Commit Workflow and Review Process
 
-### Driver Review Requirement
-- **Every change** to any project file must be offered to the driver for review before committing
-- Never commit changes directly without explicit approval from the driver
+### Human Review Requirement
+- **Every change** to any project file must be offered to the human for review before committing
+- Never commit changes directly without explicit approval from the human
 - Present all modifications clearly, explaining what was changed and why
-- Wait for driver confirmation before proceeding with `git add` and `git commit`
+- Wait for the human confirmation before proceeding with `git add` and `git commit`
 
 ### Change Presentation Format
-When presenting changes to the driver:
+When presenting changes to the human:
 - Show the file path and nature of changes
 - Explain the purpose and impact of each modification
 - Highlight any potential breaking changes or dependencies
@@ -378,11 +378,11 @@ When presenting changes to the driver:
 ### Commit Process
 1. **Make Changes** - Implement the required functionality with tests
 2. **Run Checks** - Execute `make commit-check` to ensure quality
-3. **Present Changes** - Show all modifications to the driver for review
-4. **Wait for Approval** - Do not proceed until driver explicitly approves
+3. **Present Changes** - Show all modifications to the human for review
+4. **Wait for Approval** - Do not proceed until the human explicitly approves
 5. **Commit** - Only after approval, stage and commit the changes
 
-**Never push changes to remote repositories** - this is the driver's responsibility.
+**Never push changes to remote repositories** - this is the human's responsibility.
 
 ### What Requires Review
 All changes to project files, including but not limited to:
@@ -394,13 +394,13 @@ All changes to project files, including but not limited to:
 - CI/CD pipeline changes (.github/workflows/)
 
 ### Exception Protocol
-There are **no exceptions** to the driver review requirement. Even minor changes such as:
+There are **no exceptions** to the human review requirement. Even minor changes such as:
 - Typo fixes
 - Comment updates
 - Formatting changes
 - Import organisation
 
-Must be presented to and approved by the driver before committing.
+Must be presented to and approved by the human before committing.
 
 ## Debugging and Troubleshooting
 

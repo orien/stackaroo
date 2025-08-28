@@ -115,16 +115,8 @@ clean-all: clean ## Clean all artifacts including module cache
 	@echo "🧹 Cleaning all artifacts..."
 	@go clean -modcache
 
-##@ AWS Testing Shortcuts
 
-aws-test-us-east-1: build-test-aws ## Test AWS module in us-east-1
-	@$(BUILD_DIR)/test-aws -region=us-east-1 -dry-run=true -verbose=true
 
-aws-test-us-west-2: build-test-aws ## Test AWS module in us-west-2
-	@$(BUILD_DIR)/test-aws -region=us-west-2 -dry-run=true -verbose=true
-
-aws-test-profile: build-test-aws ## Test AWS module with specific profile (set PROFILE env var)
-	@$(BUILD_DIR)/test-aws -profile=$(PROFILE) -dry-run=true -verbose=true
 
 ##@ Release
 
@@ -138,16 +130,39 @@ version: ## Show version information that would be embedded in binary
 	@echo "Git dirty: $(GIT_DIRTY)"
 	@echo "Go version: $(shell go version)"
 
-release-build: clean ## Build release binaries for multiple platforms
-	@echo "🚀 Building release binaries for version $(VERSION)..."
-	@mkdir -p $(BUILD_DIR)/release
-	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-amd64 .
-	@GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-arm64 .
-	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-amd64 .
-	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-arm64 .
-	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-windows-amd64.exe .
-	@echo "✅ Release binaries built for $(VERSION) in $(BUILD_DIR)/release/"
-	@ls -la $(BUILD_DIR)/release/
+
+install-goreleaser: ## Install GoReleaser
+	@echo "📦 Installing GoReleaser..."
+	@go install github.com/goreleaser/goreleaser@latest
+	@echo "✅ GoReleaser installed"
+
+goreleaser-check: ## Check GoReleaser configuration
+	@echo "🔍 Checking GoReleaser configuration..."
+	@goreleaser check
+
+goreleaser-snapshot: clean ## Build snapshot release with GoReleaser (no git tag required)
+	@echo "📸 Building snapshot release with GoReleaser..."
+	@goreleaser release --snapshot --clean
+	@echo "✅ Snapshot release built in dist/"
+	@ls -la dist/
+
+goreleaser-dry-run: ## Dry run GoReleaser release process
+	@echo "🧪 Running GoReleaser dry run..."
+	@goreleaser release --skip=publish --clean
+	@echo "✅ Dry run completed"
+
+release-prepare: ## Prepare for release (run checks, validate config)
+	@echo "🚀 Preparing for release..."
+	@./scripts/release.sh --dry-run $(shell cat VERSION)
+
+release: ## Create and push release tag (requires version argument: make release VERSION=1.2.3)
+ifdef VERSION
+	@echo "🚀 Creating release $(VERSION)..."
+	@./scripts/release.sh $(VERSION)
+else
+	@echo "❌ VERSION argument required. Usage: make release VERSION=1.2.3"
+	@exit 1
+endif
 
 ##@ Git
 
@@ -165,28 +180,3 @@ commit-check: lint test git-check ## Run pre-commit checks
 	@echo "✅ All checks passed!"
 
 ##@ Info
-
-deps: ## Show module dependencies
-	@echo "📦 Module dependencies:"
-	@go list -m all
-
-env: ## Show Go environment
-	@echo "🌍 Go environment:"
-	@go env
-
-doctor: ## Run diagnostics
-	@echo "🏥 Running diagnostics..."
-	@echo "Go version: $(shell go version)"
-	@echo "Module: $(shell go list -m)"
-	@echo "GOPATH: $(shell go env GOPATH)"
-	@echo "GOROOT: $(shell go env GOROOT)"
-	@echo "Build cache: $(shell go env GOCACHE)"
-	@echo "Module cache: $(shell go env GOMODCACHE)"
-	@echo ""
-	@echo "Available AWS regions for testing:"
-	@echo "  - us-east-1 (N. Virginia)"
-	@echo "  - us-west-2 (Oregon)"
-	@echo "  - eu-west-1 (Ireland)"
-	@echo ""
-	@echo "To test with specific region: make aws-test-us-east-1"
-	@echo "To test with specific profile: PROFILE=myprofile make aws-test-profile"

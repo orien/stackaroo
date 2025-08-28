@@ -1,0 +1,127 @@
+version: 2
+
+project_name: stackaroo
+
+before:
+  hooks:
+    - go mod tidy
+    # Skip tests during GoReleaser builds to avoid version test issues
+    # - go test ./...
+
+builds:
+  - id: stackaroo
+    binary: stackaroo
+    main: ./main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X 'github.com/orien/stackaroo/internal/version.Version={{.Version}}'
+      - -X 'github.com/orien/stackaroo/internal/version.GitCommit={{.Commit}}'
+      - -X 'github.com/orien/stackaroo/internal/version.BuildDate={{.Date}}'
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: stackaroo-archive
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Version }}-
+      {{- .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+    wrap_in_directory: true
+
+universal_binaries:
+  - id: stackaroo-universal
+    ids:
+      - stackaroo
+    name_template: 'stackaroo'
+    replace: true
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^build:'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: orien
+    name: stackaroo
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Stackaroo {{.Tag}}
+
+    A new version of Stackaroo has been released!
+
+    ### Installation
+
+    #### Using curl (Linux/macOS)
+    ```bash
+    curl -sL https://github.com/orien/stackaroo/releases/download/{{.Tag}}/stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}.tar.gz | tar -xz
+    cd stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}
+    sudo mv stackaroo /usr/local/bin/
+    cd .. && rm -rf stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}
+    ```
+
+    #### Using Go
+    ```bash
+    go install github.com/orien/stackaroo@{{.Tag}}
+    ```
+
+  footer: |
+    ## AWS CloudFormation Stack Management
+
+    This release includes improvements to AWS CloudFormation stack management,
+    dependency resolution, and deployment workflows.
+
+    Full documentation is available at: https://github.com/orien/stackaroo
+
+    **Full Changelog**: https://github.com/orien/stackaroo/compare/{{.PreviousTag}}...{{.Tag}}
+
+git:
+  ignore_tags:
+    - '*-rc*'
+    - '*-beta*'
+    - '*-alpha*'

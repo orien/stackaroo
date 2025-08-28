@@ -50,11 +50,38 @@ Stackaroo simplifies CloudFormation stack management by providing:
 
 ## Installation
 
+### Using Go Install
+
 ```bash
 go install github.com/orien/stackaroo@latest
 ```
 
-Or download a binary from the [releases page](https://github.com/orien/stackaroo/releases).
+### Download Binary
+
+Download the latest release from the [releases page](https://github.com/orien/stackaroo/releases).
+
+#### Linux/macOS
+
+```bash
+# Download and install (replace VERSION and ARCH as needed)
+curl -sL https://github.com/orien/stackaroo/releases/download/v1.0.0/stackaroo-1.0.0-linux-x86_64.tar.gz | tar -xz
+cd stackaroo-1.0.0-linux-x86_64
+sudo mv stackaroo /usr/local/bin/
+cd .. && rm -rf stackaroo-1.0.0-linux-x86_64
+
+# Verify installation
+stackaroo --version
+```
+
+#### Windows
+
+Download the `.zip` file from the releases page, extract it, and add the binary to your PATH.
+
+### Verify Installation
+
+```bash
+stackaroo --version
+```
 
 ## Quick Start
 
