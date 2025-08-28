@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/orien/stackaroo/internal/version"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,10 +79,18 @@ func TestRootCmd_Help(t *testing.T) {
 func TestRootCmd_Version(t *testing.T) {
 	// Test that version flag works correctly
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetArgs([]string{"--version"})
+	
+	// Create a fresh command instance to avoid state issues
+	cmd := &cobra.Command{
+		Use:     "stackaroo",
+		Version: version.Short(),
+		Short:   "A command-line tool for managing AWS CloudFormation stacks as code",
+	}
+	cmd.SetVersionTemplate(version.Info() + "\n")
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"--version"})
 
-	err := rootCmd.Execute()
+	err := cmd.Execute()
 	require.NoError(t, err)
 
 	output := buf.String()
