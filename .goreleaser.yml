@@ -90,34 +90,8 @@ release:
   draft: false
   prerelease: auto
   mode: replace
-  header: |
-    ## Stackaroo {{.Tag}}
-
-    A new version of Stackaroo has been released!
-
-    ### Installation
-
-    #### Using curl (Linux/macOS)
-    ```bash
-    curl -sL https://github.com/orien/stackaroo/releases/download/{{.Tag}}/stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}.tar.gz | tar -xz
-    cd stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}
-    sudo mv stackaroo /usr/local/bin/
-    cd .. && rm -rf stackaroo-{{.Version}}-{{.Os}}-{{.Arch}}
-    ```
-
-    #### Using Go
-    ```bash
-    go install github.com/orien/stackaroo@{{.Tag}}
-    ```
 
   footer: |
-    ## AWS CloudFormation Stack Management
-
-    This release includes improvements to AWS CloudFormation stack management,
-    dependency resolution, and deployment workflows.
-
-    Full documentation is available at: https://github.com/orien/stackaroo
-
     **Full Changelog**: https://github.com/orien/stackaroo/compare/{{.PreviousTag}}...{{.Tag}}
 
 git:

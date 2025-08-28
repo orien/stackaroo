@@ -79,7 +79,7 @@ func TestRootCmd_Help(t *testing.T) {
 func TestRootCmd_Version(t *testing.T) {
 	// Test that version flag works correctly
 	var buf bytes.Buffer
-	
+
 	// Create a fresh command instance to avoid state issues
 	cmd := &cobra.Command{
 		Use:     "stackaroo",
