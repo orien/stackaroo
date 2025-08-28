@@ -19,9 +19,17 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps"
+      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/.github/workflows"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 20
+    commit-message:
+      prefix: "ci"
+      prefix-development: "ci"
+      include: "scope"
