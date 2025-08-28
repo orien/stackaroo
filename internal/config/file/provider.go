@@ -144,6 +144,18 @@ func (fp *Provider) Validate() error {
 		}
 	}
 
+	// Check that global template directory exists if specified
+	if fp.rawConfig.Templates != nil && fp.rawConfig.Templates.Directory != "" {
+		templateDir := fp.rawConfig.Templates.Directory
+		configDir := filepath.Dir(fp.filename)
+		if !filepath.IsAbs(templateDir) {
+			templateDir = filepath.Join(configDir, templateDir)
+		}
+		if _, err := os.Stat(templateDir); err != nil && os.IsNotExist(err) {
+			return fmt.Errorf("global template directory not found: %s", templateDir)
+		}
+	}
+
 	// Check that template files exist (basic validation)
 	for _, stack := range fp.rawConfig.Stacks {
 		if stack.Template != "" {
@@ -271,17 +283,28 @@ func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.Stack
 	return resolved, nil
 }
 
-// resolveTemplatePath resolves template path relative to config file directory
+// resolveTemplatePath resolves template path relative to global template directory or config file directory
 func (fp *Provider) resolveTemplatePath(templatePath string) string {
 	if filepath.IsAbs(templatePath) {
 		return templatePath
 	}
 
 	configDir := filepath.Dir(fp.filename)
+
+	// Use global template directory if specified
+	if fp.rawConfig != nil && fp.rawConfig.Templates != nil && fp.rawConfig.Templates.Directory != "" {
+		templateDir := fp.rawConfig.Templates.Directory
+		if !filepath.IsAbs(templateDir) {
+			templateDir = filepath.Join(configDir, templateDir)
+		}
+		return filepath.Join(templateDir, templatePath)
+	}
+
+	// Fall back to config directory (current behaviour)
 	return filepath.Join(configDir, templatePath)
 }
 
-// resolveTemplateURI resolves template path to file:// URI relative to config file directory
+// resolveTemplateURI resolves template path to file:// URI relative to global template directory or config file directory
 func (fp *Provider) resolveTemplateURI(templatePath string) string {
 	resolvedPath := fp.resolveTemplatePath(templatePath)
 	return "file://" + resolvedPath

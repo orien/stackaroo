@@ -6,6 +6,8 @@ Date: 2025-08-23
 
 Accepted
 
+Amended by [ADR 0014: Global template directory](0014-global-template-directory.md)
+
 ## Context
 
 We need to define the specific configuration structure for the file-based configuration provider. This is the first concrete implementation of our configuration abstraction ([ADR 0008: Configuration abstraction](0008-configuration-abstraction.md)) using the generic context approach ([ADR 0009: Configuration context abstraction](0009-configuration-context-abstraction.md)).
@@ -60,7 +62,7 @@ contexts:
     region: us-west-2
     tags:
       Environment: dev
-  
+
 stacks:
   - name: vpc
     template: templates/vpc.yaml

@@ -95,7 +95,7 @@ Deploy stacks using either pattern:
 # Deploy all stacks in a context (with dependency ordering)
 stackaroo deploy development
 
-# Deploy a specific stack (with its dependencies)
+# Deploy a specific stack
 stackaroo deploy development vpc
 
 # Preview changes before deployment

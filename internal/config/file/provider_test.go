@@ -259,3 +259,244 @@ func createTempConfigFile(t *testing.T, content string) string {
 
 	return tmpFile
 }
+
+func TestFileProvider_LoadConfig_WithGlobalTemplateDirectory(t *testing.T) {
+	// Test that global template directory resolves template paths correctly
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: "templates/"
+
+contexts:
+  dev:
+    region: us-west-2
+    account: "123456789012"
+
+stacks:
+  - name: vpc
+    template: vpc.yaml
+  - name: app
+    template: subdirectory/app.yaml
+`
+
+	// Create temporary config file and template directory structure
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/stackaroo.yaml"
+
+	err := os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create template directory and files
+	templatesDir := tmpDir + "/templates"
+	err = os.MkdirAll(templatesDir+"/subdirectory", 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(templatesDir+"/vpc.yaml", []byte("template content"), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(templatesDir+"/subdirectory/app.yaml", []byte("template content"), 0644)
+	require.NoError(t, err)
+
+	provider := NewProvider(tmpFile)
+	ctx := context.Background()
+
+	cfg, err := provider.LoadConfig(ctx, "dev")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// Verify stacks use global template directory
+	require.Len(t, cfg.Stacks, 2)
+
+	vpcStack := cfg.Stacks[0]
+	assert.Equal(t, "vpc", vpcStack.Name)
+	assert.True(t, strings.HasPrefix(vpcStack.Template, "file://"))
+	assert.True(t, strings.Contains(vpcStack.Template, "templates/vpc.yaml"))
+
+	appStack := cfg.Stacks[1]
+	assert.Equal(t, "app", appStack.Name)
+	assert.True(t, strings.HasPrefix(appStack.Template, "file://"))
+	assert.True(t, strings.Contains(appStack.Template, "templates/subdirectory/app.yaml"))
+}
+
+func TestFileProvider_LoadConfig_FallbackWithoutGlobalTemplateDirectory(t *testing.T) {
+	// Test that without global template directory, behavior remains the same (backward compatibility)
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  dev:
+    region: us-west-2
+    account: "123456789012"
+
+stacks:
+  - name: vpc
+    template: templates/vpc.yaml
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewProvider(tmpFile)
+	ctx := context.Background()
+
+	cfg, err := provider.LoadConfig(ctx, "dev")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// Verify stack template path resolves relative to config directory (current behavior)
+	require.Len(t, cfg.Stacks, 1)
+	stack := cfg.Stacks[0]
+	assert.Equal(t, "vpc", stack.Name)
+	assert.True(t, strings.HasPrefix(stack.Template, "file://"))
+	assert.True(t, strings.Contains(stack.Template, "templates/vpc.yaml"))
+}
+
+func TestFileProvider_LoadConfig_AbsolutePathsBypassGlobalDirectory(t *testing.T) {
+	// Test that absolute template paths bypass global template directory
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: "templates/"
+
+contexts:
+  dev:
+    region: us-west-2
+    account: "123456789012"
+
+stacks:
+  - name: vpc
+    template: /absolute/path/vpc.yaml
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewProvider(tmpFile)
+	ctx := context.Background()
+
+	cfg, err := provider.LoadConfig(ctx, "dev")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// Verify absolute path bypasses global template directory
+	require.Len(t, cfg.Stacks, 1)
+	stack := cfg.Stacks[0]
+	assert.Equal(t, "vpc", stack.Name)
+	assert.Equal(t, "file:///absolute/path/vpc.yaml", stack.Template)
+}
+
+func TestFileProvider_Validate_ChecksGlobalTemplateDirectoryExists(t *testing.T) {
+	// Test that validation fails if global template directory doesn't exist
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: "nonexistent-templates/"
+
+contexts:
+  dev:
+    region: us-west-2
+
+stacks:
+  - name: vpc
+    template: vpc.yaml
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewProvider(tmpFile)
+
+	err := provider.Validate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "global template directory not found")
+	assert.Contains(t, err.Error(), "nonexistent-templates")
+}
+
+func TestFileProvider_Validate_PassesWithValidGlobalTemplateDirectory(t *testing.T) {
+	// Test that validation passes when global template directory exists
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/stackaroo.yaml"
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: "templates/"
+
+contexts:
+  dev:
+    region: us-west-2
+
+stacks:
+  - name: vpc
+    template: vpc.yaml
+`
+
+	err := os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create template directory and file
+	templatesDir := tmpDir + "/templates"
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(templatesDir+"/vpc.yaml", []byte("template content"), 0644)
+	require.NoError(t, err)
+
+	provider := NewProvider(tmpFile)
+
+	err = provider.Validate()
+	assert.NoError(t, err)
+}
+
+func TestFileProvider_Validate_AbsoluteGlobalTemplateDirectory(t *testing.T) {
+	// Test that global template directory works with absolute paths
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/stackaroo.yaml"
+	templatesDir := tmpDir + "/absolute-templates"
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: "` + templatesDir + `"
+
+contexts:
+  dev:
+    region: us-west-2
+
+stacks:
+  - name: vpc
+    template: vpc.yaml
+`
+
+	err := os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create absolute template directory and file
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(templatesDir+"/vpc.yaml", []byte("template content"), 0644)
+	require.NoError(t, err)
+
+	provider := NewProvider(tmpFile)
+	ctx := context.Background()
+
+	// Test loading config
+	cfg, err := provider.LoadConfig(ctx, "dev")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// Verify template resolves to absolute directory
+	require.Len(t, cfg.Stacks, 1)
+	stack := cfg.Stacks[0]
+	assert.Equal(t, "file://"+templatesDir+"/vpc.yaml", stack.Template)
+
+	// Test validation
+	err = provider.Validate()
+	assert.NoError(t, err)
+}

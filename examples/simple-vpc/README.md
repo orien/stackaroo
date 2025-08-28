@@ -11,14 +11,6 @@ This example demonstrates basic Stackaroo usage with a simple VPC deployment acr
 - **Tag management** - Consistent tagging across contexts
 - **Change preview** - See exactly what infrastructure changes before deployment
 
-## Prerequisites
-
-- Go 1.21+ (to build stackaroo)
-- AWS CLI configured with appropriate credentials
-- Access to AWS accounts specified in the configuration:
-  - Account `123456789012` for dev and staging
-  - Account `987654321098` for production
-
 ## Project Structure
 
 ```
@@ -40,42 +32,36 @@ The `stackaroo.yaml` file defines:
 
 ## Usage
 
-1. **Build Stackaroo** (from the project root):
-   ```bash
-   cd ../../  # Go to stackaroo project root
-   go build -o stackaroo .
-   ```
-
-2. **Navigate to this example**:
+1. **Navigate to this example**:
    ```bash
    cd examples/simple-vpc
    ```
 
-3. **Deploy to development** (shows preview before applying changes):
+2. **Deploy to development** (shows preview before applying changes):
    ```bash
    # Deploy all stacks in the dev context
-   ../../stackaroo deploy dev
-   
+   stackaroo deploy dev
+
    # Or deploy a specific stack
-   ../../stackaroo deploy dev vpc
+   stackaroo deploy dev vpc
    ```
 
-4. **Deploy to staging** (shows preview before applying changes):
+3. **Deploy to staging** (shows preview before applying changes):
    ```bash
    # Deploy all stacks in the staging context
-   ../../stackaroo deploy staging
-   
+   stackaroo deploy staging
+
    # Or deploy a specific stack
-   ../../stackaroo deploy staging vpc
+   stackaroo deploy staging vpc
    ```
 
-5. **Deploy to production** (requires production account access):
+4. **Deploy to production** (requires production account access):
    ```bash
    # Deploy all stacks in the prod context
-   ../../stackaroo deploy prod
-   
+   stackaroo deploy prod
+
    # Or deploy a specific stack
-   ../../stackaroo deploy prod vpc
+   stackaroo deploy prod vpc
    ```
 
 ## Preview Output
@@ -125,47 +111,3 @@ Each deployment creates:
 | dev     | us-west-2 | 123456789012 | 10.1.0.0/16   | Environment: dev |
 | staging | us-east-1 | 123456789012 | 10.2.0.0/16   | Environment: staging |
 | prod    | us-east-1 | 987654321098 | 10.3.0.0/16   | Environment: prod, Monitoring: enabled |
-
-## Viewing Deployment Status
-
-Check the status of your deployments:
-```bash
-# Check status of all stacks in context
-../../stackaroo status dev
-
-# Or check status of specific stack
-../../stackaroo status dev vpc
-```
-
-## Cleanup
-
-To remove the infrastructure:
-```bash
-# Delete all stacks in each context
-../../stackaroo delete dev
-../../stackaroo delete staging  
-../../stackaroo delete prod
-
-# Or delete specific stacks
-../../stackaroo delete dev vpc
-../../stackaroo delete staging vpc
-../../stackaroo delete prod vpc
-```
-
-## Learning Points
-
-This example demonstrates:
-
-1. **Configuration inheritance** - How global settings cascade to specific contexts
-2. **Multi-environment patterns** - Same template, different parameters
-3. **Cross-account deployment** - Managing resources across AWS accounts
-4. **Infrastructure consistency** - Identical setup with context-appropriate sizing
-5. **Tag management** - Consistent tagging strategy across contexts
-6. **Change preview** - How Stackaroo shows you exactly what will change before deployment
-
-## Next Steps
-
-- Explore adding more stacks (databases, applications) that depend on this VPC
-- Try different parameter combinations
-- Add custom tags for cost allocation or compliance
-- Experiment with different AWS regions and accounts

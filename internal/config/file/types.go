@@ -10,11 +10,17 @@ package file
 // Config represents the raw YAML configuration file structure
 // Used for parsing the stackaroo.yaml file before context resolution
 type Config struct {
-	Project  string              `yaml:"project"`
-	Region   string              `yaml:"region"`
-	Tags     map[string]string   `yaml:"tags"`
-	Contexts map[string]*Context `yaml:"contexts"`
-	Stacks   []*Stack            `yaml:"stacks"`
+	Project   string              `yaml:"project"`
+	Region    string              `yaml:"region"`
+	Tags      map[string]string   `yaml:"tags"`
+	Templates *Templates          `yaml:"templates"`
+	Contexts  map[string]*Context `yaml:"contexts"`
+	Stacks    []*Stack            `yaml:"stacks"`
+}
+
+// Templates represents global template configuration
+type Templates struct {
+	Directory string `yaml:"directory"`
 }
 
 // Context represents context configuration as it appears in YAML

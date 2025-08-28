@@ -45,6 +45,42 @@ func TestFileConfig_FieldAssignment(t *testing.T) {
 	assert.Equal(t, stacks, config.Stacks)
 }
 
+func TestTemplates_DefaultValues(t *testing.T) {
+	// Test default zero values
+	templates := Templates{}
+
+	assert.Equal(t, "", templates.Directory)
+}
+
+func TestTemplates_FieldAssignment(t *testing.T) {
+	// Test that Templates fields can be set and retrieved
+	templates := Templates{
+		Directory: "templates/",
+	}
+
+	assert.Equal(t, "templates/", templates.Directory)
+}
+
+func TestTemplates_YAMLMarshaling(t *testing.T) {
+	// Test YAML marshaling and unmarshaling
+	templates := Templates{
+		Directory: "custom-templates/",
+	}
+
+	// Marshal to YAML
+	yamlData, err := yaml.Marshal(&templates)
+	require.NoError(t, err)
+	assert.NotEmpty(t, yamlData)
+
+	// Unmarshal from YAML
+	var unmarshaledTemplates Templates
+	err = yaml.Unmarshal(yamlData, &unmarshaledTemplates)
+	require.NoError(t, err)
+
+	// Verify the unmarshaled data
+	assert.Equal(t, templates.Directory, unmarshaledTemplates.Directory)
+}
+
 func TestFileConfig_YAMLMarshaling(t *testing.T) {
 	// Test YAML marshaling and unmarshaling
 	config := Config{
@@ -62,6 +98,9 @@ func TestFileConfig_YAMLMarshaling(t *testing.T) {
 					"Environment": "development",
 				},
 			},
+		},
+		Templates: &Templates{
+			Directory: "templates/",
 		},
 		Stacks: []*Stack{
 			{
@@ -92,6 +131,8 @@ func TestFileConfig_YAMLMarshaling(t *testing.T) {
 	assert.Equal(t, config.Project, unmarshaledConfig.Project)
 	assert.Equal(t, config.Region, unmarshaledConfig.Region)
 	assert.Equal(t, config.Tags, unmarshaledConfig.Tags)
+	assert.NotNil(t, unmarshaledConfig.Templates)
+	assert.Equal(t, "templates/", unmarshaledConfig.Templates.Directory)
 	assert.Len(t, unmarshaledConfig.Contexts, 1)
 	assert.Len(t, unmarshaledConfig.Stacks, 1)
 }
@@ -225,6 +266,9 @@ region: us-east-1
 tags:
   ManagedBy: stackaroo
   Project: complex-app
+
+templates:
+  directory: "templates/"
   
 contexts:
   dev:
@@ -283,6 +327,10 @@ stacks:
 	assert.Equal(t, "complex-app", config.Project)
 	assert.Equal(t, "us-east-1", config.Region)
 	assert.Equal(t, "stackaroo", config.Tags["ManagedBy"])
+
+	// Verify templates
+	assert.NotNil(t, config.Templates)
+	assert.Equal(t, "templates/", config.Templates.Directory)
 
 	// Verify contexts
 	assert.Len(t, config.Contexts, 2)
