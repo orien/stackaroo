@@ -20,8 +20,8 @@ updates:
           - "minor"
           - "patch"
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps"
+      prefix: "maintain"
+      prefix-development: "maintain"
       include: "scope"
 
   - package-ecosystem: "github-actions"
