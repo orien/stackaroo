@@ -75,18 +75,25 @@ func TestRootCmd_Help(t *testing.T) {
 }
 
 func TestRootCmd_Version(t *testing.T) {
-	// Test that version flag works (if implemented)
+	// Test that version flag works correctly
 	var buf bytes.Buffer
 	rootCmd.SetOut(&buf)
 	rootCmd.SetArgs([]string{"--version"})
 
-	// This might not work if version isn't implemented, so we don't assert on the error
-	_ = rootCmd.Execute()
+	err := rootCmd.Execute()
+	require.NoError(t, err)
 
-	// If version is implemented, output should not be empty
-	// If not implemented, this test documents the current state
 	output := buf.String()
-	t.Logf("Version output: %s", output)
+	assert.NotEmpty(t, output, "version output should not be empty")
+
+	// Should contain all expected version components
+	assert.Contains(t, output, "stackaroo")
+	assert.Contains(t, output, "Git commit:")
+	assert.Contains(t, output, "Build date:")
+	assert.Contains(t, output, "Go version:")
+	assert.Contains(t, output, "Platform:")
+
+	t.Logf("Version output:\n%s", output)
 }
 
 func TestRootCmd_NoArgs(t *testing.T) {

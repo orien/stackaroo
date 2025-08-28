@@ -102,10 +102,29 @@ jobs:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
       run: |
-        if [ "${{ matrix.goos }}" = "windows" ]; then
-          go build -v -ldflags="-w -s" -o stackaroo-${{ matrix.goos }}-${{ matrix.goarch }}.exe .
+        # Calculate version information
+        BASE_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+        GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+        BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        GIT_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
+        GIT_DIRTY=$(test -z "$(git status --porcelain 2>/dev/null)" || echo "-dirty")
+
+        # Determine version string
+        if [ -n "$GIT_TAG" ] && [ "$GIT_TAG" = "v$BASE_VERSION" ]; then
+          VERSION="v$BASE_VERSION"
         else
-          go build -v -ldflags="-w -s" -o stackaroo-${{ matrix.goos }}-${{ matrix.goarch }} .
+          VERSION="${BASE_VERSION}+${GIT_COMMIT}${GIT_DIRTY}"
+        fi
+
+        echo "Building version: $VERSION"
+
+        # Build with version information
+        LDFLAGS="-w -s -X 'github.com/orien/stackaroo/internal/version.Version=$VERSION' -X 'github.com/orien/stackaroo/internal/version.GitCommit=$GIT_COMMIT' -X 'github.com/orien/stackaroo/internal/version.BuildDate=$BUILD_DATE'"
+
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          go build -v -ldflags="$LDFLAGS" -o stackaroo-${{ matrix.goos }}-${{ matrix.goarch }}.exe .
+        else
+          go build -v -ldflags="$LDFLAGS" -o stackaroo-${{ matrix.goos }}-${{ matrix.goarch }} .
         fi
 
     - name: Upload build artifacts
@@ -140,7 +159,7 @@ jobs:
     - name: Test CLI basics
       run: |
         ./stackaroo-linux-amd64 --help
-        ./stackaroo-linux-amd64 --version || true # Allow failure if version not implemented
+        ./stackaroo-linux-amd64 --version
         ./stackaroo-linux-amd64 deploy --help
 
   docker-test:

@@ -8,13 +8,15 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/orien/stackaroo/internal/version"
 	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "stackaroo",
-	Short: "A command-line tool for managing AWS CloudFormation stacks as code",
+	Use:     "stackaroo",
+	Version: version.Short(),
+	Short:   "A command-line tool for managing AWS CloudFormation stacks as code",
 	Long: `Stackaroo is a CLI tool that simplifies CloudFormation stack management by providing:
 
 • Declarative configuration in YAML files
@@ -39,6 +41,9 @@ func Execute() {
 }
 
 func init() {
+	// Set custom version template to show detailed build information
+	rootCmd.SetVersionTemplate(version.Info() + "\n")
+
 	// Global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "stackaroo.yaml", "config file (default is stackaroo.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")

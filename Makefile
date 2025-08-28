@@ -10,6 +10,26 @@ BUILD_DIR := bin
 CMD_DIR := ./cmd
 INTERNAL_DIR := ./internal
 
+# Version variables
+BASE_VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.0")
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+BUILD_DATE := $(shell date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+# Determine if we're on a clean release tag
+GIT_TAG := $(shell git describe --exact-match --tags 2>/dev/null || echo "")
+GIT_DIRTY := $(shell test -z "$$(git status --porcelain 2>/dev/null)" || echo "-dirty")
+
+# Version logic:
+# - If on exact tag matching VERSION file: use clean version (v1.0.0)
+# - Otherwise: append git info (1.0.0+a1b2c3d or 1.0.0+a1b2c3d-dirty)
+VERSION := $(if $(and $(GIT_TAG),$(filter v$(BASE_VERSION),$(GIT_TAG))),v$(BASE_VERSION),$(BASE_VERSION)+$(GIT_COMMIT)$(GIT_DIRTY))
+
+# Build flags
+LDFLAGS := -ldflags="-w -s \
+	-X 'github.com/orien/stackaroo/internal/version.Version=$(VERSION)' \
+	-X 'github.com/orien/stackaroo/internal/version.GitCommit=$(GIT_COMMIT)' \
+	-X 'github.com/orien/stackaroo/internal/version.BuildDate=$(BUILD_DATE)'"
+
 # Default target
 help: ## Show this help message
 	@echo "Available targets:"
@@ -18,15 +38,15 @@ help: ## Show this help message
 ##@ Build
 
 build: ## Build the main stackaroo binary
-	@echo "🔨 Building stackaroo..."
+	@echo "🔨 Building stackaroo $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "✅ Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
 
 build-test-aws: ## Build the AWS module test program
 	@echo "🔨 Building AWS test program..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/test-aws $(CMD_DIR)/test-aws
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/test-aws $(CMD_DIR)/test-aws
 	@echo "✅ AWS test program built: $(BUILD_DIR)/test-aws"
 
 build-all: build build-test-aws ## Build all binaries
@@ -108,21 +128,25 @@ aws-test-profile: build-test-aws ## Test AWS module with specific profile (set P
 
 ##@ Release
 
-version: ## Show version information
+version: ## Show version information that would be embedded in binary
 	@echo "Stackaroo version information:"
+	@echo "Version: $(VERSION)"
+	@echo "Base version: $(BASE_VERSION)"
+	@echo "Git commit: $(GIT_COMMIT)"
+	@echo "Build date: $(BUILD_DATE)"
+	@echo "Git tag: $(GIT_TAG)"
+	@echo "Git dirty: $(GIT_DIRTY)"
 	@echo "Go version: $(shell go version)"
-	@echo "Git commit: $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-	@echo "Build time: $(shell date)"
 
 release-build: clean ## Build release binaries for multiple platforms
-	@echo "🚀 Building release binaries..."
+	@echo "🚀 Building release binaries for version $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)/release
-	@GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-amd64 .
-	@GOOS=linux GOARCH=arm64 go build -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-arm64 .
-	@GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-amd64 .
-	@GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-arm64 .
-	@GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/release/$(BINARY_NAME)-windows-amd64.exe .
-	@echo "✅ Release binaries built in $(BUILD_DIR)/release/"
+	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-amd64 .
+	@GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-linux-arm64 .
+	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-amd64 .
+	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-darwin-arm64 .
+	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/release/$(BINARY_NAME)-windows-amd64.exe .
+	@echo "✅ Release binaries built for $(VERSION) in $(BUILD_DIR)/release/"
 	@ls -la $(BUILD_DIR)/release/
 
 ##@ Git
