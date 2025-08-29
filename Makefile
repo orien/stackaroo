@@ -57,7 +57,7 @@ test: test-unit ## Run all tests
 
 test-unit: ## Run unit tests
 	@echo "🧪 Running unit tests..."
-	@go test -v ./internal/...
+	@go test -v ./cmd/... ./internal/...
 
 test-aws: build-test-aws ## Run AWS module test program (dry-run)
 	@echo "🔍 Testing AWS module..."
