@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/orien/stackaroo/internal/model"
@@ -70,14 +71,14 @@ func getDeployer() deploy.Deployer {
 
 	// Create default deployer
 	ctx := context.Background()
-	d, err := deploy.NewDefaultDeployer(ctx)
+	client, err := aws.NewDefaultClient(ctx, aws.Config{})
 	if err != nil {
 		// This shouldn't happen in normal operation, but if it does,
 		// we'll handle it in the command execution
-		panic(fmt.Sprintf("failed to create default deployer: %v", err))
+		panic(fmt.Sprintf("failed to create AWS client: %v", err))
 	}
 
-	return d
+	return deploy.NewAWSDeployer(client)
 }
 
 // SetDeployer allows injection of a deployer (for testing)

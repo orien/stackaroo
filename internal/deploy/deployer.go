@@ -33,16 +33,6 @@ func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
 	}
 }
 
-// NewDefaultDeployer creates a deployer with default AWS configuration
-func NewDefaultDeployer(ctx context.Context) (*AWSDeployer, error) {
-	client, err := aws.NewDefaultClient(ctx, aws.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AWS client: %w", err)
-	}
-
-	return NewAWSDeployer(client), nil
-}
-
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
 func (d *AWSDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
 	// Get CloudFormation operations

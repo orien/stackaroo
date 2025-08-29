@@ -136,24 +136,6 @@ func TestNewAWSDeployer(t *testing.T) {
 	// We can't directly test the internal client field, but we can test behavior
 }
 
-func TestNewDefaultDeployer_CreatesDeployer(t *testing.T) {
-	// Test that NewDefaultDeployer attempts to create a deployer
-	// This will fail in CI/testing environments without AWS credentials, which is expected
-	ctx := context.Background()
-
-	deployer, err := NewDefaultDeployer(ctx)
-
-	// In environments without AWS credentials, this should fail
-	// In environments with credentials, it should succeed
-	// Either way, the function should behave predictably
-	if err != nil {
-		assert.Nil(t, deployer)
-		assert.Contains(t, err.Error(), "failed to create AWS client")
-	} else {
-		assert.NotNil(t, deployer)
-	}
-}
-
 func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	// Test successful stack deployment
 	ctx := context.Background()

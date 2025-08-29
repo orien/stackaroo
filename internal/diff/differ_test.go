@@ -165,22 +165,6 @@ func createTestStackInfo() *aws.StackInfo {
 
 // Tests
 
-func TestNewDefaultDiffer_Success(t *testing.T) {
-	// This test would require AWS credentials in a real environment
-	// For now, we test that the function handles errors appropriately
-	ctx := context.Background()
-
-	differ, err := NewDefaultDiffer(ctx)
-
-	// In environments without AWS credentials, this should fail
-	if err != nil {
-		assert.Nil(t, differ)
-		assert.Contains(t, err.Error(), "failed to create CloudFormation client")
-	} else {
-		assert.NotNil(t, differ)
-	}
-}
-
 func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	// Test diff of existing stack with no changes
 	ctx := context.Background()

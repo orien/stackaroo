@@ -20,22 +20,6 @@ type DefaultDiffer struct {
 	tagComparator       TagComparator
 }
 
-// NewDefaultDiffer creates a new DefaultDiffer with AWS integration
-func NewDefaultDiffer(ctx context.Context) (*DefaultDiffer, error) {
-	// Create AWS client
-	cfClient, err := aws.NewCloudFormationClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CloudFormation client: %w", err)
-	}
-
-	return &DefaultDiffer{
-		cfClient:            cfClient,
-		templateComparator:  NewYAMLTemplateComparator(),
-		parameterComparator: NewParameterComparator(),
-		tagComparator:       NewTagComparator(),
-	}, nil
-}
-
 // NewDiffer creates a new DefaultDiffer with provided CloudFormation operations
 func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 	return &DefaultDiffer{
