@@ -11,7 +11,6 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/diff"
-	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 )
@@ -88,23 +87,10 @@ func diffWithConfig(ctx context.Context, stackName, contextName string) error {
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 
-	// Resolve stack and all its dependencies
-	resolved, err := resolver.ResolveStacks(ctx, contextName, []string{stackName})
+	// Resolve the target stack
+	targetStack, err := resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
-	}
-
-	// Find the target stack in resolved stacks
-	var targetStack *model.Stack
-	for _, stack := range resolved.Stacks {
-		if stack.Name == stackName {
-			targetStack = stack
-			break
-		}
-	}
-
-	if targetStack == nil {
-		return fmt.Errorf("stack %s not found in resolved configuration", stackName)
+		return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
 	}
 
 	// Create diff options based on command flags
