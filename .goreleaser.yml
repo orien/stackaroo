@@ -64,6 +64,7 @@ changelog:
       - '^ci:'
       - '^chore:'
       - '^build:'
+      - '^release:'
   groups:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
