@@ -89,7 +89,7 @@ func diffWithConfig(ctx context.Context, stackName, contextName string) error {
 	resolver := resolve.NewStackResolver(provider)
 
 	// Resolve stack and all its dependencies
-	resolved, err := resolver.Resolve(ctx, contextName, []string{stackName})
+	resolved, err := resolver.ResolveStacks(ctx, contextName, []string{stackName})
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}

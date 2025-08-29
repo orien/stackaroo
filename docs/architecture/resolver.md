@@ -206,7 +206,7 @@ configProvider := file.NewDefaultProvider()  // No hardcoded filename
 templateReader := &resolve.FileTemplateReader{}
 resolver := resolve.NewStackResolver(configProvider, templateReader)
 
-resolved, err := resolver.Resolve(ctx, "dev", []string{"vpc", "app"})
+resolved, err := resolver.ResolveStacks(ctx, "dev", []string{"vpc", "app"})
 if err != nil {
     return fmt.Errorf("resolution failed: %w", err)
 }

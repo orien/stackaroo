@@ -692,7 +692,7 @@ stacks:
 	// Test resolver
 	resolver := resolve.NewStackResolver(provider)
 
-	resolved, err := resolver.Resolve(context.Background(), "test", []string{"app"})
+	resolved, err := resolver.ResolveStacks(context.Background(), "test", []string{"app"})
 	assert.NoError(t, err, "resolver should work")
 
 	if resolved != nil {

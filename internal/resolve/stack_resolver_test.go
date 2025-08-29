@@ -252,7 +252,7 @@ func TestStackResolver_Resolve_MultipleStacks(t *testing.T) {
 	stackResolver := NewStackResolver(mockConfigProvider)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"vpc", "app"})
+	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{"vpc", "app"})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -297,7 +297,7 @@ func TestStackResolver_Resolve_CircularDependency(t *testing.T) {
 	stackResolver := NewStackResolver(mockConfigProvider)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"stack-a", "stack-b"})
+	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{"stack-a", "stack-b"})
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
@@ -317,7 +317,7 @@ func TestStackResolver_Resolve_EmptyStackList(t *testing.T) {
 	stackResolver := NewStackResolver(mockConfigProvider)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
-	resolved, err := stackResolver.Resolve(ctx, "dev", []string{})
+	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -377,7 +377,7 @@ func TestStackResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Request stacks in random order
-	resolved, err := stackResolver.Resolve(ctx, "prod", []string{"app", "vpc", "database", "security"})
+	resolved, err := stackResolver.ResolveStacks(ctx, "prod", []string{"app", "vpc", "database", "security"})
 
 	require.NoError(t, err)
 	assert.NotNil(t, resolved)
@@ -467,7 +467,7 @@ func TestStackResolver_Resolve_MissingDependency(t *testing.T) {
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Only resolve app, not its dependency
-	resolved, err := stackResolver.Resolve(ctx, "dev", []string{"app"})
+	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{"app"})
 
 	// Should succeed - missing dependencies are ignored for dependency ordering
 	// (they might be deployed separately)

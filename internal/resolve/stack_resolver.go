@@ -67,8 +67,8 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	}, nil
 }
 
-// Resolve resolves multiple stacks and calculates deployment order
-func (r *StackResolver) Resolve(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
+// ResolveStacks resolves multiple stacks and calculates deployment order
+func (r *StackResolver) ResolveStacks(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
 	var stacks []*model.Stack
 
 	// Resolve each stack

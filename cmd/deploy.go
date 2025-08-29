@@ -111,7 +111,7 @@ func deployWithConfig(ctx context.Context, stackName, contextName string) error 
 	}
 
 	// Resolve stack(s) and all their dependencies
-	resolved, err := resolver.Resolve(ctx, contextName, stackNames)
+	resolved, err := resolver.ResolveStacks(ctx, contextName, stackNames)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
