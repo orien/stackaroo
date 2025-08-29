@@ -11,21 +11,21 @@ graph TB
     subgraph "Command Layer"
         CLI[deploy command<br/>cmd/deploy.go]
     end
-    
+
     subgraph "Core Deploy Module"
         DI[Deployer Interface<br/>deployer.go]
         SD[StackDeployer<br/>deployer.go]
-        
+
         subgraph "Deployment Strategies"
             NS[New Stack Creation<br/>deployNewStack()]
             CS[Changeset Deployment<br/>deployWithChangeSet()]
         end
-        
+
         subgraph "Validation"
             TV[Template Validator<br/>ValidateTemplate()]
         end
     end
-    
+
     subgraph "External Dependencies"
         AWS[AWS CloudFormation<br/>internal/aws]
         DIFF[Diff Engine<br/>internal/diff]
@@ -33,19 +33,19 @@ graph TB
         CFG[Configuration<br/>internal/config]
         RES[Stack Resolver<br/>internal/resolve]
     end
-    
+
     CLI --> DI
     DI --> SD
     SD --> NS
     SD --> CS
     SD --> TV
-    
+
     SD --> AWS
     CS --> DIFF
     SD --> PROMPT
     CLI --> CFG
     CLI --> RES
-    
+
     DIFF --> AWS
 ```
 
@@ -65,13 +65,13 @@ classDiagram
         +deployWithConfig() error
         +handleMultipleStacks() error
     }
-    
+
     class Deployer {
         <<interface>>
         +DeployStack(ctx, stack) error
         +ValidateTemplate(ctx, templateFile) error
     }
-    
+
     DeployCommand --> Deployer
 ```
 
@@ -93,7 +93,7 @@ classDiagram
         +DeployStack(ctx, stack) error
         +ValidateTemplate(ctx, templateFile) error
     }
-    
+
     class StackDeployer {
         -awsClient: Client
         +DeployStack(ctx, stack) error
@@ -102,7 +102,7 @@ classDiagram
         -deployWithChangeSet(ctx, stack) error
         -readTemplateFile(filename) string
     }
-    
+
     Deployer <|-- StackDeployer
 ```
 
@@ -121,7 +121,7 @@ stateDiagram-v2
     CheckStackExists --> NewStack: Stack doesn't exist
     CheckStackExists --> ExistingStack: Stack exists
     CheckStackExists --> Error: AWS Error
-    
+
     NewStack --> ValidateTemplate: Direct creation path
     ValidateTemplate --> ShowPreview: Template valid
     ShowPreview --> ConfirmCreation: User review
@@ -130,7 +130,7 @@ stateDiagram-v2
     CreateStack --> MonitorEvents: Creation initiated
     MonitorEvents --> Success: Creation complete
     MonitorEvents --> Error: Creation failed
-    
+
     ExistingStack --> GenerateDiff: Changeset path
     GenerateDiff --> ShowChanges: Changes detected
     GenerateDiff --> NoChanges: No changes
@@ -138,7 +138,7 @@ stateDiagram-v2
     ConfirmChanges --> ExecuteChangeSet: User confirms
     ConfirmChanges --> Cancel: User cancels
     ExecuteChangeSet --> MonitorEvents: Update initiated
-    
+
     Success --> [*]
     Cancel --> [*]
     Error --> [*]
@@ -153,23 +153,23 @@ classDiagram
         -awsClient: Client
         +DeployStack() error
     }
-    
+
     class DiffEngine {
         +DiffStack() Result
         +KeepChangeSet: bool
     }
-    
+
     class UserPrompt {
         +Confirm(message) bool
     }
-    
+
     class AWSClient {
         +StackExists() bool
         +DeployStackWithCallback() error
         +ExecuteChangeSet() error
         +WaitForStackOperation() error
     }
-    
+
     StackDeployer --> DiffEngine: For existing stacks
     StackDeployer --> UserPrompt: Confirmation required
     StackDeployer --> AWSClient: All AWS operations
@@ -187,22 +187,22 @@ sequenceDiagram
     participant Deployer as Stack Deployer
     participant Prompt as User Prompt
     participant AWS as AWS Client
-    
+
     CLI->>Resolver: Resolve stack configuration
     Resolver->>CLI: ResolvedStack
-    
+
     CLI->>Deployer: DeployStack(resolved)
     Deployer->>AWS: StackExists(stackName)
     AWS->>Deployer: false (new stack)
-    
+
     Deployer->>Deployer: Show creation preview
     Note over Deployer: Display stack info:<br/>- Name<br/>- Parameters<br/>- Tags
-    
+
     Deployer->>Prompt: Confirm("Apply changes?")
     Prompt->>User: Interactive confirmation
     User->>Prompt: Yes/No
     Prompt->>Deployer: Confirmation result
-    
+
     alt User Confirms
         Deployer->>AWS: DeployStackWithCallback(input, eventCallback)
         AWS->>Deployer: Stack events (streaming)
@@ -223,11 +223,11 @@ sequenceDiagram
     participant Diff as Diff Engine
     participant Prompt as User Prompt
     participant AWS as AWS Client
-    
+
     CLI->>Deployer: DeployStack(resolved)
     Deployer->>AWS: StackExists(stackName)
     AWS->>Deployer: true (existing stack)
-    
+
     Deployer->>Diff: DiffStack(stack, {KeepChangeSet: true})
     Diff->>AWS: CreateChangeSet()
     AWS->>Diff: ChangeSetID
@@ -236,16 +236,16 @@ sequenceDiagram
     Diff->>AWS: DescribeChangeSet()
     AWS->>Diff: Change details
     Diff->>Deployer: Result with kept changeset
-    
+
     alt Has Changes
         Deployer->>Deployer: Display formatted changes
         Note over Deployer: Show complete diff:<br/>- Template changes<br/>- Parameter changes<br/>- Tag changes<br/>- Resource impacts
-        
+
         Deployer->>Prompt: Confirm("Apply changes?")
         Prompt->>User: Interactive confirmation
         User->>Prompt: Yes/No
         Prompt->>Deployer: Confirmation result
-        
+
         alt User Confirms
             Deployer->>AWS: ExecuteChangeSet(changeSetID)
             AWS->>Deployer: Execution started
@@ -350,36 +350,36 @@ graph TD
     B -->|Error| C[AWS Connection Error]
     B -->|No| D[New Stack Path]
     B -->|Yes| E[Changeset Path]
-    
+
     D --> F{Template Valid?}
     F -->|No| G[Template Validation Error]
     F -->|Yes| H[Show Preview]
-    
+
     E --> I{Generate Changeset}
     I -->|Error| J[Changeset Creation Error]
     I -->|Success| K{Has Changes?}
-    
+
     K -->|No| L[No Changes - Exit Clean]
     K -->|Yes| M[Show Changes]
-    
+
     H --> N{User Confirms?}
     M --> N
     N -->|No| O[User Cancelled]
     N -->|Yes| P[Execute Deployment]
-    
+
     P --> Q{Deployment Success?}
     Q -->|Yes| R[Success - Cleanup Resources]
     Q -->|No| S[Deployment Failed]
-    
+
     C --> T[Log AWS Error + Exit]
     G --> U[Log Template Error + Exit]
     J --> V[Log Changeset Error + Exit]
     O --> W[Log Cancellation + Exit]
     S --> X[Log Deployment Error + Exit]
-    
+
     L --> Y[Exit Success]
     R --> Y
-    
+
     T --> Z[Error Exit Code]
     U --> Z
     V --> Z
@@ -425,12 +425,12 @@ graph TB
         D[Progress Monitoring<br/>Real-time Feedback]
         E[Resource Cleanup<br/>Automatic Tidying]
     end
-    
+
     subgraph "Deployment Types"
         F[New Stack Creation]
         G[Existing Stack Updates]
     end
-    
+
     A --> F
     A --> G
     B --> G
@@ -500,21 +500,21 @@ graph LR
         C[Error Handling Tests]
         D[Template Validation Tests]
     end
-    
+
     subgraph "Integration Tests"
         E[AWS Client Integration]
         F[Diff Engine Integration]
         G[Prompt System Integration]
         H[End-to-End Deploy Tests]
     end
-    
+
     subgraph "Mock Infrastructure"
         I[Mock AWS Client]
         J[Mock Diff Engine]
         K[Mock Prompt System]
         L[Mock Stack Resolver]
     end
-    
+
     A --> I
     B --> I
     C --> I
@@ -587,16 +587,16 @@ sequenceDiagram
     participant D as Deployer
     participant AWS as AWS CloudFormation
     participant UI as User Interface
-    
+
     D->>AWS: Start deployment operation
     AWS->>D: Operation initiated
-    
+
     loop Event Streaming
         AWS->>D: StackEvent
         D->>UI: Formatted progress update
         Note over UI: Timestamp: 15:04:05<br/>AWS::S3::Bucket: CREATE_IN_PROGRESS<br/>MyBucket
     end
-    
+
     AWS->>D: Operation complete
     D->>UI: Final status
 ```
@@ -689,19 +689,13 @@ sequenceDiagram
    - Deployment approval workflows
    - Integration with external approval systems
 
-4. **Multi-Cloud Support**
-   - Terraform provider integration
-   - Azure Resource Manager support
-   - Google Cloud Deployment Manager support
-   - Cross-cloud dependency management
-
 ### Extension Points
 
 The architecture provides clear extension points through interfaces:
 
 - `Deployer` interface - Alternative deployment engines
 - Event callback system - Custom progress monitoring
-- Confirmation system - Integration with external approval workflows  
+- Confirmation system - Integration with external approval workflows
 - Template validation - Custom validation rules and policies
 
 ### Architectural Principles for Extensions
