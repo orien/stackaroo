@@ -133,8 +133,8 @@ func (m *MockCloudFormationClient) CreateChangeSetForDeployment(ctx context.Cont
 // Test helper functions
 
 // Creates a test differ with provided dependencies
-func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *DefaultDiffer {
-	return &DefaultDiffer{
+func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *StackDiffer {
+	return &StackDiffer{
 		cfClient:            cfClient,
 		templateComparator:  templateComp,
 		parameterComparator: paramComp,
@@ -165,7 +165,7 @@ func createTestStackInfo() *aws.StackInfo {
 
 // Tests
 
-func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
+func TestStackDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	// Test diff of existing stack with no changes
 	ctx := context.Background()
 
@@ -220,7 +220,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	tagComp.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
+func TestStackDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	// Test diff of existing stack with changes
 	ctx := context.Background()
 
@@ -291,7 +291,7 @@ func TestDefaultDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	cfClient.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_DiffStack_NewStack(t *testing.T) {
+func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 	// Test diff of new stack (doesn't exist in AWS)
 	ctx := context.Background()
 
@@ -337,7 +337,7 @@ func TestDefaultDiffer_DiffStack_NewStack(t *testing.T) {
 	cfClient.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_DiffStack_StackExistsError(t *testing.T) {
+func TestStackDiffer_DiffStack_StackExistsError(t *testing.T) {
 	// Test error when checking if stack exists
 	ctx := context.Background()
 
@@ -366,7 +366,7 @@ func TestDefaultDiffer_DiffStack_StackExistsError(t *testing.T) {
 	cfClient.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_DiffStack_DescribeStackError(t *testing.T) {
+func TestStackDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	// Test error when describing existing stack
 	ctx := context.Background()
 
@@ -396,7 +396,7 @@ func TestDefaultDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	cfClient.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_DiffStack_FilterOptions(t *testing.T) {
+func TestStackDiffer_DiffStack_FilterOptions(t *testing.T) {
 	// Test different filtering options
 	tests := []struct {
 		name                   string
@@ -480,7 +480,7 @@ func TestDefaultDiffer_DiffStack_FilterOptions(t *testing.T) {
 	}
 }
 
-func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
+func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	// Test that changeset errors don't fail the entire diff
 	ctx := context.Background()
 
@@ -524,12 +524,12 @@ func TestDefaultDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	cfClient.AssertExpectations(t)
 }
 
-func TestDefaultDiffer_HandleNewStack(t *testing.T) {
+func TestStackDiffer_HandleNewStack(t *testing.T) {
 	// Test the handleNewStack method directly
 	ctx := context.Background()
 
 	// Create differ (mocks not needed for this test)
-	differ := &DefaultDiffer{}
+	differ := &StackDiffer{}
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -568,7 +568,7 @@ func TestDefaultDiffer_HandleNewStack(t *testing.T) {
 	}
 }
 
-func TestDefaultDiffer_CompareTemplates_Error(t *testing.T) {
+func TestStackDiffer_CompareTemplates_Error(t *testing.T) {
 	// Test template comparison error handling
 	ctx := context.Background()
 

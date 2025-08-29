@@ -12,17 +12,17 @@ import (
 	"github.com/orien/stackaroo/internal/model"
 )
 
-// DefaultDiffer implements the Differ interface using AWS CloudFormation
-type DefaultDiffer struct {
+// StackDiffer implements the Differ interface using AWS CloudFormation
+type StackDiffer struct {
 	cfClient            aws.CloudFormationOperations
 	templateComparator  TemplateComparator
 	parameterComparator ParameterComparator
 	tagComparator       TagComparator
 }
 
-// NewDiffer creates a new DefaultDiffer with provided CloudFormation operations
-func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
-	return &DefaultDiffer{
+// NewStackDiffer creates a new StackDiffer with provided CloudFormation operations
+func NewStackDiffer(cfClient aws.CloudFormationOperations) *StackDiffer {
+	return &StackDiffer{
 		cfClient:            cfClient,
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
@@ -31,7 +31,7 @@ func NewDiffer(cfClient aws.CloudFormationOperations) *DefaultDiffer {
 }
 
 // DiffStack compares a resolved stack configuration with the deployed stack
-func (d *DefaultDiffer) DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error) {
+func (d *StackDiffer) DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error) {
 	result := &Result{
 		StackName: stack.Name,
 		Context:   stack.Context,
@@ -100,7 +100,7 @@ func (d *DefaultDiffer) DiffStack(ctx context.Context, stack *model.Stack, optio
 }
 
 // handleNewStack handles the case where the stack doesn't exist yet
-func (d *DefaultDiffer) handleNewStack(ctx context.Context, stack *model.Stack, result *Result) (*Result, error) {
+func (d *StackDiffer) handleNewStack(ctx context.Context, stack *model.Stack, result *Result) (*Result, error) {
 	// For a new stack, everything is "added"
 
 	// Template is new
@@ -135,7 +135,7 @@ func (d *DefaultDiffer) handleNewStack(ctx context.Context, stack *model.Stack, 
 }
 
 // compareTemplates compares the current deployed template with the resolved template
-func (d *DefaultDiffer) compareTemplates(ctx context.Context, stack *model.Stack, currentStack *aws.StackInfo) (*TemplateChange, error) {
+func (d *StackDiffer) compareTemplates(ctx context.Context, stack *model.Stack, currentStack *aws.StackInfo) (*TemplateChange, error) {
 	// Get current template from AWS
 	currentTemplate, err := d.cfClient.GetTemplate(ctx, stack.Name)
 	if err != nil {
@@ -158,17 +158,17 @@ func (d *DefaultDiffer) compareTemplates(ctx context.Context, stack *model.Stack
 }
 
 // compareParameters compares current stack parameters with resolved parameters
-func (d *DefaultDiffer) compareParameters(currentStack *aws.StackInfo, stack *model.Stack) ([]ParameterDiff, error) {
+func (d *StackDiffer) compareParameters(currentStack *aws.StackInfo, stack *model.Stack) ([]ParameterDiff, error) {
 	return d.parameterComparator.Compare(currentStack.Parameters, stack.Parameters)
 }
 
 // compareTags compares current stack tags with resolved tags
-func (d *DefaultDiffer) compareTags(currentStack *aws.StackInfo, stack *model.Stack) ([]TagDiff, error) {
+func (d *StackDiffer) compareTags(currentStack *aws.StackInfo, stack *model.Stack) ([]TagDiff, error) {
 	return d.tagComparator.Compare(currentStack.Tags, stack.Tags)
 }
 
 // generateChangeSet creates an AWS changeset to preview changes
-func (d *DefaultDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*aws.ChangeSetInfo, error) {
+func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*aws.ChangeSetInfo, error) {
 	// Get proposed template content
 	templateContent, err := stack.GetTemplateContent()
 	if err != nil {

@@ -126,17 +126,17 @@ func (m *MockCloudFormationOperations) CreateChangeSetForDeployment(ctx context.
 	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
 }
 
-func TestNewAWSDeployer(t *testing.T) {
-	// Test that NewAWSDeployer creates a deployer with the provided client
+func TestNewStackDeployer(t *testing.T) {
+	// Test that NewStackDeployer creates a deployer with the provided client
 	mockClient := &MockAWSClient{}
 
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	assert.NotNil(t, deployer)
 	// We can't directly test the internal client field, but we can test behavior
 }
 
-func TestAWSDeployer_DeployStack_Success(t *testing.T) {
+func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	// Test successful stack deployment
 	ctx := context.Background()
 
@@ -189,7 +189,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -211,7 +211,7 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	mockPrompter.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
+func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	// Set up mock prompter for confirmation
 	mockPrompter := &MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
@@ -238,7 +238,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack with empty template body
 	stack := &model.Stack{
@@ -260,7 +260,7 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	mockPrompter.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
+func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	// Set up mock prompter for confirmation
 	mockPrompter := &MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
@@ -296,7 +296,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack with template content
 	stack := &model.Stack{
@@ -321,7 +321,7 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	mockPrompter.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
+func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	// Test deploy stack when there are no changes to deploy
 	ctx := context.Background()
 
@@ -350,7 +350,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	// The deployer should return early when no changes are detected
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -371,7 +371,7 @@ func TestAWSDeployer_DeployStack_NoChanges(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
+func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	// Test successful deployment with changes
 	ctx := context.Background()
 
@@ -433,7 +433,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -455,7 +455,7 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockPrompter.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ValidateTemplate_Success(t *testing.T) {
+func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 	// Test successful template validation
 	ctx := context.Background()
 
@@ -482,7 +482,7 @@ func TestAWSDeployer_ValidateTemplate_Success(t *testing.T) {
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Execute
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -493,12 +493,12 @@ func TestAWSDeployer_ValidateTemplate_Success(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
+func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	// Test validate template with non-existent file
 	ctx := context.Background()
 
 	mockClient := &MockAWSClient{}
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Execute with non-existent file
 	err := deployer.ValidateTemplate(ctx, "/nonexistent/template.json")
@@ -512,7 +512,7 @@ func TestAWSDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
+func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	// Test validate template when AWS returns validation error
 	ctx := context.Background()
 
@@ -532,7 +532,7 @@ func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(errors.New("template validation failed"))
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Execute ValidateTemplate instead - this test is for template validation
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -545,7 +545,7 @@ func TestAWSDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
+func TestStackDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
 	// Set up mock prompter for confirmation
 	mockPrompter := &MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
@@ -582,7 +582,7 @@ Resources:
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -604,7 +604,7 @@ Resources:
 	mockPrompter.AssertExpectations(t)
 }
 
-func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
+func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	// Test deployment with multiple parameters and tags
 	ctx := context.Background()
 
@@ -637,7 +637,7 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock client
-	deployer := NewAWSDeployer(mockClient)
+	deployer := NewStackDeployer(mockClient)
 
 	// Create resolved stack with parameters and tags
 	stack := &model.Stack{

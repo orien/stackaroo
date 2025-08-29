@@ -74,7 +74,7 @@ func getDiffer() diff.Differ {
 		panic(fmt.Sprintf("failed to create AWS client: %v", err))
 	}
 
-	return diff.NewDiffer(cfClient)
+	return diff.NewStackDiffer(cfClient)
 }
 
 // SetDiffer allows injection of a differ (for testing)

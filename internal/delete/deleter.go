@@ -18,20 +18,20 @@ type Deleter interface {
 	DeleteStack(ctx context.Context, stack *model.Stack) error
 }
 
-// AWSDeleter implements Deleter using AWS CloudFormation
-type AWSDeleter struct {
+// StackDeleter implements Deleter using AWS CloudFormation
+type StackDeleter struct {
 	awsClient aws.Client
 }
 
-// NewAWSDeleter creates a new AWSDeleter
-func NewAWSDeleter(awsClient aws.Client) *AWSDeleter {
-	return &AWSDeleter{
+// NewStackDeleter creates a new StackDeleter
+func NewStackDeleter(awsClient aws.Client) *StackDeleter {
+	return &StackDeleter{
 		awsClient: awsClient,
 	}
 }
 
 // DeleteStack deletes a CloudFormation stack with confirmation
-func (d *AWSDeleter) DeleteStack(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) error {
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 

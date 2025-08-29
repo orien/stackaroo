@@ -78,7 +78,7 @@ func getDeployer() deploy.Deployer {
 		panic(fmt.Sprintf("failed to create AWS client: %v", err))
 	}
 
-	return deploy.NewAWSDeployer(client)
+	return deploy.NewStackDeployer(client)
 }
 
 // SetDeployer allows injection of a deployer (for testing)

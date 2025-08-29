@@ -21,20 +21,20 @@ type Deployer interface {
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
-// AWSDeployer implements Deployer using AWS CloudFormation
-type AWSDeployer struct {
+// StackDeployer implements Deployer using AWS CloudFormation
+type StackDeployer struct {
 	awsClient aws.Client
 }
 
-// NewAWSDeployer creates a new AWSDeployer
-func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
-	return &AWSDeployer{
+// NewStackDeployer creates a new StackDeployer
+func NewStackDeployer(awsClient aws.Client) *StackDeployer {
+	return &StackDeployer{
 		awsClient: awsClient,
 	}
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
-func (d *AWSDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
 	// Get CloudFormation operations
 	cfnOps := d.awsClient.NewCloudFormationOperations()
 
@@ -54,7 +54,7 @@ func (d *AWSDeployer) DeployStack(ctx context.Context, stack *model.Stack) error
 }
 
 // deployNewStack handles deployment of new stacks using direct creation
-func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) error {
 	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
 
 	// Show what will be created
@@ -128,12 +128,12 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 }
 
 // deployWithChangeSet handles deployment using changeset preview + execution
-func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack) error {
 	// Create differ for consistent change display
 	fmt.Printf("=== Calculating changes for stack %s ===\n", stack.Name)
 
 	cfnOps := d.awsClient.NewCloudFormationOperations()
-	differ := diff.NewDiffer(cfnOps)
+	differ := diff.NewStackDiffer(cfnOps)
 
 	// Generate diff result using the same system as 'stackaroo diff'
 	// Keep changeset alive for deployment use
@@ -214,7 +214,7 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 }
 
 // ValidateTemplate validates a CloudFormation template
-func (d *AWSDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
+func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
 	// Read the template file
 	templateContent, err := d.readTemplateFile(templateFile)
 	if err != nil {
@@ -233,8 +233,8 @@ func (d *AWSDeployer) ValidateTemplate(ctx context.Context, templateFile string)
 	return nil
 }
 
-// readTemplateFile reads the content of a template file
-func (d *AWSDeployer) readTemplateFile(filename string) (string, error) {
+// readTemplateFile reads and returns the contents of a template file
+func (d *StackDeployer) readTemplateFile(filename string) (string, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template file %s: %w", filename, err)
