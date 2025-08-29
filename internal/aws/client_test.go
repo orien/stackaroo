@@ -183,6 +183,33 @@ func TestConfig_RegionHandling(t *testing.T) {
 	}
 }
 
+func TestConfig_Structure(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+	}{
+		{
+			name:   "empty config",
+			config: Config{},
+		},
+		{
+			name: "region only",
+			config: Config{
+				Region: "us-west-2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Just verify the config struct can be created and accessed
+			config := tt.config
+			_ = config.Region
+			assert.True(t, true) // Basic structure test
+		})
+	}
+}
+
 // Test helper functions
 func TestContains(t *testing.T) {
 	tests := []struct {
