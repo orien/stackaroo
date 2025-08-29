@@ -70,7 +70,8 @@ func getDeleter() delete.Deleter {
 		panic(fmt.Sprintf("failed to create AWS client: %v", err))
 	}
 
-	return delete.NewStackDeleter(client)
+	deleter = delete.NewStackDeleter(client)
+	return deleter
 }
 
 // SetDeleter allows injection of a deleter (for testing)
