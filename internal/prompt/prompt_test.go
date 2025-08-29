@@ -5,6 +5,7 @@ SPDX-License-Identifier: BSD-3-Clause
 package prompt
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -17,9 +18,9 @@ type MockPrompter struct {
 	mock.Mock
 }
 
-// ConfirmDeployment mock implementation
-func (m *MockPrompter) ConfirmDeployment(stackName string) (bool, error) {
-	args := m.Called(stackName)
+// Confirm mock implementation
+func (m *MockPrompter) Confirm(message string) (bool, error) {
+	args := m.Called(message)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -28,28 +29,42 @@ func TestMockPrompter_Interface(t *testing.T) {
 	var _ Prompter = (*MockPrompter)(nil)
 }
 
-// TestMockPrompter_ConfirmDeployment tests the mock prompter functionality
-func TestMockPrompter_ConfirmDeployment(t *testing.T) {
+// TestMockPrompter_Confirm_Acceptance tests the mock prompter functionality for acceptance
+func TestMockPrompter_Confirm_Acceptance(t *testing.T) {
+	// Store original prompter to restore later
+	originalPrompter := defaultPrompter
+	defer SetPrompter(originalPrompter)
+
 	mockPrompter := &MockPrompter{}
 
 	// Test confirmation
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil).Once()
+	message := "Do you want to proceed?"
+	mockPrompter.On("Confirm", message).Return(true, nil).Once()
 
-	result, err := mockPrompter.ConfirmDeployment("test-stack")
+	SetPrompter(mockPrompter)
+
+	result, err := Confirm(message)
 
 	assert.NoError(t, err)
 	assert.True(t, result)
 	mockPrompter.AssertExpectations(t)
 }
 
-// TestMockPrompter_ConfirmDeployment_Rejection tests mock prompter rejection
-func TestMockPrompter_ConfirmDeployment_Rejection(t *testing.T) {
+// TestMockPrompter_Confirm_Rejection tests mock prompter rejection
+func TestMockPrompter_Confirm_Rejection(t *testing.T) {
+	// Store original prompter to restore later
+	originalPrompter := defaultPrompter
+	defer SetPrompter(originalPrompter)
+
 	mockPrompter := &MockPrompter{}
 
 	// Test rejection
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(false, nil).Once()
+	message := "Are you sure?"
+	mockPrompter.On("Confirm", message).Return(false, nil).Once()
 
-	result, err := mockPrompter.ConfirmDeployment("test-stack")
+	SetPrompter(mockPrompter)
+
+	result, err := Confirm(message)
 
 	assert.NoError(t, err)
 	assert.False(t, result)
@@ -64,12 +79,13 @@ func TestSetPrompter_ChangesDefaultPrompter(t *testing.T) {
 
 	// Create and set mock prompter
 	mockPrompter := &MockPrompter{}
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil).Once()
+	message := "Continue with operation?"
+	mockPrompter.On("Confirm", message).Return(true, nil).Once()
 
 	SetPrompter(mockPrompter)
 
 	// Call the package-level function which should use our mock
-	result, err := ConfirmDeployment("test-stack")
+	result, err := Confirm(message)
 
 	assert.NoError(t, err)
 	assert.True(t, result)
@@ -83,8 +99,8 @@ func TestDefaultPrompter_IsStdinPrompter(t *testing.T) {
 	assert.True(t, ok, "Default prompter should be a StdinPrompter")
 }
 
-// TestConfirmDeployment_ResponseParsing tests the logic for parsing user responses
-func TestConfirmDeployment_ResponseParsing(t *testing.T) {
+// TestResponseParsing tests the logic for parsing user responses
+func TestResponseParsing(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -107,7 +123,7 @@ func TestConfirmDeployment_ResponseParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test the core logic that ConfirmDeployment uses
+			// Test the core logic that Confirm uses
 			response := strings.ToLower(strings.TrimSpace(tt.input))
 			result := response == "y" || response == "yes"
 
@@ -117,23 +133,38 @@ func TestConfirmDeployment_ResponseParsing(t *testing.T) {
 	}
 }
 
-// TestConfirmDeployment_StackNameFormatting tests that stack name is properly included in prompt
-func TestConfirmDeployment_StackNameFormatting(t *testing.T) {
-	// This test documents the expected prompt format
-	// Full interactive testing would require stdin mocking
+// TestPromptMessageFormatting tests that custom messages are handled correctly
+func TestPromptMessageFormatting(t *testing.T) {
+	// Test various message formats
+	messages := []string{
+		"Proceed?",
+		"Do you want to continue with this action?",
+		"Confirm dangerous operation? This cannot be undone.",
+		"Are you ready?",
+	}
 
-	stackName := "test-vpc-stack"
-	expectedPromptContent := "Do you want to apply these changes to stack test-vpc-stack? [y/N]:"
+	for i, message := range messages {
+		t.Run(fmt.Sprintf("message_handling_%d", i), func(t *testing.T) {
+			// Store original prompter to restore later
+			originalPrompter := defaultPrompter
+			defer SetPrompter(originalPrompter)
 
-	// Verify the prompt message format is as expected
-	assert.Contains(t, expectedPromptContent, stackName,
-		"Prompt should contain the stack name")
-	assert.Contains(t, expectedPromptContent, "[y/N]",
-		"Prompt should indicate default is No")
+			mockPrompter := &MockPrompter{}
+			mockPrompter.On("Confirm", message).Return(true, nil).Once()
+
+			SetPrompter(mockPrompter)
+
+			result, err := Confirm(message)
+
+			assert.NoError(t, err)
+			assert.True(t, result)
+			mockPrompter.AssertExpectations(t)
+		})
+	}
 }
 
-// TestConfirmDeployment_Documentation documents the expected behaviour
-func TestConfirmDeployment_Documentation(t *testing.T) {
+// TestConfirmationBehaviour documents the expected behaviour
+func TestConfirmationBehaviour(t *testing.T) {
 	// This test serves as documentation for the expected behaviour
 
 	t.Run("accepts_only_explicit_yes", func(t *testing.T) {
@@ -167,26 +198,41 @@ func TestConfirmDeployment_Documentation(t *testing.T) {
 	})
 }
 
-// TestConfirmDeployment_UsesDefaultPrompter verifies package function uses default prompter
-func TestConfirmDeployment_UsesDefaultPrompter(t *testing.T) {
+// TestConfirm_UsesDefaultPrompter verifies package function uses default prompter
+func TestConfirm_UsesDefaultPrompter(t *testing.T) {
 	// Store original prompter to restore later
 	originalPrompter := defaultPrompter
 	defer SetPrompter(originalPrompter)
 
 	// Create mock that expects to be called
 	mockPrompter := &MockPrompter{}
-	mockPrompter.On("ConfirmDeployment", "my-stack").Return(false, nil).Once()
+	message := "Execute command?"
+	mockPrompter.On("Confirm", message).Return(false, nil).Once()
 
 	SetPrompter(mockPrompter)
 
 	// Call package function
-	result, err := ConfirmDeployment("my-stack")
+	result, err := Confirm(message)
 
 	assert.NoError(t, err)
 	assert.False(t, result)
 	mockPrompter.AssertExpectations(t)
 }
 
-// Note: The MockPrompter allows full testing of deployment flows without requiring
+// TestStdinPrompter_CreatesCorrectly tests StdinPrompter creation
+func TestStdinPrompter_CreatesCorrectly(t *testing.T) {
+	prompter := NewStdinPrompter()
+	assert.NotNil(t, prompter)
+	assert.NotNil(t, prompter.input)
+}
+
+// TestGetDefaultPrompter_ReturnsPrompter tests getter function
+func TestGetDefaultPrompter_ReturnsPrompter(t *testing.T) {
+	prompter := GetDefaultPrompter()
+	assert.NotNil(t, prompter)
+	assert.Implements(t, (*Prompter)(nil), prompter)
+}
+
+// Note: The MockPrompter allows full testing of confirmation flows without requiring
 // actual user input. Tests can configure expected responses and verify behavior.
 // For interactive testing of the StdinPrompter, manual testing is recommended.

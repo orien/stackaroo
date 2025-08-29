@@ -79,7 +79,8 @@ func (d *AWSDeployer) deployNewStack(ctx context.Context, stack *model.Stack) er
 	fmt.Println()
 
 	// Prompt for confirmation before creating new resources
-	confirmed, err := prompt.ConfirmDeployment(stack.Name)
+	message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
+	confirmed, err := prompt.Confirm(message)
 	if err != nil {
 		return fmt.Errorf("failed to get user confirmation: %w", err)
 	}
@@ -159,7 +160,8 @@ func (d *AWSDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stac
 		fmt.Println()
 
 		// Prompt for user confirmation
-		confirmed, err := prompt.ConfirmDeployment(stack.Name)
+		message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
+		confirmed, err := prompt.Confirm(message)
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {

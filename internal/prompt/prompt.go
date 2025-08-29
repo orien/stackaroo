@@ -14,7 +14,7 @@ import (
 
 // Prompter defines the interface for user prompting
 type Prompter interface {
-	ConfirmDeployment(stackName string) (bool, error)
+	Confirm(message string) (bool, error)
 }
 
 // StdinPrompter implements Prompter using standard input
@@ -27,9 +27,11 @@ func NewStdinPrompter() *StdinPrompter {
 	return &StdinPrompter{input: os.Stdin}
 }
 
-// ConfirmDeployment prompts the user via stdin to confirm deployment changes
-func (p *StdinPrompter) ConfirmDeployment(stackName string) (bool, error) {
-	fmt.Printf("\nDo you want to apply these changes to stack %s? [y/N]: ", stackName)
+// Confirm prompts the user with the given message and returns their response
+func (p *StdinPrompter) Confirm(message string) (bool, error) {
+	// Add newline prefix and [y/N] suffix to message
+	formattedMessage := fmt.Sprintf("\n%s [y/N]: ", message)
+	fmt.Print(formattedMessage)
 
 	scanner := bufio.NewScanner(p.input)
 	if !scanner.Scan() {
@@ -57,8 +59,8 @@ func GetDefaultPrompter() Prompter {
 	return defaultPrompter
 }
 
-// ConfirmDeployment prompts the user to confirm deployment changes using the default prompter
+// Confirm prompts the user with the given message using the default prompter
 // Returns true if the user confirms (y/yes), false otherwise
-func ConfirmDeployment(stackName string) (bool, error) {
-	return defaultPrompter.ConfirmDeployment(stackName)
+func Confirm(message string) (bool, error) {
+	return defaultPrompter.Confirm(message)
 }

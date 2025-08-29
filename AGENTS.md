@@ -29,9 +29,9 @@ Stackaroo is a command-line tool for managing AWS CloudFormation stacks as code,
 
 ### Quick Start
 ```bash
-make build          # Build the main binary
-make test          # Run unit tests
-make lint          # Run all linting tools
+make build              # Build the main binary
+make test               # Run unit tests
+make lint               # Run all linting tools
 ./bin/stackaroo --help  # Test the CLI
 ```
 
@@ -99,8 +99,8 @@ docs/          - Documentation
 - Use British English spelling throughout the codebase and documentation
 - Examples: "colour" not "color", "organisation" not "organization", "optimise" not "optimize"
 - Apply British spellings to comments, error messages, variable names, and documentation
-- Use ISO 8601 date formats (YYYY/MM/DD) where applicable
 - Follow British punctuation conventions (e.g., single quotes for nested quotes)
+- Use ISO 8601 date formats (YYYY/MM/DD) where applicable
 
 ### Diagram Standards
 - Use Mermaid for all diagrams and flowcharts

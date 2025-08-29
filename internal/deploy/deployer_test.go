@@ -34,9 +34,9 @@ type MockPrompter struct {
 	mock.Mock
 }
 
-// ConfirmDeployment mock implementation
-func (m *MockPrompter) ConfirmDeployment(stackName string) (bool, error) {
-	args := m.Called(stackName)
+// Confirm mock implementation
+func (m *MockPrompter) Confirm(message string) (bool, error) {
+	args := m.Called(message)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -165,7 +165,9 @@ func TestAWSDeployer_DeployStack_Success(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Mock user confirmation (new stack creation requires confirmation)
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Create temporary template file
 	tmpDir := t.TempDir()
@@ -235,7 +237,9 @@ func TestAWSDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Mock user confirmation (new stack creation requires confirmation)
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 	// Test deploy stack with empty template body
 	ctx := context.Background()
 
@@ -282,7 +286,9 @@ func TestAWSDeployer_DeployStack_AWSError(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Mock user confirmation (new stack creation requires confirmation)
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 	// Test deploy stack when AWS returns an error
 	ctx := context.Background()
 
@@ -389,7 +395,9 @@ func TestAWSDeployer_DeployStack_WithChanges(t *testing.T) {
 
 	// Set up mock prompter to auto-confirm deployment
 	mockPrompter := &MockPrompter{}
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil).Once()
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil).Once()
 
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
@@ -563,7 +571,9 @@ func TestAWSDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Mock user confirmation (new stack creation requires confirmation)
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 	// Test deploying stack with YAML template content
 	ctx := context.Background()
 
@@ -623,7 +633,9 @@ func TestAWSDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Mock user confirmation (new stack creation requires confirmation)
-	mockPrompter.On("ConfirmDeployment", "test-stack").Return(true, nil)
+	// Business logic sends core message, prompter adds formatting
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Set up mocks
 	mockCfnOps := &MockCloudFormationOperations{}
