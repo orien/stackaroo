@@ -45,7 +45,7 @@ echo "1.2.3" > VERSION
 
 # Commit and tag
 git add VERSION
-git commit -m "Release v1.2.3"
+git commit -m "release: v1.2.3"
 git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin HEAD
 git push origin v1.2.3

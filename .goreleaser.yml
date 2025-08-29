@@ -74,7 +74,7 @@ changelog:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
       order: 0
-    - title: 'Bug fixes'
+    - title: 'Defect fixes'
       regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
       order: 1
     - title: 'Performance improvements'

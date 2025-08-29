@@ -42,15 +42,15 @@ check_project_root() {
 # Validate version format (semantic versioning)
 validate_version() {
     local version="$1"
-    
+
     # Remove 'v' prefix if present
     version="${version#v}"
-    
+
     # Check semantic version format (X.Y.Z with optional pre-release suffix)
     if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
         log_error "Invalid version format: $version. Expected format: 1.2.3 or 1.2.3-rc1"
     fi
-    
+
     echo "$version"
 }
 
@@ -66,7 +66,7 @@ check_git_clean() {
 check_main_branch() {
     local current_branch
     current_branch="$(git rev-parse --abbrev-ref HEAD)"
-    
+
     if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
         log_warning "Not on main/master branch (currently on: $current_branch)"
         read -p "Continue anyway? [y/N]: " -n 1 -r
@@ -81,21 +81,21 @@ check_main_branch() {
 # Run pre-release checks
 run_pre_release_checks() {
     log_info "Running pre-release checks..."
-    
+
     # Run tests
     log_info "Running tests..."
     if ! make test >/dev/null 2>&1; then
         log_error "Tests failed. Please fix before releasing."
     fi
     log_success "Tests passed"
-    
+
     # Run linting
     log_info "Running linting..."
     if ! make lint >/dev/null 2>&1; then
         log_error "Linting failed. Please fix before releasing."
     fi
     log_success "Linting passed"
-    
+
     # Check for security vulnerabilities
     log_info "Running security scan..."
     if ! go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1; then
@@ -105,7 +105,7 @@ run_pre_release_checks() {
     else
         log_success "Security scan passed"
     fi
-    
+
     # Verify dependencies
     log_info "Verifying dependencies..."
     if ! go mod verify >/dev/null 2>&1; then
@@ -125,23 +125,23 @@ update_version_file() {
 create_git_tag() {
     local version="$1"
     local tag="v$version"
-    
+
     # Check if tag already exists
     if git rev-parse "$tag" >/dev/null 2>&1; then
         log_error "Tag $tag already exists"
     fi
-    
+
     # Stage VERSION file
     git add VERSION
-    
+
     # Commit version update
-    git commit -m "Release $tag"
+    git commit -m "release: $tag"
     log_success "Committed version update"
-    
+
     # Create annotated tag
     git tag -a "$tag" -m "Release $tag"
     log_success "Created tag $tag"
-    
+
     # Push to origin
     log_info "Pushing to origin..."
     git push origin HEAD
@@ -185,7 +185,7 @@ main() {
     local version=""
     local dry_run=false
     local skip_checks=false
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -214,44 +214,44 @@ main() {
                 ;;
         esac
     done
-    
+
     # Check if version was provided
     if [[ -z "$version" ]]; then
         log_error "Version argument is required. Use --help for usage information."
     fi
-    
+
     # Validate and normalise version
     version="$(validate_version "$version")"
     log_info "Preparing release for version: $version"
-    
+
     # Check project setup
     check_project_root
-    
+
     # Git checks
     check_git_clean
     check_main_branch
-    
+
     # Pre-release checks
     if [[ "$skip_checks" == false ]]; then
         run_pre_release_checks
     else
         log_warning "Skipping pre-release checks as requested"
     fi
-    
+
     # Update VERSION file
     update_version_file "$version"
-    
+
     if [[ "$dry_run" == true ]]; then
         log_warning "Dry run mode - not creating git tag"
         log_info "Would create tag: v$version"
-        
+
         # Restore original VERSION file
         git checkout -- VERSION
         log_info "Restored original VERSION file"
     else
         # Create and push tag
         create_git_tag "$version"
-        
+
         log_success "Release v$version completed!"
         log_info "GitHub Actions will now build and publish the release."
         log_info "Monitor the release at: https://github.com/orien/stackaroo/actions"
