@@ -106,7 +106,7 @@ classDiagram
         +DeleteStack(ctx, stack) error
     }
     
-    class AWSDeleter {
+    class StackDeleter {
         -awsClient: Client
         +DeleteStack(ctx, stack) error
         -validateStackExists() bool
@@ -116,7 +116,7 @@ classDiagram
         -waitForCompletion() error
     }
     
-    Deleter <|-- AWSDeleter
+    Deleter <|-- StackDeleter
 ```
 
 **Key Responsibilities:**

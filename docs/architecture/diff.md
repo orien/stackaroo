@@ -14,7 +14,7 @@ graph TB
     
     subgraph "Core Diff Module"
         DI[Differ Interface<br/>types.go]
-        DD[DefaultDiffer<br/>differ.go]
+        DD[StackDiffer<br/>differ.go]
         
         subgraph "Comparators"
             TC[TemplateComparator<br/>template.go]
@@ -28,7 +28,7 @@ graph TB
         end
         
         subgraph "AWS Integration"
-            CSM[ChangeSetManager<br/>changeset.go]
+            AWS_OPS[AWS CloudFormation Operations<br/>internal/aws]
         end
     end
     
@@ -43,14 +43,14 @@ graph TB
     DD --> TC
     DD --> PC
     DD --> TagC
-    DD --> CSM
+    DD --> AWS_OPS
     DD --> RES
     RES --> OF
     
     DD --> AWS
     CLI --> CFG
     CLI --> RES_PKG
-    CSM --> AWS
+    AWS_OPS --> AWS
 ```
 
 ## Component Architecture
@@ -96,12 +96,11 @@ classDiagram
         +DiffStack(ctx, resolvedStack, options) Result
     }
     
-    class DefaultDiffer {
-        -cfClient: CloudFormationClient
+    class StackDiffer {
+        -cfClient: CloudFormationOperations
         -templateComparator: TemplateComparator
         -parameterComparator: ParameterComparator
         -tagComparator: TagComparator
-        -changeSetManager: ChangeSetManager
         +DiffStack(ctx, resolvedStack, options) Result
         -handleNewStack() Result
         -compareTemplates() TemplateChange
@@ -110,7 +109,7 @@ classDiagram
         -generateChangeSet() ChangeSetInfo
     }
     
-    Differ <|-- DefaultDiffer
+    Differ <|-- StackDiffer
 ```
 
 **Key Responsibilities:**
@@ -518,7 +517,7 @@ sequenceDiagram
 
 The architecture provides clear extension points through interfaces:
 - `TemplateComparator` - Custom template comparison algorithms
-- `ChangeSetManager` - Alternative changeset strategies
+- `CloudFormationOperations` - Alternative AWS integration strategies
 - `OutputFormatter` - Additional output formats
 - `Differ` - Alternative diff engines (e.g., client-side only)
 
