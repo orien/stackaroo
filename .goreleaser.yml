@@ -2,12 +2,6 @@ version: 2
 
 project_name: stackaroo
 
-before:
-  hooks:
-    - go mod tidy
-    # Skip tests during GoReleaser builds to avoid version test issues
-    # - go test ./...
-
 builds:
   - id: stackaroo
     binary: stackaroo
