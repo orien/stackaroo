@@ -9,6 +9,7 @@ Stackaroo simplifies CloudFormation stack management by providing:
 - **Declarative Configuration**: Define your stacks and parameters in YAML files
 - **Environment Management**: Deploy the same templates across multiple contexts
 - **Change Preview**: See exactly what changes will be made before deployment
+- **Stack Information**: View comprehensive details about deployed CloudFormation stacks
 - **Template Validation**: Validate CloudFormation templates before deployment
 - **Stack Lifecycle**: Deploy, update, delete, and monitor stack status
 - **Parameter Management**: Organize parameters by context and stack
@@ -33,6 +34,16 @@ Stackaroo simplifies CloudFormation stack management by providing:
 - **Resource Impact Assessment**: Identifies which resources will be created, modified, or deleted
 - **Replacement Warnings**: Highlights resources that require replacement during updates
 - **Consistent Formatting**: Same preview format as the dedicated `diff` command
+
+### Stack Information
+
+- **Comprehensive Stack Details**: View complete information about deployed CloudFormation stacks
+- **Status and Metadata**: Shows stack status, creation time, last update, and description
+- **Parameter Display**: Current parameter values sorted alphabetically
+- **Output Information**: Stack outputs with their current values
+- **Tag Management**: All stack tags displayed in organised format
+- **Human-Readable Format**: Clean, consistent formatting with proper indentation
+- **Real-time Data**: Retrieves current information directly from AWS CloudFormation
 
 ### Template Validation
 
@@ -131,6 +142,9 @@ stackaroo deploy development vpc
 
 # Preview changes before deployment
 stackaroo diff development app
+
+# View detailed stack information
+stackaroo describe production vpc
 ```
 
 ### Key Commands
@@ -138,6 +152,7 @@ stackaroo diff development app
 #### Core Commands
 - `deploy <context> [stack-name]` - Deploy all stacks or a specific stack with dependency-aware ordering and integrated change preview
 - `diff <context> <stack-name>` - Preview changes between deployed stack and local configuration
+- `describe <context> <stack-name>` - Display detailed information about a deployed CloudFormation stack
 - `delete <context> [stack-name]` - Delete stacks with dependency-aware ordering and confirmation prompts
 
 #### Global Flags
@@ -156,6 +171,9 @@ stackaroo deploy production app --verbose
 
 # Preview changes before deployment
 stackaroo diff staging vpc
+
+# View detailed stack information
+stackaroo describe production app
 
 # Delete specific stack with confirmation
 stackaroo delete development app

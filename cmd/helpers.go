@@ -5,6 +5,10 @@ SPDX-License-Identifier: BSD-3-Clause
 package cmd
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/resolve"
 )
@@ -14,4 +18,22 @@ func createResolver() (*file.Provider, *resolve.StackResolver) {
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
 	return provider, resolver
+}
+
+// createAWSClient creates a default AWS client with panic on error
+func createAWSClient() aws.Client {
+	ctx := context.Background()
+	client, err := aws.NewDefaultClient(ctx, aws.Config{})
+	if err != nil {
+		// This shouldn't happen in normal operation, but if it does,
+		// we'll handle it in the command execution
+		panic(fmt.Sprintf("failed to create AWS client: %v", err))
+	}
+	return client
+}
+
+// createCloudFormationOperations creates CloudFormation operations with panic on error
+func createCloudFormationOperations() aws.CloudFormationOperations {
+	client := createAWSClient()
+	return client.NewCloudFormationOperations()
 }

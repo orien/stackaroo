@@ -8,8 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/aws"
-
 	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/orien/stackaroo/internal/model"
 
@@ -69,15 +67,7 @@ func getDeployer() deploy.Deployer {
 		return deployer
 	}
 
-	// Create default deployer
-	ctx := context.Background()
-	client, err := aws.NewDefaultClient(ctx, aws.Config{})
-	if err != nil {
-		// This shouldn't happen in normal operation, but if it does,
-		// we'll handle it in the command execution
-		panic(fmt.Sprintf("failed to create AWS client: %v", err))
-	}
-
+	client := createAWSClient()
 	return deploy.NewStackDeployer(client)
 }
 

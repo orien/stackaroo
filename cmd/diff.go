@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/diff"
 	"github.com/spf13/cobra"
 )
@@ -56,16 +55,8 @@ func getDiffer() diff.Differ {
 		return differ
 	}
 
-	// Create default differ
-	ctx := context.Background()
-	cfClient, err := aws.NewCloudFormationClient(ctx)
-	if err != nil {
-		// This shouldn't happen in normal operation, but if it does,
-		// we'll handle it in the command execution
-		panic(fmt.Sprintf("failed to create AWS client: %v", err))
-	}
-
-	return diff.NewStackDiffer(cfClient)
+	cfOps := createCloudFormationOperations()
+	return diff.NewStackDiffer(cfOps)
 }
 
 // SetDiffer allows injection of a differ (for testing)
