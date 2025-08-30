@@ -45,13 +45,13 @@ will be deleted before confirming.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
-		var stackName string
-		if len(args) > 1 {
-			stackName = args[1]
-		}
 		ctx := context.Background()
 
-		return deleteWithConfig(ctx, stackName, contextName)
+		if len(args) > 1 {
+			stackName := args[1]
+			return deleteSingleStack(ctx, stackName, contextName)
+		}
+		return deleteAllStacks(ctx, contextName)
 	},
 }
 
@@ -79,38 +79,58 @@ func SetDeleter(d delete.Deleter) {
 	deleter = d
 }
 
-// deleteWithConfig handles deletion using configuration file
-func deleteWithConfig(ctx context.Context, stackName, contextName string) error {
-	// Create configuration provider and resolver
+// createResolver creates a configuration provider and resolver
+func createResolver() (*file.Provider, *resolve.StackResolver) {
 	provider := file.NewDefaultProvider()
 	resolver := resolve.NewStackResolver(provider)
+	return provider, resolver
+}
 
-	// Determine which stacks to delete
-	var stackNames []string
-	if stackName != "" {
-		// Delete single stack
-		stackNames = []string{stackName}
-	} else {
-		// Delete all stacks in context
-		var err error
-		stackNames, err = provider.ListStacks(contextName)
-		if err != nil {
-			return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
-		}
-		if len(stackNames) == 0 {
-			fmt.Printf("No stacks found in context %s\n", contextName)
-			return nil
-		}
+// deleteStackWithFeedback deletes a stack and provides feedback
+func deleteStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
+	d := getDeleter()
+
+	err := d.DeleteStack(ctx, stack)
+	if err != nil {
+		return fmt.Errorf("error deleting stack %s: %w", stack.Name, err)
 	}
 
-	// Resolve stack(s) and all their dependencies
-	resolved, err := resolver.ResolveStacks(ctx, contextName, stackNames)
+	fmt.Printf("Successfully deleted stack %s in context %s\n", stack.Name, contextName)
+	return nil
+}
+
+// deleteSingleStack handles deletion of a single stack
+func deleteSingleStack(ctx context.Context, stackName, contextName string) error {
+	_, resolver := createResolver()
+
+	// Resolve single stack
+	stack, err := resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
 	}
 
-	// Get or create deleter
-	d := getDeleter()
+	return deleteStackWithFeedback(ctx, stack, contextName)
+}
+
+// deleteAllStacks handles deletion of all stacks in a context using configuration file
+func deleteAllStacks(ctx context.Context, contextName string) error {
+	provider, resolver := createResolver()
+
+	// Get list of stacks to delete
+	stackNames, err := provider.ListStacks(contextName)
+	if err != nil {
+		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+	}
+	if len(stackNames) == 0 {
+		fmt.Printf("No stacks found in context %s\n", contextName)
+		return nil
+	}
+
+	// Resolve all stacks and their dependencies
+	resolved, err := resolver.ResolveStacks(ctx, contextName, stackNames)
+	if err != nil {
+		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+	}
 
 	// Reverse the deployment order for safe deletion
 	// Dependencies should be deleted before the stacks that depend on them
@@ -134,13 +154,10 @@ func deleteWithConfig(ctx context.Context, stackName, contextName string) error 
 			return fmt.Errorf("resolved stack %s not found", stackName)
 		}
 
-		// Delete the stack
-		err = d.DeleteStack(ctx, stackToDelete)
+		err = deleteStackWithFeedback(ctx, stackToDelete, contextName)
 		if err != nil {
-			return fmt.Errorf("error deleting stack %s: %w", stackName, err)
+			return err
 		}
-
-		fmt.Printf("Successfully deleted stack %s in context %s\n", stackName, contextName)
 	}
 
 	return nil

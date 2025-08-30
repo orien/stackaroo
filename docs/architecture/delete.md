@@ -11,31 +11,31 @@ graph TB
     subgraph "Command Layer"
         CLI[delete command<br/>cmd/delete.go]
     end
-    
+
     subgraph "Core Delete Module"
         DI[Deleter Interface<br/>deleter.go]
         AD[AWSDeleter<br/>deleter.go]
-        
+
         subgraph "Safety Features"
             SP[Stack Preview<br/>deleter.go]
             UC[User Confirmation<br/>via prompt]
             EV[Existence Validation<br/>deleter.go]
         end
-        
+
         subgraph "Deletion Orchestration"
             DO[Dependency Ordering<br/>cmd/delete.go]
             DS[Deletion Sequencing<br/>deleter.go]
             EM[Event Monitoring<br/>deleter.go]
         end
     end
-    
+
     subgraph "External Dependencies"
         AWS[AWS CloudFormation<br/>internal/aws]
         PROMPT[Prompt System<br/>internal/prompt]
         CFG[Configuration<br/>internal/config]
         RES[Stack Resolver<br/>internal/resolve]
     end
-    
+
     CLI --> DI
     DI --> AD
     AD --> SP
@@ -44,7 +44,7 @@ graph TB
     CLI --> DO
     DO --> DS
     DS --> EM
-    
+
     AD --> AWS
     UC --> PROMPT
     CLI --> CFG
@@ -63,23 +63,32 @@ classDiagram
         +contextName: string
         +stackName: string
         +RunE() error
-        +deleteWithConfig() error
+        +deleteSingleStack() error
+        +deleteAllStacks() error
         +getDeleter() Deleter
     }
-    
+
+    class SharedHelpers {
+        +createResolver() (*Provider, *StackResolver)
+        +deleteStackWithFeedback() error
+    }
+
     class Deleter {
         <<interface>>
         +DeleteStack(ctx, stack) error
     }
-    
+
     DeleteCommand --> Deleter
 ```
 
 **Key Features:**
 - Single and multiple stack deletion support
+- Command-level routing between single and multiple stack operations
 - Automatic dependency resolution and reverse ordering
+- Shared infrastructure for common operations
 - Configuration integration
 - Error handling with proper exit codes
+- Consistent user feedback and messaging
 
 **Dependency Ordering Logic:**
 ```mermaid
@@ -87,7 +96,7 @@ graph LR
     A[Resolve Dependencies] --> B[Get Deployment Order]
     B --> C[Reverse Order]
     C --> D[Delete in Sequence]
-    
+
     subgraph "Example"
         E[Deploy: vpc → db → app]
         F[Delete: app → db → vpc]
@@ -105,7 +114,7 @@ classDiagram
         <<interface>>
         +DeleteStack(ctx, stack) error
     }
-    
+
     class StackDeleter {
         -awsClient: Client
         +DeleteStack(ctx, stack) error
@@ -115,7 +124,7 @@ classDiagram
         -executeDelete() error
         -waitForCompletion() error
     }
-    
+
     Deleter <|-- StackDeleter
 ```
 
@@ -133,31 +142,50 @@ stateDiagram-v2
     [*] --> CheckExists
     CheckExists --> NotExists : Stack doesn't exist
     CheckExists --> GetStackInfo : Stack exists
-    
+
     NotExists --> Skip : Log skip message
     Skip --> [*]
-    
+
     GetStackInfo --> ShowPreview : Success
     GetStackInfo --> Error : AWS error
-    
+
     ShowPreview --> PromptUser : Display details
     PromptUser --> UserCancel : User says no
     PromptUser --> ExecuteDelete : User confirms
-    
+
     UserCancel --> Cancel : Log cancellation
     Cancel --> [*]
-    
+
     ExecuteDelete --> WaitCompletion : AWS delete initiated
     WaitCompletion --> Success : Delete completed
     WaitCompletion --> Error : Delete failed
-    
+
     Success --> [*]
     Error --> [*]
 ```
 
-### 3. Safety Features
+### 3. Command Architecture Pattern
 
-#### 3.1 Stack Preview
+**Function Separation:**
+- `deleteSingleStack()` - Handles single stack deletion using `ResolveStack()`
+- `deleteAllStacks()` - Handles multiple stack deletion using `ResolveStacks()` with reverse dependency ordering
+- Command routing logic at action level based on argument count
+
+**Shared Infrastructure (`cmd/helpers.go`):**
+- `createResolver()` - Common configuration provider and stack resolver creation
+- `deleteStackWithFeedback()` - Consistent deletion execution with error handling and user feedback
+- Eliminates code duplication between single and multiple stack operations
+
+**Architecture Benefits:**
+- Clear separation of concerns between single vs multiple stack scenarios
+- Consistent error handling and user messaging
+- Shared infrastructure reduces maintenance overhead
+- Command-level routing provides clear control flow
+- Reverse dependency ordering ensures safe deletion of dependent stacks
+
+### 4. Safety Features
+
+#### 4.1 Stack Preview
 
 ```mermaid
 classDiagram
@@ -166,7 +194,7 @@ classDiagram
         +showDeletionWarning() void
         +formatStackStatus(status) string
     }
-    
+
     class StackInfo {
         +Name: string
         +Status: string
@@ -174,7 +202,7 @@ classDiagram
         +CreatedTime: time
         +UpdatedTime: time
     }
-    
+
     StackPreview --> StackInfo
 ```
 
@@ -185,14 +213,14 @@ classDiagram
 - Destructive operation warnings
 - Cannot-be-undone disclaimers
 
-#### 3.2 User Confirmation Integration
+#### 4.2 User Confirmation Integration
 
 ```mermaid
 sequenceDiagram
     participant D as Deleter
     participant P as Prompt System
     participant U as User
-    
+
     D->>D: Generate confirmation message
     D->>P: Confirm("Do you want to delete stack X? This cannot be undone.")
     P->>P: Format with "\n" + "[y/N]: "
@@ -200,7 +228,7 @@ sequenceDiagram
     U->>P: User input (y/n)
     P->>P: Parse response
     P->>D: Return boolean decision
-    
+
     alt User confirms
         D->>D: Proceed with deletion
     else User cancels
@@ -220,29 +248,29 @@ sequenceDiagram
     participant AWS as AWS Client
     participant Prompt as Prompt System
     participant User as User
-    
+
     CLI->>Resolver: Resolve stack configuration
     Resolver->>CLI: ResolvedStack
-    
+
     CLI->>Deleter: DeleteStack(resolved)
-    
+
     Deleter->>AWS: StackExists(stackName)
     AWS->>Deleter: true/false
-    
+
     alt Stack Exists
         Deleter->>AWS: DescribeStack(stackName)
         AWS->>Deleter: StackInfo
-        
+
         Deleter->>Deleter: Display preview
         Deleter->>Prompt: Confirm deletion
         Prompt->>User: Show formatted prompt
         User->>Prompt: y/n response
         Prompt->>Deleter: boolean confirmation
-        
+
         alt User Confirms
             Deleter->>AWS: DeleteStack(stackName)
             AWS->>Deleter: Success
-            
+
             Deleter->>AWS: WaitForStackOperation(callback)
             AWS->>Deleter: Deletion events
             Deleter->>Deleter: Display progress
@@ -253,7 +281,7 @@ sequenceDiagram
     else Stack Doesn't Exist
         Deleter->>Deleter: Log skip message
     end
-    
+
     Deleter->>CLI: Success/Error result
 ```
 
@@ -265,26 +293,26 @@ sequenceDiagram
     participant Config as Config Provider
     participant Resolver as Stack Resolver
     participant Deleter as AWS Deleter
-    
+
     CLI->>Config: ListStacks(context)
     Config->>CLI: []stackNames
-    
+
     CLI->>Resolver: Resolve(context, stackNames)
     Resolver->>CLI: ResolvedStacks with order
-    
+
     CLI->>CLI: Reverse deployment order
-    
+
     loop For each stack in reverse order
         CLI->>Deleter: DeleteStack(stack)
         Deleter->>CLI: Result
-        
+
         alt Deletion Failed
             CLI->>CLI: Return error (stop processing)
         else Deletion Succeeded
             CLI->>CLI: Continue to next stack
         end
     end
-    
+
     CLI->>CLI: Report completion
 ```
 
@@ -326,12 +354,12 @@ graph LR
         A[Delete Module] --> B[Generate Core Message]
         B --> C["Do you want to delete stack X? This cannot be undone."]
     end
-    
+
     subgraph "UI Layer"
         D[Prompt System] --> E[Add Formatting]
         E --> F["\nDo you want to delete stack X? This cannot be undone. [y/N]: "]
     end
-    
+
     C --> D
     F --> G[User Input]
 ```
@@ -362,27 +390,27 @@ graph TD
     A[Delete Request] --> B{Stack Exists?}
     B -->|No| C[Log Skip Message]
     B -->|Yes| D{Get Stack Info}
-    
+
     D -->|Success| E[Show Preview]
     D -->|Error| F[AWS Error Handling]
-    
+
     E --> G{User Confirms?}
     G -->|No| H[Log Cancellation]
     G -->|Yes| I[Execute Delete]
-    
+
     I --> J{Delete Success?}
     J -->|Yes| K[Monitor Progress]
     J -->|No| L[Delete Error Handling]
-    
+
     K --> M{Completion?}
     M -->|Success| N[Report Success]
     M -->|Timeout/Error| O[Operation Error]
-    
+
     F --> P[Return Error with Context]
     H --> Q[Return Success - User Choice]
     L --> R[Return Error - AWS Failure]
     O --> S[Return Error - Operation Failed]
-    
+
     C --> T[Continue]
     N --> T
     Q --> T
@@ -417,7 +445,7 @@ graph TD
     D --> E[Layer 4: Dependency Ordering]
     E --> F[Layer 5: AWS Execution]
     F --> G[Layer 6: Progress Monitoring]
-    
+
     subgraph "Safety Gates"
         B1[Non-existent stacks skipped]
         C1[Complete stack information shown]
@@ -471,23 +499,23 @@ for i, stackName := range resolved.DeploymentOrder {
 graph LR
     subgraph "Unit Tests"
         A[Deleter Interface Tests]
-        B[Safety Feature Tests] 
+        B[Safety Feature Tests]
         C[Command Structure Tests]
         D[Error Handling Tests]
     end
-    
+
     subgraph "Integration Tests"
         E[AWS Client Integration]
         F[Prompt Integration]
         G[End-to-End Workflows]
     end
-    
+
     subgraph "Mock Infrastructure"
         H[Mock AWS Client]
         I[Mock Prompter]
         J[Mock Config Provider]
     end
-    
+
     A --> H
     B --> I
     C --> J
@@ -596,18 +624,18 @@ mockCfnOps.On("DeleteStack", ctx, deleteInput).Return(nil)
 sequenceDiagram
     participant D as Deleter
     participant AWS as AWS CloudFormation
-    
+
     D->>AWS: DeleteStack()
     AWS->>D: DeleteStack initiated
-    
+
     D->>AWS: WaitForStackOperation(callback)
-    
+
     loop Until completion
         AWS->>D: StackEvent
         D->>D: Process and display event
         AWS->>D: Next StackEvent
     end
-    
+
     AWS->>D: DELETE_COMPLETE
     D->>D: Cleanup and return
 ```
