@@ -9,10 +9,10 @@ import (
 	"fmt"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config/file"
+
 	"github.com/orien/stackaroo/internal/delete"
 	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/resolve"
+
 	"github.com/spf13/cobra"
 )
 
@@ -77,13 +77,6 @@ func getDeleter() delete.Deleter {
 // SetDeleter allows injection of a deleter (for testing)
 func SetDeleter(d delete.Deleter) {
 	deleter = d
-}
-
-// createResolver creates a configuration provider and resolver
-func createResolver() (*file.Provider, *resolve.StackResolver) {
-	provider := file.NewDefaultProvider()
-	resolver := resolve.NewStackResolver(provider)
-	return provider, resolver
 }
 
 // deleteStackWithFeedback deletes a stack and provides feedback

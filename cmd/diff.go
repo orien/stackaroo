@@ -9,9 +9,7 @@ import (
 	"fmt"
 
 	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/diff"
-	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +32,7 @@ This command shows what changes would be made if you ran 'stackaroo deploy' with
 the current configuration. It compares:
 
 • Template differences (deployed vs. local template)
-• Parameter differences (current vs. resolved parameters)  
+• Parameter differences (current vs. resolved parameters)
 • Tag differences (current vs. resolved tags)
 • Resource-level changes (when possible via AWS ChangeSets)
 
@@ -83,9 +81,7 @@ func SetDiffer(d diff.Differ) {
 
 // diffWithConfig handles diff using configuration file
 func diffWithConfig(ctx context.Context, stackName, contextName string) error {
-	// Create configuration provider and resolver
-	provider := file.NewDefaultProvider()
-	resolver := resolve.NewStackResolver(provider)
+	_, resolver := createResolver()
 
 	// Resolve the target stack
 	targetStack, err := resolver.ResolveStack(ctx, contextName, stackName)

@@ -62,8 +62,13 @@ classDiagram
         +deployDryRun: bool
         +deployAutoApprove: bool
         +RunE() error
-        +deployWithConfig() error
-        +handleMultipleStacks() error
+        +deploySingleStack() error
+        +deployAllStacks() error
+    }
+
+    class SharedHelpers {
+        +createResolver() (*Provider, *StackResolver)
+        +deployStackWithFeedback() error
     }
 
     class Deployer {
@@ -77,9 +82,11 @@ classDiagram
 
 **Key Features:**
 - Context-based deployment targeting
+- Command-level routing between single and multiple stack operations
 - Dry-run mode for safe testing
 - Auto-approve option for CI/CD pipelines
-- Multi-stack deployment coordination
+- Multi-stack deployment coordination with dependency ordering
+- Shared infrastructure for common operations
 - Error aggregation and reporting
 
 ### 2. Core Deploy Engine (`internal/deploy/`)
@@ -145,7 +152,25 @@ stateDiagram-v2
     NoChanges --> [*]
 ```
 
-### 3. Integration Architecture
+### 3. Command Architecture Pattern
+
+**Function Separation:**
+- `deploySingleStack()` - Handles single stack deployment using `ResolveStack()`
+- `deployAllStacks()` - Handles multiple stack deployment using `ResolveStacks()` with dependency ordering
+- Command routing logic at action level based on argument count
+
+**Shared Infrastructure (`cmd/helpers.go`):**
+- `createResolver()` - Common configuration provider and stack resolver creation
+- `deployStackWithFeedback()` - Consistent deployment execution with error handling and user feedback
+- Eliminates code duplication between single and multiple stack operations
+
+**Architecture Benefits:**
+- Clear separation of concerns between single vs multiple stack scenarios
+- Consistent error handling and user messaging
+- Shared infrastructure reduces maintenance overhead
+- Command-level routing provides clear control flow
+
+### 4. Integration Architecture
 
 ```mermaid
 classDiagram
@@ -299,8 +324,11 @@ type StackEvent struct {
 
 ### 2. Diff Engine Integration (`internal/diff`)
 
+**Enhanced Integration for Change Preview:**
+
 **Integrated Preview System:**
 - Uses same `StackDiffer` as standalone diff command
+- Simplified `diff.Options` structure (text-only output)
 - `KeepChangeSet: true` option preserves changesets for deployment
 - Consistent formatting between preview and standalone diff
 - Automatic changeset lifecycle management
