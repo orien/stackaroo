@@ -384,6 +384,18 @@ When presenting changes to the human:
 
 **Never push changes to remote repositories** - this is the human's responsibility.
 
+### Commit Amendments
+Commit amendments using `git commit --amend` are treated **exactly the same** as new commits:
+- **Present Changes** - Show all modifications to the human for review before amending
+- **Wait for Approval** - Do not proceed with `git commit --amend` until the human explicitly approves
+- **No Exceptions** - Even small amendments like typo fixes or import changes require review
+
+The human review requirement applies to **all git commits**, including:
+- `git commit` (new commits)
+- `git commit --amend` (amendments)
+- `git commit --fixup` (fixup commits)
+- Any other form of committing changes
+
 ### What Requires Review
 All changes to project files, including but not limited to:
 - Source code modifications (`.go` files)
