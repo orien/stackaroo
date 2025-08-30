@@ -28,11 +28,6 @@ func NewFileConfigProvider(filename string) *FileConfigProvider {
 	}
 }
 
-// NewDefaultFileConfigProvider creates a new file-based ConfigProvider using the default config filename
-func NewDefaultFileConfigProvider() *FileConfigProvider {
-	return NewFileConfigProvider("stackaroo.yaml")
-}
-
 // LoadConfig loads and resolves configuration for the specified context
 func (fp *FileConfigProvider) LoadConfig(ctx context.Context, context string) (*config.Config, error) {
 	// Load raw config if not already loaded

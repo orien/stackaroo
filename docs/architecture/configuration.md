@@ -330,24 +330,25 @@ stacks:
 The file provider offers two creation methods to support different architectural needs:
 
 ```go
-// Method 1: Explicit filename (for custom config files)
-provider := file.NewFileConfigProvider("custom-config.yaml")
+// Create file provider with explicit filename
+provider := file.NewFileConfigProvider("stackaroo.yaml")
 
-// Method 2: Default factory (recommended - no hardcoded filenames)
-provider := file.NewDefaultFileConfigProvider()  // Uses "stackaroo.yaml"
+// Or with custom config file
+provider := file.NewFileConfigProvider("custom-config.yaml")
 ```
 
-**Architectural Benefits of `NewDefaultFileConfigProvider()`:**
-- **Encapsulates filename knowledge** - Consumer modules don't need to know config filename
-- **Consistent defaults** - All applications use same config file name
-- **Easy configuration** - Single source of truth for default behavior
+**Architectural Benefits:**
+- **Explicit configuration** - Clear specification of config file location
+- **Flexible configuration** - Support for custom config file names via --config flag
+- **Consistent interface** - Single constructor pattern for all use cases
 - **Testable** - Mock providers can use different factory implementations
 
 ### **Loading Configuration**
 
 ```go
-// Create file provider with default config file
-provider := file.NewDefaultFileConfigProvider()
+// Create file provider with specified config file
+configFile := "stackaroo.yaml"  // From --config flag or default
+provider := file.NewFileConfigProvider(configFile)
 
 // Load configuration for specific context
 cfg, err := provider.LoadConfig(ctx, "prod")
@@ -357,8 +358,6 @@ if err != nil {
 
 // Access resolved configuration
 fmt.Printf("Deploying to account: %s\n", cfg.Context.Account)
-fmt.Printf("Region: %s\n", cfg.Context.Region)
-fmt.Printf("Stacks: %d\n", len(cfg.Stacks))
 ```
 
 ### **Individual Stack Access**
