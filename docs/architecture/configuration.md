@@ -334,10 +334,10 @@ The file provider offers two creation methods to support different architectural
 provider := file.NewFileConfigProvider("custom-config.yaml")
 
 // Method 2: Default factory (recommended - no hardcoded filenames)
-provider := file.NewDefaultProvider()  // Uses "stackaroo.yaml"
+provider := file.NewDefaultFileConfigProvider()  // Uses "stackaroo.yaml"
 ```
 
-**Architectural Benefits of `NewDefaultProvider()`:**
+**Architectural Benefits of `NewDefaultFileConfigProvider()`:**
 - **Encapsulates filename knowledge** - Consumer modules don't need to know config filename
 - **Consistent defaults** - All applications use same config file name
 - **Easy configuration** - Single source of truth for default behavior
@@ -347,7 +347,7 @@ provider := file.NewDefaultProvider()  // Uses "stackaroo.yaml"
 
 ```go
 // Create file provider with default config file
-provider := file.NewDefaultProvider()
+provider := file.NewDefaultFileConfigProvider()
 
 // Load configuration for specific context
 cfg, err := provider.LoadConfig(ctx, "prod")

@@ -202,7 +202,7 @@ flowchart LR
 
 ```go
 // Example usage in deploy command
-configProvider := file.NewDefaultProvider()  // No hardcoded filename
+configProvider := file.NewDefaultFileConfigProvider()  // No hardcoded filename
 templateReader := &resolve.FileTemplateReader{}
 resolver := resolve.NewStackResolver(configProvider, templateReader)
 
@@ -244,11 +244,11 @@ graph TD
 
 #### **cmd/deploy Module**
 - **Pure CLI orchestration** - No file system knowledge
-- **Uses factory methods** - `file.NewDefaultProvider()` instead of hardcoded filenames
+- **Uses factory methods** - `file.NewDefaultFileConfigProvider()` instead of hardcoded filenames
 - **Dependency injection** - Accepts resolver and configuration provider interfaces
 
 #### **config/file Module**  
-- **Owns "stackaroo.yaml" filename** - Via `NewDefaultProvider()` factory
+- **Owns "stackaroo.yaml" filename** - Via `NewDefaultFileConfigProvider()` factory
 - **Path-to-URI conversion** - Converts relative paths to `file://` URIs
 - **Configuration file knowledge** - Understands YAML structure and resolution
 

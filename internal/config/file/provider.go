@@ -28,8 +28,8 @@ func NewFileConfigProvider(filename string) *FileConfigProvider {
 	}
 }
 
-// NewDefaultProvider creates a new file-based ConfigProvider using the default config filename
-func NewDefaultProvider() *FileConfigProvider {
+// NewDefaultFileConfigProvider creates a new file-based ConfigProvider using the default config filename
+func NewDefaultFileConfigProvider() *FileConfigProvider {
 	return NewFileConfigProvider("stackaroo.yaml")
 }
 

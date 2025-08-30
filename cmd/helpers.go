@@ -15,7 +15,7 @@ import (
 
 // createResolver creates a configuration provider and resolver
 func createResolver() (*file.FileConfigProvider, *resolve.StackResolver) {
-	provider := file.NewDefaultProvider()
+	provider := file.NewDefaultFileConfigProvider()
 	resolver := resolve.NewStackResolver(provider)
 	return provider, resolver
 }
