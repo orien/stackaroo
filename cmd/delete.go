@@ -59,7 +59,7 @@ func getDeleter() delete.Deleter {
 		return deleter
 	}
 
-	cfOpts := createCloudFormationOperations()
+	cfOpts := getCloudFormationOperations()
 	deleter = delete.NewStackDeleter(cfOpts)
 	return deleter
 }

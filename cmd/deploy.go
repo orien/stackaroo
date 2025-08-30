@@ -67,7 +67,7 @@ func getDeployer() deploy.Deployer {
 		return deployer
 	}
 
-	cfOpts := createCloudFormationOperations()
+	cfOpts := getCloudFormationOperations()
 	deployer = deploy.NewStackDeployer(cfOpts)
 	return deployer
 }

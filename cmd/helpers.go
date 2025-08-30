@@ -20,8 +20,8 @@ func createResolver() (*file.Provider, *resolve.StackResolver) {
 	return provider, resolver
 }
 
-// createAWSClient creates a default AWS client with panic on error
-func createAWSClient() aws.Client {
+// getAWSClient creates a default AWS client with panic on error
+func getAWSClient() aws.Client {
 	ctx := context.Background()
 	client, err := aws.NewDefaultClient(ctx, aws.Config{})
 	if err != nil {
@@ -32,8 +32,8 @@ func createAWSClient() aws.Client {
 	return client
 }
 
-// createCloudFormationOperations creates CloudFormation operations with panic on error
-func createCloudFormationOperations() aws.CloudFormationOperations {
-	client := createAWSClient()
+// getCloudFormationOperations creates CloudFormation operations with panic on error
+func getCloudFormationOperations() aws.CloudFormationOperations {
+	client := getAWSClient()
 	return client.NewCloudFormationOperations()
 }
