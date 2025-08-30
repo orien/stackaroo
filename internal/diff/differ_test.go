@@ -68,7 +68,7 @@ func TestStackDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 		Tags:       map[string]string{"Environment": "dev", "Project": "test"},
 		Template:   `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 	}
-	options := Options{Format: "text"}
+	options := Options{}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -118,7 +118,7 @@ func TestStackDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	// Test data
 	stack := createTestResolvedStack()
 	currentStack := createTestStackInfo()
-	options := Options{Format: "text"}
+	options := Options{}
 
 	paramDiffs := []ParameterDiff{
 		{Key: "Param1", CurrentValue: "oldvalue1", ProposedValue: "value1", ChangeType: ChangeTypeModify},
@@ -188,7 +188,7 @@ func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 
 	// Test data
 	stack := createTestResolvedStack()
-	options := Options{Format: "text"}
+	options := Options{}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(false, nil)
@@ -234,7 +234,7 @@ func TestStackDiffer_DiffStack_StackExistsError(t *testing.T) {
 
 	// Test data
 	stack := createTestResolvedStack()
-	options := Options{Format: "text"}
+	options := Options{}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(false, errors.New("AWS connection error"))
@@ -263,7 +263,7 @@ func TestStackDiffer_DiffStack_DescribeStackError(t *testing.T) {
 
 	// Test data
 	stack := createTestResolvedStack()
-	options := Options{Format: "text"}
+	options := Options{}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -378,7 +378,7 @@ func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	// Test data
 	stack := createTestResolvedStack()
 	currentStack := createTestStackInfo()
-	options := Options{Format: "text"}
+	options := Options{}
 
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -420,7 +420,7 @@ func TestStackDiffer_HandleNewStack(t *testing.T) {
 	result := &Result{
 		StackName: stack.Name,
 		Context:   stack.Context,
-		Options:   Options{Format: "text"},
+		Options:   Options{},
 	}
 
 	// Execute

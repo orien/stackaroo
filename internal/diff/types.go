@@ -17,15 +17,12 @@ type Differ interface {
 	DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error)
 }
 
-// Options configures what aspects of the stack to compare and how to format output
+// Options configures what aspects of the stack to compare
 type Options struct {
 	// Filter options - if all are false, compare everything
 	TemplateOnly   bool // Only compare templates
 	ParametersOnly bool // Only compare parameters
 	TagsOnly       bool // Only compare tags
-
-	// Output format
-	Format string // "text" or "json"
 
 	// Changeset lifecycle control
 	KeepChangeSet bool // Keep changeset alive after diff (for deployment use)
@@ -66,9 +63,6 @@ func (r *Result) HasChanges() bool {
 
 // String returns a human-readable representation of the diff results
 func (r *Result) String() string {
-	if r.Options.Format == "json" {
-		return r.toJSON()
-	}
 	return r.toText()
 }
 

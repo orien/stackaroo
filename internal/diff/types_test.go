@@ -33,7 +33,7 @@ func TestOptions_DefaultValues(t *testing.T) {
 	assert.False(t, options.TemplateOnly)
 	assert.False(t, options.ParametersOnly)
 	assert.False(t, options.TagsOnly)
-	assert.Equal(t, "", options.Format)
+
 }
 
 func TestOptions_FieldAssignment(t *testing.T) {
@@ -42,13 +42,11 @@ func TestOptions_FieldAssignment(t *testing.T) {
 		TemplateOnly:   true,
 		ParametersOnly: false,
 		TagsOnly:       true,
-		Format:         "json",
 	}
 
 	assert.True(t, options.TemplateOnly)
 	assert.False(t, options.ParametersOnly)
 	assert.True(t, options.TagsOnly)
-	assert.Equal(t, "json", options.Format)
 }
 
 func TestResult_DefaultValues(t *testing.T) {
@@ -71,7 +69,7 @@ func TestResult_FieldAssignment(t *testing.T) {
 	paramDiffs := []ParameterDiff{{Key: "test"}}
 	tagDiffs := []TagDiff{{Key: "test"}}
 	changeSet := &aws.ChangeSetInfo{ChangeSetID: "test"}
-	options := Options{Format: "text"}
+	options := Options{}
 
 	result := Result{
 		StackName:      "test-stack",
@@ -497,41 +495,15 @@ func TestResult_HasChanges_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestResult_StringMethod_CallsCorrectFormatter(t *testing.T) {
-	// Test that String() method calls the correct formatter based on Options.Format
-	tests := []struct {
-		name           string
-		format         string
-		expectedOutput string
-	}{
-		{
-			name:           "text format",
-			format:         "text",
-			expectedOutput: "Stack: test-stack", // Should contain text format elements
-		},
-		{
-			name:           "json format",
-			format:         "json",
-			expectedOutput: `"stackName": "test-stack"`, // Should contain JSON elements
-		},
-		{
-			name:           "default format (empty)",
-			format:         "",
-			expectedOutput: "Stack: test-stack", // Should default to text
-		},
+func TestResult_StringMethod_ReturnsTextFormat(t *testing.T) {
+	// Test that String() method returns text format
+	result := Result{
+		StackName:   "test-stack",
+		Context:     "dev",
+		StackExists: true,
+		Options:     Options{},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := Result{
-				StackName:   "test-stack",
-				Context:     "dev",
-				StackExists: true,
-				Options:     Options{Format: tt.format},
-			}
-
-			output := result.String()
-			assert.Contains(t, output, tt.expectedOutput)
-		})
-	}
+	output := result.String()
+	assert.Contains(t, output, "Stack: test-stack")
 }

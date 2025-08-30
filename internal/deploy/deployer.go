@@ -137,7 +137,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 
 	// Generate diff result using the same system as 'stackaroo diff'
 	// Keep changeset alive for deployment use
-	diffOptions := diff.Options{Format: "text", KeepChangeSet: true}
+	diffOptions := diff.Options{KeepChangeSet: true}
 	diffResult, err := differ.DiffStack(ctx, stack, diffOptions)
 	if err != nil {
 		return fmt.Errorf("failed to calculate changes: %w", err)

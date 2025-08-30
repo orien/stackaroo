@@ -5,7 +5,6 @@ SPDX-License-Identifier: BSD-3-Clause
 package diff
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -190,87 +189,4 @@ func (r *Result) getChangeSymbol(action string) string {
 	default:
 		return "?"
 	}
-}
-
-// toJSON returns a JSON representation of the diff results
-func (r *Result) toJSON() string {
-	// Create a simplified structure for JSON output
-	jsonResult := map[string]interface{}{
-		"stackName":   r.StackName,
-		"context":     r.Context,
-		"stackExists": r.StackExists,
-		"hasChanges":  r.HasChanges(),
-		"options":     r.Options,
-	}
-
-	// Add template changes if present
-	if r.TemplateChange != nil {
-		jsonResult["templateChanges"] = map[string]interface{}{
-			"hasChanges":    r.TemplateChange.HasChanges,
-			"currentHash":   r.TemplateChange.CurrentHash,
-			"proposedHash":  r.TemplateChange.ProposedHash,
-			"resourceCount": r.TemplateChange.ResourceCount,
-		}
-	}
-
-	// Add parameter diffs if present
-	if len(r.ParameterDiffs) > 0 {
-		paramDiffs := make([]map[string]interface{}, len(r.ParameterDiffs))
-		for i, diff := range r.ParameterDiffs {
-			paramDiffs[i] = map[string]interface{}{
-				"key":           diff.Key,
-				"currentValue":  diff.CurrentValue,
-				"proposedValue": diff.ProposedValue,
-				"changeType":    string(diff.ChangeType),
-			}
-		}
-		jsonResult["parameterDiffs"] = paramDiffs
-	}
-
-	// Add tag diffs if present
-	if len(r.TagDiffs) > 0 {
-		tagDiffs := make([]map[string]interface{}, len(r.TagDiffs))
-		for i, diff := range r.TagDiffs {
-			tagDiffs[i] = map[string]interface{}{
-				"key":           diff.Key,
-				"currentValue":  diff.CurrentValue,
-				"proposedValue": diff.ProposedValue,
-				"changeType":    string(diff.ChangeType),
-			}
-		}
-		jsonResult["tagDiffs"] = tagDiffs
-	}
-
-	// Add changeset information if present
-	if r.ChangeSet != nil {
-		changeSetData := map[string]interface{}{
-			"changeSetId": r.ChangeSet.ChangeSetID,
-			"status":      r.ChangeSet.Status,
-		}
-
-		if len(r.ChangeSet.Changes) > 0 {
-			changes := make([]map[string]interface{}, len(r.ChangeSet.Changes))
-			for i, change := range r.ChangeSet.Changes {
-				changes[i] = map[string]interface{}{
-					"action":       change.Action,
-					"resourceType": change.ResourceType,
-					"logicalId":    change.LogicalID,
-					"physicalId":   change.PhysicalID,
-					"replacement":  change.Replacement,
-					"details":      change.Details,
-				}
-			}
-			changeSetData["changes"] = changes
-		}
-
-		jsonResult["changeSet"] = changeSetData
-	}
-
-	// Marshal to JSON with proper formatting
-	jsonBytes, err := json.MarshalIndent(jsonResult, "", "  ")
-	if err != nil {
-		return fmt.Sprintf(`{"error": "failed to marshal JSON: %s"}`, err.Error())
-	}
-
-	return string(jsonBytes)
 }

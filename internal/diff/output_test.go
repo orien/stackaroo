@@ -5,14 +5,11 @@ SPDX-License-Identifier: BSD-3-Clause
 package diff
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResult_String_TextFormat(t *testing.T) {
@@ -20,7 +17,7 @@ func TestResult_String_TextFormat(t *testing.T) {
 		StackName:   "test-stack",
 		Context:     "dev",
 		StackExists: true,
-		Options:     Options{Format: "text"},
+		Options:     Options{},
 	}
 
 	output := result.String()
@@ -28,26 +25,6 @@ func TestResult_String_TextFormat(t *testing.T) {
 	assert.Contains(t, output, "Stack: test-stack (Context: dev)")
 	assert.Contains(t, output, "Status: NO CHANGES")
 	assert.Contains(t, output, "The deployed stack matches your local configuration.")
-}
-
-func TestResult_String_JSONFormat(t *testing.T) {
-	result := &Result{
-		StackName:   "test-stack",
-		Context:     "dev",
-		StackExists: true,
-		Options:     Options{Format: "json"},
-	}
-
-	output := result.String()
-
-	// Should be valid JSON
-	var jsonData map[string]interface{}
-	err := json.Unmarshal([]byte(output), &jsonData)
-	require.NoError(t, err)
-
-	assert.Equal(t, "dev", jsonData["context"])
-	assert.Equal(t, true, jsonData["stackExists"])
-	assert.Equal(t, false, jsonData["hasChanges"])
 }
 
 func TestResult_ToText_NewStack(t *testing.T) {
@@ -116,7 +93,7 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 				},
 			},
 		},
-		Options: Options{Format: "text"},
+		Options: Options{},
 	}
 
 	output := result.toText()
@@ -161,19 +138,19 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 	}{
 		{
 			name:        "template only",
-			options:     Options{TemplateOnly: true, Format: "text"},
+			options:     Options{TemplateOnly: true},
 			expected:    []string{"Template Changes:"},
 			notExpected: []string{"Parameter Changes:", "Tag Changes:"},
 		},
 		{
 			name:        "parameters only",
-			options:     Options{ParametersOnly: true, Format: "text"},
+			options:     Options{ParametersOnly: true},
 			expected:    []string{"Parameter Changes:"},
 			notExpected: []string{"Template Changes:", "Tag Changes:"},
 		},
 		{
 			name:        "tags only",
-			options:     Options{TagsOnly: true, Format: "text"},
+			options:     Options{TagsOnly: true},
 			expected:    []string{"Tag Changes:"},
 			notExpected: []string{"Template Changes:", "Parameter Changes:"},
 		},
@@ -201,136 +178,6 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestResult_ToJSON_Complete(t *testing.T) {
-	result := &Result{
-		StackName:   "test-stack",
-		Context:     "prod",
-		StackExists: true,
-		TemplateChange: &TemplateChange{
-			HasChanges:   true,
-			CurrentHash:  "abc123",
-			ProposedHash: "def456",
-			ResourceCount: struct{ Added, Modified, Removed int }{
-				Added: 1, Modified: 2, Removed: 0,
-			},
-		},
-		ParameterDiffs: []ParameterDiff{
-			{Key: "Size", CurrentValue: "small", ProposedValue: "large", ChangeType: ChangeTypeModify},
-		},
-		TagDiffs: []TagDiff{
-			{Key: "Env", CurrentValue: "dev", ProposedValue: "prod", ChangeType: ChangeTypeModify},
-		},
-		ChangeSet: &aws.ChangeSetInfo{
-			ChangeSetID: "changeset-123",
-			Status:      "CREATE_COMPLETE",
-			Changes: []aws.ResourceChange{
-				{Action: "Modify", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
-			},
-		},
-		Options: Options{Format: "json"},
-	}
-
-	jsonOutput := result.toJSON()
-
-	// Parse JSON to verify structure
-	var data map[string]interface{}
-	err := json.Unmarshal([]byte(jsonOutput), &data)
-	require.NoError(t, err)
-
-	// Check top-level fields
-	assert.Equal(t, "test-stack", data["stackName"])
-	assert.Equal(t, "prod", data["context"])
-	assert.Equal(t, true, data["stackExists"])
-	assert.Equal(t, true, data["hasChanges"])
-
-	// Check template changes
-	templateChanges := data["templateChanges"].(map[string]interface{})
-	assert.Equal(t, true, templateChanges["hasChanges"])
-	assert.Equal(t, "abc123", templateChanges["currentHash"])
-	assert.Equal(t, "def456", templateChanges["proposedHash"])
-
-	resourceCount := templateChanges["resourceCount"].(map[string]interface{})
-	assert.Equal(t, float64(1), resourceCount["Added"])
-	assert.Equal(t, float64(2), resourceCount["Modified"])
-	assert.Equal(t, float64(0), resourceCount["Removed"])
-
-	// Check parameter diffs
-	paramDiffs := data["parameterDiffs"].([]interface{})
-	assert.Len(t, paramDiffs, 1)
-	paramDiff := paramDiffs[0].(map[string]interface{})
-	assert.Equal(t, "Size", paramDiff["key"])
-	assert.Equal(t, "small", paramDiff["currentValue"])
-	assert.Equal(t, "large", paramDiff["proposedValue"])
-	assert.Equal(t, "MODIFY", paramDiff["changeType"])
-
-	// Check tag diffs
-	tagDiffs := data["tagDiffs"].([]interface{})
-	assert.Len(t, tagDiffs, 1)
-	tagDiff := tagDiffs[0].(map[string]interface{})
-	assert.Equal(t, "Env", tagDiff["key"])
-	assert.Equal(t, "dev", tagDiff["currentValue"])
-	assert.Equal(t, "prod", tagDiff["proposedValue"])
-	assert.Equal(t, "MODIFY", tagDiff["changeType"])
-
-	// Check changeset
-	changeSet := data["changeSet"].(map[string]interface{})
-	assert.Equal(t, "changeset-123", changeSet["changeSetId"])
-	assert.Equal(t, "CREATE_COMPLETE", changeSet["status"])
-
-	changes := changeSet["changes"].([]interface{})
-	assert.Len(t, changes, 1)
-	change := changes[0].(map[string]interface{})
-	assert.Equal(t, "Modify", change["action"])
-	assert.Equal(t, "AWS::S3::Bucket", change["resourceType"])
-	assert.Equal(t, "MyBucket", change["logicalId"])
-}
-
-func TestResult_ToJSON_MinimalData(t *testing.T) {
-	result := &Result{
-		StackName:   "minimal-stack",
-		Context:     "test",
-		StackExists: false,
-		Options:     Options{Format: "json"},
-	}
-
-	jsonOutput := result.toJSON()
-
-	var data map[string]interface{}
-	err := json.Unmarshal([]byte(jsonOutput), &data)
-	require.NoError(t, err)
-
-	assert.Equal(t, "minimal-stack", data["stackName"])
-	assert.Equal(t, "test", data["context"])
-	assert.Equal(t, false, data["stackExists"])
-	assert.Equal(t, true, data["hasChanges"]) // New stack (StackExists: false) always has changes
-
-	// Should not contain optional fields
-	assert.NotContains(t, data, "templateChanges")
-	assert.NotContains(t, data, "parameterDiffs")
-	assert.NotContains(t, data, "tagDiffs")
-	assert.NotContains(t, data, "changeSet")
-}
-
-func TestResult_ToJSON_InvalidJSON(t *testing.T) {
-	// This test ensures the JSON marshalling error handling works
-	// We can't easily force json.Marshal to fail in Go, so we test the structure is correct
-	result := &Result{
-		StackName:   "test-stack",
-		Context:     "dev",
-		StackExists: true,
-		Options:     Options{Format: "json"},
-	}
-
-	jsonOutput := result.toJSON()
-
-	// Should be valid JSON
-	assert.True(t, json.Valid([]byte(jsonOutput)))
-
-	// Should be properly formatted
-	assert.Contains(t, jsonOutput, `"stackName": "test-stack"`)
-	assert.Contains(t, jsonOutput, `"context": "dev"`)
 }
 
 func TestResult_FormatNewStackText(t *testing.T) {

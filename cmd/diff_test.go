@@ -38,9 +38,6 @@ func TestDiffCmd_Structure(t *testing.T) {
 	require.NotNil(t, tagsFlag)
 	assert.Equal(t, "false", tagsFlag.DefValue)
 
-	formatFlag := flags.Lookup("format")
-	require.NotNil(t, formatFlag)
-	assert.Equal(t, "text", formatFlag.DefValue)
 }
 
 func TestDiffCmd_RequiredArgs(t *testing.T) {
@@ -67,21 +64,6 @@ func TestDiffCmd_MissingContext(t *testing.T) {
 	t.Skip("Context is now a positional argument, validated by Args")
 }
 
-func TestDiffCmd_InvalidFormat(t *testing.T) {
-	// Setup
-	diffFormat = "invalid"
-
-	// Execute
-	err := diffCmd.RunE(diffCmd, []string{"dev", "test-stack"})
-
-	// Verify
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "--format must be 'text' or 'json'")
-
-	// Cleanup
-	diffFormat = "text"
-}
-
 func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	// This test verifies the command logic when differ returns no changes
 	// We test the business logic without external dependencies
@@ -105,7 +87,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 		StackName:   "test-stack",
 		Context:     "dev",
 		StackExists: true,
-		Options:     diff.Options{Format: "text"},
+		Options:     diff.Options{},
 	}
 
 	// Setup expectations - differ should be called with resolved stack
@@ -116,7 +98,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	// Execute with mock resolver - this tests the core logic without file dependencies
 	// For this unit test, we'll test the differ interaction directly
 	ctx := context.Background()
-	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{Format: "text"})
+	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{})
 
 	// Verify
 	assert.NoError(t, err)
@@ -148,7 +130,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 		Context:        "dev",
 		StackExists:    true,
 		ParameterDiffs: []diff.ParameterDiff{{Key: "Param1", CurrentValue: "oldvalue", ProposedValue: "newvalue", ChangeType: diff.ChangeTypeModify}},
-		Options:        diff.Options{Format: "text"},
+		Options:        diff.Options{},
 	}
 
 	// Setup expectations
@@ -158,7 +140,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 
 	// Execute with mock data
 	ctx := context.Background()
-	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{Format: "text"})
+	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{})
 
 	// Verify
 	assert.NoError(t, err)
@@ -195,7 +177,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 		TemplateChange: &diff.TemplateChange{
 			HasChanges: true,
 		},
-		Options: diff.Options{Format: "text"},
+		Options: diff.Options{},
 	}
 
 	// Setup expectations
@@ -205,7 +187,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 
 	// Execute with mock data
 	ctx := context.Background()
-	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{Format: "text"})
+	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{})
 
 	// Verify
 	assert.NoError(t, err)
@@ -240,7 +222,7 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 
 	// Execute with mock data
 	ctx := context.Background()
-	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{Format: "text"})
+	result, err := mockDiffer.DiffStack(ctx, testStack, diff.Options{})
 
 	// Verify
 	assert.Error(t, err)
@@ -257,7 +239,6 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 		templateOnly    bool
 		parametersOnly  bool
 		tagsOnly        bool
-		format          string
 		expectedOptions diff.Options
 	}{
 		{
@@ -265,12 +246,10 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			templateOnly:   false,
 			parametersOnly: false,
 			tagsOnly:       false,
-			format:         "text",
 			expectedOptions: diff.Options{
 				TemplateOnly:   false,
 				ParametersOnly: false,
 				TagsOnly:       false,
-				Format:         "text",
 			},
 		},
 		{
@@ -278,12 +257,10 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			templateOnly:   true,
 			parametersOnly: false,
 			tagsOnly:       false,
-			format:         "json",
 			expectedOptions: diff.Options{
 				TemplateOnly:   true,
 				ParametersOnly: false,
 				TagsOnly:       false,
-				Format:         "json",
 			},
 		},
 		{
@@ -291,12 +268,10 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			templateOnly:   false,
 			parametersOnly: true,
 			tagsOnly:       false,
-			format:         "text",
 			expectedOptions: diff.Options{
 				TemplateOnly:   false,
 				ParametersOnly: true,
 				TagsOnly:       false,
-				Format:         "text",
 			},
 		},
 		{
@@ -304,12 +279,10 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			templateOnly:   false,
 			parametersOnly: false,
 			tagsOnly:       true,
-			format:         "json",
 			expectedOptions: diff.Options{
 				TemplateOnly:   false,
 				ParametersOnly: false,
 				TagsOnly:       true,
-				Format:         "json",
 			},
 		},
 	}
@@ -394,7 +367,6 @@ func resetDiffFlags() {
 	diffTemplateOnly = false
 	diffParametersOnly = false
 	diffTagsOnly = false
-	diffFormat = "text"
 }
 
 func TestMain(m *testing.M) {

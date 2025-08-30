@@ -2,7 +2,7 @@
 
 ## Overview
 
-The diff module provides comprehensive comparison capabilities between deployed CloudFormation stacks and local configuration. It enables developers to preview changes before deployment, supporting template, parameter, and tag comparisons with multiple output formats.
+The diff module provides comprehensive comparison capabilities between deployed CloudFormation stacks and local configuration. It enables developers to preview changes before deployment, supporting template, parameter, and tag comparisons with clear text output formatting.
 
 ## Architecture Diagram
 
@@ -11,33 +11,33 @@ graph TB
     subgraph "Command Layer"
         CLI[diff command<br/>cmd/diff.go]
     end
-    
+
     subgraph "Core Diff Module"
         DI[Differ Interface<br/>types.go]
         DD[StackDiffer<br/>differ.go]
-        
+
         subgraph "Comparators"
             TC[TemplateComparator<br/>template.go]
             PC[ParameterComparator<br/>comparators.go]
             TagC[TagComparator<br/>comparators.go]
         end
-        
+
         subgraph "Output"
             OF[OutputFormatter<br/>output.go]
             RES[Result<br/>types.go]
         end
-        
+
         subgraph "AWS Integration"
             AWS_OPS[AWS CloudFormation Operations<br/>internal/aws]
         end
     end
-    
+
     subgraph "External Dependencies"
         AWS[AWS CloudFormation<br/>internal/aws]
         CFG[Configuration<br/>internal/config]
         RES_PKG[Stack Resolver<br/>internal/resolve]
     end
-    
+
     CLI --> DI
     DI --> DD
     DD --> TC
@@ -46,7 +46,7 @@ graph TB
     DD --> AWS_OPS
     DD --> RES
     RES --> OF
-    
+
     DD --> AWS
     CLI --> CFG
     CLI --> RES_PKG
@@ -66,16 +66,15 @@ classDiagram
         +diffTemplateOnly: bool
         +diffParametersOnly: bool
         +diffTagsOnly: bool
-        +diffFormat: string
         +RunE() error
-        +diffWithConfig() error
+        +diffSingleStack() error
     }
-    
+
     class Differ {
         <<interface>>
         +DiffStack(ctx, stack, options) Result
     }
-    
+
     DiffCommand --> Differ
 ```
 
@@ -84,6 +83,7 @@ classDiagram
 - Configuration resolution integration
 - Options mapping to diff service
 - Error handling and exit codes
+- Text-only output formatting
 
 ### 2. Core Diff Engine (`internal/diff/`)
 
@@ -95,7 +95,7 @@ classDiagram
         <<interface>>
         +DiffStack(ctx, resolvedStack, options) Result
     }
-    
+
     class StackDiffer {
         -cfClient: CloudFormationOperations
         -templateComparator: TemplateComparator
@@ -108,7 +108,7 @@ classDiagram
         -compareTags() []TagDiff
         -generateChangeSet() ChangeSetInfo
     }
-    
+
     Differ <|-- StackDiffer
 ```
 
@@ -126,17 +126,17 @@ classDiagram
         <<interface>>
         +Compare(current, proposed) TemplateChange
     }
-    
+
     class ParameterComparator {
         <<interface>>
         +Compare(current, proposed) []ParameterDiff
     }
-    
+
     class TagComparator {
         <<interface>>
         +Compare(current, proposed) []TagDiff
     }
-    
+
     class YAMLTemplateComparator {
         +Compare(current, proposed) TemplateChange
         -calculateHash(template) string
@@ -144,15 +144,15 @@ classDiagram
         -generateDiff() string
         -generateResourceDiff() string
     }
-    
+
     class DefaultParameterComparator {
         +Compare(current, proposed) []ParameterDiff
     }
-    
+
     class DefaultTagComparator {
         +Compare(current, proposed) []TagDiff
     }
-    
+
     TemplateComparator <|-- YAMLTemplateComparator
     ParameterComparator <|-- DefaultParameterComparator
     TagComparator <|-- DefaultTagComparator
@@ -174,9 +174,8 @@ classDiagram
         +HasChanges() bool
         +String() string
         +toText() string
-        +toJSON() string
     }
-    
+
     class TemplateChange {
         +HasChanges: bool
         +CurrentHash: string
@@ -184,28 +183,28 @@ classDiagram
         +Diff: string
         +ResourceCount: ResourceCounts
     }
-    
+
     class ParameterDiff {
         +Key: string
         +CurrentValue: string
         +ProposedValue: string
         +ChangeType: ChangeType
     }
-    
+
     class TagDiff {
         +Key: string
         +CurrentValue: string
         +ProposedValue: string
         +ChangeType: ChangeType
     }
-    
+
     class Options {
         +TemplateOnly: bool
         +ParametersOnly: bool
         +TagsOnly: bool
-        +Format: string
+        +KeepChangeSet: bool
     }
-    
+
     Result --> TemplateChange
     Result --> ParameterDiff
     Result --> TagDiff
@@ -222,28 +221,28 @@ sequenceDiagram
     participant AWS as AWS Client
     participant Comparators as Comparators
     participant Output as Output Formatter
-    
+
     CLI->>Resolver: Resolve stack configuration
     Resolver->>CLI: ResolvedStack
-    
+
     CLI->>Differ: DiffStack(resolved, options)
-    
+
     Differ->>AWS: StackExists(stackName)
     AWS->>Differ: bool
-    
+
     alt Stack Exists
         Differ->>AWS: DescribeStack(stackName)
         AWS->>Differ: StackInfo (with template)
-        
+
         Differ->>Comparators: Compare templates
         Comparators->>Differ: TemplateChange
-        
+
         Differ->>Comparators: Compare parameters
         Comparators->>Differ: []ParameterDiff
-        
+
         Differ->>Comparators: Compare tags
         Comparators->>Differ: []TagDiff
-        
+
         alt Has Changes && Full Diff
             Differ->>AWS: CreateChangeSet()
             AWS->>Differ: ChangeSetInfo
@@ -252,7 +251,7 @@ sequenceDiagram
     else Stack Doesn't Exist
         Differ->>Differ: handleNewStack()
     end
-    
+
     Differ->>CLI: Result
     CLI->>Output: Format result
     Output->>CLI: Formatted string
@@ -296,10 +295,10 @@ sequenceDiagram
 **Deployment Flow Integration:**
 ```mermaid
 sequenceDiagram
-    participant Deploy as Deploy Command  
+    participant Deploy as Deploy Command
     participant Differ as Diff Engine
     participant AWS as AWS CloudFormation
-    
+
     Deploy->>Differ: DiffStack(resolved, options)
     Differ->>AWS: Generate changeset & preview
     AWS->>Differ: Change details
@@ -315,24 +314,24 @@ graph TD
     A[Diff Request] --> B{Stack Exists?}
     B -->|No| C[Handle New Stack]
     B -->|Yes| D{Get Stack Info}
-    
+
     D -->|Success| E[Compare Components]
     D -->|Error| F[AWS Error Handling]
-    
+
     E --> G{Has Changes?}
     G -->|Yes| H{Create ChangeSet?}
     G -->|No| I[Return No Changes]
-    
+
     H -->|Success| J[Include ChangeSet Info]
     H -->|Error| K[Log Warning, Continue]
-    
+
     F --> L[Return Error with Context]
     C --> M[Show New Stack Preview]
     J --> N[Return Complete Result]
     K --> N
     I --> N
     M --> N
-    
+
     N --> O[Format Output]
 ```
 
@@ -343,6 +342,8 @@ graph TD
 4. **Changeset Errors** - Non-blocking warnings for preview failures
 
 ## Output Architecture
+
+The diff module provides rich text-based output with clear visual indicators for different types of changes.
 
 ### Text Output Format
 ```
@@ -380,30 +381,7 @@ Resource Changes:
     Property: PolicyDocument
 ```
 
-### JSON Output Format
-```json
-{
-  "stackName": "vpc",
-  "environment": "dev",
-  "stackExists": true,
-  "hasChanges": true,
-  "templateChanges": {
-    "hasChanges": true,
-    "resourceCount": {"added": 2, "modified": 1, "removed": 0}
-  },
-  "parameterDiffs": [
-    {"key": "NewParam", "changeType": "ADD", "proposedValue": "value123"}
-  ],
-  "tagDiffs": [
-    {"key": "Environment", "changeType": "ADD", "proposedValue": "dev"}
-  ],
-  "changeSet": {
-    "changeSetId": "arn:aws:cloudformation:...",
-    "status": "CREATE_COMPLETE",
-    "changes": [...]
-  }
-}
-```
+
 
 ## Testing Architecture
 
@@ -416,18 +394,18 @@ graph LR
         B[Output Format Tests]
         C[Command Structure Tests]
     end
-    
+
     subgraph "Integration Tests"
         D[AWS Client Tests]
         E[End-to-End Tests]
     end
-    
+
     subgraph "Mock Infrastructure"
         F[Mock Differ]
         G[Mock AWS Client]
         H[Mock Comparators]
     end
-    
+
     A --> F
     B --> F
     C --> F
@@ -437,11 +415,11 @@ graph LR
 
 **Test Coverage:**
 - Parameter comparison: 7 test scenarios
-- Tag comparison: 6 test scenarios  
+- Tag comparison: 6 test scenarios
 - Template comparison: Basic semantic testing
 - Command validation: Flag and argument testing
 - Error scenarios: AWS failures, invalid input
-- Output formatting: Text and JSON validation
+- Output formatting: Text validation
 
 ## Performance Considerations
 
@@ -451,6 +429,7 @@ graph LR
 2. **Lazy ChangeSet Creation** - Only when changes detected and full diff requested
 3. **Parallel Comparisons** - Template, parameter, and tag comparisons can run concurrently
 4. **ChangeSet Cleanup** - Immediate cleanup to avoid AWS resource accumulation
+5. **Simplified Output** - Text-only format reduces processing overhead and complexity
 
 ### Resource Management
 
@@ -459,19 +438,19 @@ sequenceDiagram
     participant D as Differ
     participant CS as ChangeSet Manager
     participant AWS as AWS CloudFormation
-    
+
     D->>CS: CreateChangeSet()
     CS->>AWS: CreateChangeSet()
     AWS->>CS: ChangeSetID
-    
+
     CS->>AWS: WaitForChangeSet()
     AWS->>CS: Status: CREATE_COMPLETE
-    
+
     CS->>AWS: DescribeChangeSet()
     AWS->>CS: ChangeSet Details
-    
+
     CS->>D: ChangeSetInfo
-    
+
     Note over CS,AWS: Immediate cleanup
     CS->>AWS: DeleteChangeSet()
     AWS->>CS: Deleted
@@ -509,7 +488,8 @@ sequenceDiagram
    - Incremental diff capabilities
 
 4. **Output Enhancements**
-   - HTML output format
+   - Structured output formats for automation (JSON, YAML)
+   - HTML output format for web integration
    - Interactive diff viewing
    - Integration with external diff tools
 
@@ -518,7 +498,7 @@ sequenceDiagram
 The architecture provides clear extension points through interfaces:
 - `TemplateComparator` - Custom template comparison algorithms
 - `CloudFormationOperations` - Alternative AWS integration strategies
-- `OutputFormatter` - Additional output formats
+- `OutputFormatter` - Additional output formats (currently text-focused)
 - `Differ` - Alternative diff engines (e.g., client-side only)
 
-This modular design ensures the diff functionality can evolve while maintaining backward compatibility and clear separation of concerns.
+This modular design ensures the diff functionality can evolve while maintaining backward compatibility and clear separation of concerns. The simplified output architecture provides a solid foundation for future enhancements while maintaining focus on core diff capabilities.

@@ -17,7 +17,7 @@ var (
 	diffTemplateOnly   bool
 	diffParametersOnly bool
 	diffTagsOnly       bool
-	diffFormat         string
+
 	// differ can be injected for testing
 	differ diff.Differ
 )
@@ -39,20 +39,14 @@ the current configuration. It compares:
 Examples:
   stackaroo diff dev vpc                        # Show all changes
   stackaroo diff prod vpc --template            # Template diff only
-  stackaroo diff dev vpc --parameters           # Parameter diff only
-  stackaroo diff dev vpc --format json          # JSON output`,
+  stackaroo diff dev vpc --parameters           # Parameter diff only`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
 		stackName := args[1]
 		ctx := context.Background()
 
-		// Validate format option
-		if diffFormat != "text" && diffFormat != "json" {
-			return fmt.Errorf("--format must be 'text' or 'json'")
-		}
-
-		return diffWithConfig(ctx, stackName, contextName)
+		return diffSingleStack(ctx, stackName, contextName)
 	},
 }
 
@@ -79,8 +73,8 @@ func SetDiffer(d diff.Differ) {
 	differ = d
 }
 
-// diffWithConfig handles diff using configuration file
-func diffWithConfig(ctx context.Context, stackName, contextName string) error {
+// diffSingleStack handles diff using configuration file
+func diffSingleStack(ctx context.Context, stackName, contextName string) error {
 	_, resolver := createResolver()
 
 	// Resolve the target stack
@@ -94,7 +88,6 @@ func diffWithConfig(ctx context.Context, stackName, contextName string) error {
 		TemplateOnly:   diffTemplateOnly,
 		ParametersOnly: diffParametersOnly,
 		TagsOnly:       diffTagsOnly,
-		Format:         diffFormat,
 	}
 
 	// Get or create differ
@@ -128,6 +121,4 @@ func init() {
 	diffCmd.Flags().BoolVar(&diffParametersOnly, "parameters", false, "show only parameter differences")
 	diffCmd.Flags().BoolVar(&diffTagsOnly, "tags", false, "show only tag differences")
 
-	// Output format flag
-	diffCmd.Flags().StringVar(&diffFormat, "format", "text", "output format: text, json")
 }
