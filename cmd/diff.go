@@ -45,7 +45,9 @@ Examples:
 		stackName := args[1]
 		ctx := context.Background()
 
-		return diffSingleStack(ctx, stackName, contextName)
+		configFile, _ := cmd.Flags().GetString("config")
+
+		return diffSingleStack(ctx, stackName, contextName, configFile)
 	},
 }
 
@@ -66,8 +68,8 @@ func SetDiffer(d diff.Differ) {
 }
 
 // diffSingleStack handles diff using configuration file
-func diffSingleStack(ctx context.Context, stackName, contextName string) error {
-	_, resolver := createResolver()
+func diffSingleStack(ctx context.Context, stackName, contextName, configFile string) error {
+	_, resolver := createResolver(configFile)
 
 	// Resolve the target stack
 	targetStack, err := resolver.ResolveStack(ctx, contextName, stackName)

@@ -43,7 +43,9 @@ Examples:
 		stackName := args[1]
 		ctx := context.Background()
 
-		return describeSingleStack(ctx, stackName, contextName)
+		configFile, _ := cmd.Flags().GetString("config")
+
+		return describeSingleStack(ctx, stackName, contextName, configFile)
 	},
 }
 
@@ -64,8 +66,8 @@ func SetDescriber(d describe.Describer) {
 }
 
 // describeSingleStack handles describing a single stack using configuration file
-func describeSingleStack(ctx context.Context, stackName, contextName string) error {
-	_, resolver := createResolver()
+func describeSingleStack(ctx context.Context, stackName, contextName, configFile string) error {
+	_, resolver := createResolver(configFile)
 
 	// Resolve the target stack configuration
 	stack, err := resolver.ResolveStack(ctx, contextName, stackName)

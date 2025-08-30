@@ -53,11 +53,13 @@ waits for your confirmation before applying the changes.`,
 		contextName := args[0]
 		ctx := context.Background()
 
+		configFile, _ := cmd.Flags().GetString("config")
+
 		if len(args) > 1 {
 			stackName := args[1]
-			return deploySingleStack(ctx, stackName, contextName)
+			return deploySingleStack(ctx, stackName, contextName, configFile)
 		}
-		return deployAllStacks(ctx, contextName)
+		return deployAllStacks(ctx, contextName, configFile)
 	},
 }
 
@@ -91,8 +93,8 @@ func deployStackWithFeedback(ctx context.Context, stack *model.Stack, contextNam
 }
 
 // deploySingleStack handles deployment of a single stack
-func deploySingleStack(ctx context.Context, stackName, contextName string) error {
-	_, resolver := createResolver()
+func deploySingleStack(ctx context.Context, stackName, contextName, configFile string) error {
+	_, resolver := createResolver(configFile)
 
 	// Resolve single stack
 	stack, err := resolver.ResolveStack(ctx, contextName, stackName)
@@ -104,8 +106,8 @@ func deploySingleStack(ctx context.Context, stackName, contextName string) error
 }
 
 // deployAllStacks handles deployment of all stacks in a context using configuration file
-func deployAllStacks(ctx context.Context, contextName string) error {
-	provider, resolver := createResolver()
+func deployAllStacks(ctx context.Context, contextName, configFile string) error {
+	provider, resolver := createResolver(configFile)
 
 	// Get list of stacks to deploy
 	stackNames, err := provider.ListStacks(contextName)

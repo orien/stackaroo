@@ -69,7 +69,7 @@ classDiagram
     }
 
     class SharedHelpers {
-        +createResolver() (*Provider, *StackResolver)
+        +createResolver(configFile string) (*FileConfigProvider, *StackResolver)
         +deleteStackWithFeedback() error
     }
 
@@ -172,7 +172,7 @@ stateDiagram-v2
 - Command routing logic at action level based on argument count
 
 **Shared Infrastructure (`cmd/helpers.go`):**
-- `createResolver()` - Common configuration provider and stack resolver creation
+- `createResolver(configFile string)` - Common configuration provider and stack resolver creation
 - `deleteStackWithFeedback()` - Consistent deletion execution with error handling and user feedback
 - Eliminates code duplication between single and multiple stack operations
 

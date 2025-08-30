@@ -45,11 +45,13 @@ will be deleted before confirming.`,
 		contextName := args[0]
 		ctx := context.Background()
 
+		configFile, _ := cmd.Flags().GetString("config")
+
 		if len(args) > 1 {
 			stackName := args[1]
-			return deleteSingleStack(ctx, stackName, contextName)
+			return deleteSingleStack(ctx, stackName, contextName, configFile)
 		}
-		return deleteAllStacks(ctx, contextName)
+		return deleteAllStacks(ctx, contextName, configFile)
 	},
 }
 
@@ -83,8 +85,8 @@ func deleteStackWithFeedback(ctx context.Context, stack *model.Stack, contextNam
 }
 
 // deleteSingleStack handles deletion of a single stack
-func deleteSingleStack(ctx context.Context, stackName, contextName string) error {
-	_, resolver := createResolver()
+func deleteSingleStack(ctx context.Context, stackName, contextName, configFile string) error {
+	_, resolver := createResolver(configFile)
 
 	// Resolve single stack
 	stack, err := resolver.ResolveStack(ctx, contextName, stackName)
@@ -96,8 +98,8 @@ func deleteSingleStack(ctx context.Context, stackName, contextName string) error
 }
 
 // deleteAllStacks handles deletion of all stacks in a context using configuration file
-func deleteAllStacks(ctx context.Context, contextName string) error {
-	provider, resolver := createResolver()
+func deleteAllStacks(ctx context.Context, contextName, configFile string) error {
+	provider, resolver := createResolver(configFile)
 
 	// Get list of stacks to delete
 	stackNames, err := provider.ListStacks(contextName)
