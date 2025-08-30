@@ -196,20 +196,49 @@ make commit-check # Full validation
 
 ## Human Review Requirement
 
-**All changes require human approval before committing:**
-- Present modifications with file paths and explanations
-- Highlight breaking changes and dependencies  
-- Include test results if applicable
-- Wait for explicit approval before `git add` and `git commit`
-- **No exceptions** - applies to all commits including amendments
-- Never push to remote (human responsibility)
+**🚨 MANDATORY WORKFLOW - NO EXCEPTIONS 🚨**
 
-**Applies to all changes:**
+### Step 1: Prepare Changes Summary
+Present all modifications with:
+- File paths and detailed explanations
+- Breaking changes and dependency impacts  
+- Test results (`go test ./...`, `make lint`, `go build`)
+- Performance or security implications
+
+### Step 2: Request Approval
+**STOP HERE** - Present changes and ask:
+> **"Do you approve these changes for commit?"**
+
+### Step 3: Wait for Explicit Approval  
+**🛑 DO NOT PROCEED WITHOUT EXPLICIT APPROVAL 🛑**
+
+Required approval responses:
+- ✅ "Yes, proceed" / "Approved" / "Go ahead" 
+- ✅ "proceed" / "commit these changes"
+- ❌ Any other response means DO NOT COMMIT
+
+### Step 4: Execute Git Commands (Only After Approval)
+```bash
+git add [files]
+git commit -m "[message]"
+# OR for amendments:
+git commit --amend
+```
+
+### Step 5: Human Pushes to Remote
+Never execute `git push` - this remains human responsibility.
+
+---
+
+**This process applies to ALL changes:**
 - Source code (`.go` files)
-- Configuration (YAML, Makefile)
+- Configuration (YAML, Makefile)  
 - Documentation (README.md, AGENTS.md)
 - Tests and dependencies
 - CI/CD pipeline changes
+- **Git operations** (`git commit`, `git commit --amend`, interactive rebase, etc.)
+
+**Violation consequences:** If this process is not followed, stop all work and acknowledge the mistake.
 
 ## Debugging
 
