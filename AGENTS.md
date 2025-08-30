@@ -413,7 +413,6 @@ Must be presented to and approved by the human before committing.
 ### Debug Flags
 - Use `--verbose` flag for detailed output
 - Enable AWS SDK logging with environment variables
-- Use `--dry-run` for safe testing
 
 ### Logging
 - Use structured logging for AWS operations

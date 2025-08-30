@@ -64,10 +64,14 @@ Download the latest release from the [releases page](https://github.com/orien/st
 
 ```bash
 # Download and install (replace VERSION and ARCH as needed)
-curl -sL https://github.com/orien/stackaroo/releases/download/v1.0.0/stackaroo-1.0.0-linux-x86_64.tar.gz | tar -xz
-cd stackaroo-1.0.0-linux-x86_64
-sudo mv stackaroo /usr/local/bin/
-cd .. && rm -rf stackaroo-1.0.0-linux-x86_64
+VERSION=1.0.0
+ARCH=linux-x86_64
+URL="https://github.com/orien/stackaroo/releases/download/v${VERSION}/stackaroo-${VERSION}-${ARCH}.tar.gz"
+DIR="stackaroo-${VERSION}-${ARCH}"
+
+curl -sL "$URL" | tar -xz
+sudo mv "${DIR}/stackaroo" /usr/local/bin/
+rm -rf "${DIR}"
 
 # Verify installation
 stackaroo --version
@@ -131,5 +135,34 @@ stackaroo diff development app
 
 ### Key Commands
 
-- `deploy <context> [stack]` - Deploy all stacks or a specific stack
-- `diff <context> <stack>` - Preview changes before deployment
+#### Core Commands
+- `deploy <context> [stack-name]` - Deploy all stacks or a specific stack with dependency-aware ordering and integrated change preview
+- `diff <context> <stack-name>` - Preview changes between deployed stack and local configuration
+- `delete <context> [stack-name]` - Delete stacks with dependency-aware ordering and confirmation prompts
+
+#### Global Flags
+- `--config, -c` - Specify config file (default: stackaroo.yaml)
+- `--verbose, -v` - Enable verbose output for detailed logging
+- `--version` - Show version information
+- `--help` - Show help for any command
+
+#### Usage Examples
+```bash
+# Deploy all stacks in development context
+stackaroo deploy development
+
+# Deploy specific stack with verbose output
+stackaroo deploy production app --verbose
+
+# Preview changes before deployment
+stackaroo diff staging vpc
+
+# Delete specific stack with confirmation
+stackaroo delete development app
+
+# Delete all stacks in context (reverse dependency order)
+stackaroo delete development
+
+# Use custom config file
+stackaroo deploy production --config custom-config.yaml
+```
