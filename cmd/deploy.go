@@ -67,8 +67,7 @@ func getDeployer() deploy.Deployer {
 		return deployer
 	}
 
-	client := createAWSClient()
-	return deploy.NewStackDeployer(client)
+	return deploy.NewStackDeployer(createCloudFormationOperations())
 }
 
 // SetDeployer allows injection of a deployer (for testing)

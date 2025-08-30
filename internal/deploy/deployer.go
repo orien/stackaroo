@@ -23,23 +23,20 @@ type Deployer interface {
 
 // StackDeployer implements Deployer using AWS CloudFormation
 type StackDeployer struct {
-	awsClient aws.Client
+	cfnOps aws.CloudFormationOperations
 }
 
 // NewStackDeployer creates a new StackDeployer
-func NewStackDeployer(awsClient aws.Client) *StackDeployer {
+func NewStackDeployer(cfnOps aws.CloudFormationOperations) *StackDeployer {
 	return &StackDeployer{
-		awsClient: awsClient,
+		cfnOps: cfnOps,
 	}
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
 func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
-	// Get CloudFormation operations
-	cfnOps := d.awsClient.NewCloudFormationOperations()
-
 	// Check if stack exists to determine deployment approach
-	exists, err := cfnOps.StackExists(ctx, stack.Name)
+	exists, err := d.cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
@@ -114,11 +111,8 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) 
 		Capabilities: capabilities,
 	}
 
-	// Get CloudFormation operations
-	cfnOps := d.awsClient.NewCloudFormationOperations()
-
 	// Deploy the stack with event streaming
-	err = cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
+	err = d.cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
 	if err != nil {
 		return fmt.Errorf("failed to create stack: %w", err)
 	}
@@ -132,8 +126,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	// Create differ for consistent change display
 	fmt.Printf("=== Calculating changes for stack %s ===\n", stack.Name)
 
-	cfnOps := d.awsClient.NewCloudFormationOperations()
-	differ := diff.NewStackDiffer(cfnOps)
+	differ := diff.NewStackDiffer(d.cfnOps)
 
 	// Generate diff result using the same system as 'stackaroo diff'
 	// Keep changeset alive for deployment use
@@ -155,7 +148,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
-				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = d.cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			return fmt.Errorf("failed to get user confirmation: %w", err)
 		}
@@ -163,7 +156,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if !confirmed {
 			// Clean up changeset when user cancels
 			if diffResult.ChangeSet != nil {
-				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = d.cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
 			return nil
@@ -182,10 +175,10 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
-	err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
+	err = d.cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
 	if err != nil {
 		// Clean up changeset on failure
-		_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+		_ = d.cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 		return fmt.Errorf("failed to execute changeset: %w", err)
 	}
 
@@ -201,13 +194,13 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		)
 	}
 
-	err = cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
+	err = d.cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
 	if err != nil {
 		return fmt.Errorf("stack deployment failed: %w", err)
 	}
 
 	// Clean up changeset after successful deployment
-	_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+	_ = d.cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 
 	fmt.Printf("Stack %s update completed successfully\n", stack.Name)
 	return nil
@@ -221,11 +214,8 @@ func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile strin
 		return fmt.Errorf("failed to read template: %w", err)
 	}
 
-	// Get CloudFormation operations
-	cfnOps := d.awsClient.NewCloudFormationOperations()
-
 	// Validate the template
-	err = cfnOps.ValidateTemplate(ctx, templateContent)
+	err = d.cfnOps.ValidateTemplate(ctx, templateContent)
 	if err != nil {
 		return fmt.Errorf("template validation failed: %w", err)
 	}

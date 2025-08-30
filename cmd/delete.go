@@ -59,8 +59,7 @@ func getDeleter() delete.Deleter {
 		return deleter
 	}
 
-	client := createAWSClient()
-	deleter = delete.NewStackDeleter(client)
+	deleter = delete.NewStackDeleter(createCloudFormationOperations())
 	return deleter
 }
 

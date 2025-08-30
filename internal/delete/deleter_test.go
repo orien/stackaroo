@@ -18,21 +18,17 @@ import (
 )
 
 func TestNewStackDeleter(t *testing.T) {
-	mockClient := &aws.MockClient{}
-	deleter := NewStackDeleter(mockClient)
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	deleter := NewStackDeleter(mockCfnOps)
 
 	assert.NotNil(t, deleter)
-	assert.Equal(t, mockClient, deleter.awsClient)
+	assert.Equal(t, mockCfnOps, deleter.cfnOps)
 }
 
 func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 	mockPrompter := &prompt.MockPrompter{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -63,7 +59,7 @@ func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -72,19 +68,14 @@ func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 	err := deleter.DeleteStack(ctx, stack)
 
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
 
 func TestDeleteStack_StackExists_UserCancels(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 	mockPrompter := &prompt.MockPrompter{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -108,7 +99,7 @@ func TestDeleteStack_StackExists_UserCancels(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -117,24 +108,19 @@ func TestDeleteStack_StackExists_UserCancels(t *testing.T) {
 	err := deleter.DeleteStack(ctx, stack)
 
 	assert.NoError(t, err) // Should not error when user cancels
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
 
 func TestDeleteStack_StackDoesNotExist(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check (stack doesn't exist)
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(false, nil)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -143,23 +129,18 @@ func TestDeleteStack_StackDoesNotExist(t *testing.T) {
 	err := deleter.DeleteStack(ctx, stack)
 
 	assert.NoError(t, err) // Should not error when stack doesn't exist
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
 
 func TestDeleteStack_StackExistsCheckFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check failure
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(false, errors.New("AWS error"))
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -169,17 +150,12 @@ func TestDeleteStack_StackExistsCheckFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check if stack exists")
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
 
 func TestDeleteStack_DescribeStackFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -188,7 +164,7 @@ func TestDeleteStack_DescribeStackFails(t *testing.T) {
 	mockCfnOps.On("DescribeStack", ctx, "test-stack").Return(nil, errors.New("AWS error"))
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -198,18 +174,13 @@ func TestDeleteStack_DescribeStackFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to describe stack")
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
 
 func TestDeleteStack_ConfirmationPromptFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 	mockPrompter := &prompt.MockPrompter{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -233,7 +204,7 @@ func TestDeleteStack_ConfirmationPromptFails(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -243,19 +214,14 @@ func TestDeleteStack_ConfirmationPromptFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get user confirmation")
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
 
 func TestDeleteStack_DeleteStackFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 	mockPrompter := &prompt.MockPrompter{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -283,7 +249,7 @@ func TestDeleteStack_DeleteStackFails(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -293,19 +259,14 @@ func TestDeleteStack_DeleteStackFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to delete stack")
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
 
 func TestDeleteStack_WaitForOperationFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &aws.MockClient{}
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 	mockPrompter := &prompt.MockPrompter{}
-
-	// Set up the mock client to return our mock CloudFormation operations
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Set up mock for stack existence check
 	mockCfnOps.On("StackExists", ctx, "test-stack").Return(true, nil)
@@ -336,7 +297,7 @@ func TestDeleteStack_WaitForOperationFails(t *testing.T) {
 	defer prompt.SetPrompter(originalPrompter)
 
 	// Create deleter and test
-	deleter := NewStackDeleter(mockClient)
+	deleter := NewStackDeleter(mockCfnOps)
 	stack := &model.Stack{
 		Name:    "test-stack",
 		Context: "dev",
@@ -346,7 +307,6 @@ func TestDeleteStack_WaitForOperationFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "stack deletion failed or timed out")
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }

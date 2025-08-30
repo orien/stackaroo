@@ -20,23 +20,20 @@ type Deleter interface {
 
 // StackDeleter implements Deleter using AWS CloudFormation
 type StackDeleter struct {
-	awsClient aws.Client
+	cfnOps aws.CloudFormationOperations
 }
 
 // NewStackDeleter creates a new StackDeleter
-func NewStackDeleter(awsClient aws.Client) *StackDeleter {
+func NewStackDeleter(cfnOps aws.CloudFormationOperations) *StackDeleter {
 	return &StackDeleter{
-		awsClient: awsClient,
+		cfnOps: cfnOps,
 	}
 }
 
 // DeleteStack deletes a CloudFormation stack with confirmation
 func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) error {
-	// Get CloudFormation operations
-	cfnOps := d.awsClient.NewCloudFormationOperations()
-
 	// Check if stack exists
-	exists, err := cfnOps.StackExists(ctx, stack.Name)
+	exists, err := d.cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
@@ -47,7 +44,7 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 	}
 
 	// Get stack information to show what will be deleted
-	stackInfo, err := cfnOps.DescribeStack(ctx, stack.Name)
+	stackInfo, err := d.cfnOps.DescribeStack(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to describe stack %s: %w", stack.Name, err)
 	}
@@ -83,14 +80,14 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 		StackName: stack.Name,
 	}
 
-	err = cfnOps.DeleteStack(ctx, deleteInput)
+	err = d.cfnOps.DeleteStack(ctx, deleteInput)
 	if err != nil {
 		return fmt.Errorf("failed to delete stack %s: %w", stack.Name, err)
 	}
 
 	// Wait for deletion to complete
 	fmt.Printf("Waiting for stack deletion to complete...\n")
-	err = cfnOps.WaitForStackOperation(ctx, stack.Name, func(event aws.StackEvent) {
+	err = d.cfnOps.WaitForStackOperation(ctx, stack.Name, func(event aws.StackEvent) {
 		fmt.Printf("  %s: %s - %s\n", event.Timestamp.Format("15:04:05"), event.ResourceType, event.ResourceStatus)
 		if event.ResourceStatusReason != "" {
 			fmt.Printf("    Reason: %s\n", event.ResourceStatusReason)

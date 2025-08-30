@@ -21,13 +21,13 @@ import (
 )
 
 func TestNewStackDeployer(t *testing.T) {
-	// Test that NewStackDeployer creates a deployer with the provided client
-	mockClient := &aws.MockClient{}
+	// Test that NewStackDeployer creates a deployer with the provided CloudFormation operations
+	mockCfnOps := &aws.MockCloudFormationOperations{}
 
-	deployer := NewStackDeployer(mockClient)
+	deployer := NewStackDeployer(mockCfnOps)
 
 	assert.NotNil(t, deployer)
-	// We can't directly test the internal client field, but we can test behavior
+	// We can't directly test the internal cfnOps field, but we can test behavior
 }
 
 func TestStackDeployer_DeployStack_Success(t *testing.T) {
@@ -62,9 +62,6 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -82,8 +79,8 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 			input.Capabilities[0] == "CAPABILITY_IAM"
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -100,7 +97,6 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 
 	// Verify
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
@@ -121,9 +117,6 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -132,7 +125,7 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	deployer := NewStackDeployer(mockClient)
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack with empty template body
 	stack := &model.Stack{
@@ -149,7 +142,6 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 
 	// Verify
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
@@ -178,9 +170,6 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -189,8 +178,8 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == templateContent
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack with template content
 	stack := &model.Stack{
@@ -210,7 +199,6 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create stack")
 	assert.Contains(t, err.Error(), "AWS deployment error")
 
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
@@ -223,9 +211,6 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (existing stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
@@ -243,8 +228,8 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	// No changeset operations expected for no-changes scenario
 	// The deployer should return early when no changes are detected
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -261,7 +246,7 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 
 	// Verify - should succeed with no error when no changes detected
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
+
 	mockCfnOps.AssertExpectations(t)
 }
 
@@ -283,9 +268,6 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (existing stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
@@ -326,8 +308,8 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	// Mock delete changeset (cleanup after successful deployment - both differ and deployer delete changesets)
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -344,7 +326,7 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 
 	// Verify - should succeed
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
+
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
@@ -370,20 +352,16 @@ func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Execute
 	err = deployer.ValidateTemplate(ctx, templateFile)
 
 	// Verify
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
 
@@ -391,8 +369,8 @@ func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	// Test validate template with non-existent file
 	ctx := context.Background()
 
-	mockClient := &aws.MockClient{}
-	deployer := NewStackDeployer(mockClient)
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Execute with non-existent file
 	err := deployer.ValidateTemplate(ctx, "/nonexistent/template.json")
@@ -402,8 +380,7 @@ func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read template")
 	assert.Contains(t, err.Error(), "no such file or directory")
 
-	// AWS client should not be called
-	mockClient.AssertExpectations(t)
+	// CloudFormation operations should not be called for file not found
 }
 
 func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
@@ -420,13 +397,10 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(errors.New("template validation failed"))
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Execute ValidateTemplate instead - this test is for template validation
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -435,7 +409,6 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "template validation failed")
 
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 }
 
@@ -462,9 +435,6 @@ Resources:
 
 	// Set up mocks to capture the template content
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -475,8 +445,8 @@ Resources:
 			input.StackName == "test-stack"
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -493,7 +463,6 @@ Resources:
 
 	// Verify
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
@@ -515,9 +484,6 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 
 	// Set up mocks
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	mockClient := &aws.MockClient{}
-
-	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -530,8 +496,8 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 			len(input.Capabilities) == 2
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	// Create deployer with mock client
-	deployer := NewStackDeployer(mockClient)
+	// Create deployer with mock CloudFormation operations
+	deployer := NewStackDeployer(mockCfnOps)
 
 	// Create resolved stack with parameters and tags
 	stack := &model.Stack{
@@ -548,7 +514,6 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 
 	// Verify
 	assert.NoError(t, err)
-	mockClient.AssertExpectations(t)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
