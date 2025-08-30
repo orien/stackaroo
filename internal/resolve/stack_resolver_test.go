@@ -10,65 +10,13 @@ import (
 
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+
 	"github.com/stretchr/testify/require"
 )
 
-// MockConfigProvider is a mock implementation of config.ConfigProvider
-type MockConfigProvider struct {
-	mock.Mock
-}
-
-// Ensure MockConfigProvider implements config.ConfigProvider
-var _ config.ConfigProvider = (*MockConfigProvider)(nil)
-
-func (m *MockConfigProvider) LoadConfig(ctx context.Context, context string) (*config.Config, error) {
-	args := m.Called(ctx, context)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*config.Config), args.Error(1)
-}
-
-func (m *MockConfigProvider) GetStack(stackName, context string) (*config.StackConfig, error) {
-	args := m.Called(stackName, context)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*config.StackConfig), args.Error(1)
-}
-
-func (m *MockConfigProvider) ListStacks(context string) ([]string, error) {
-	args := m.Called(context)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockConfigProvider) ListContexts() ([]string, error) {
-	args := m.Called()
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockConfigProvider) Validate() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-// MockFileSystemResolver is a mock implementation of the FileSystemResolver interface
-type MockFileSystemResolver struct {
-	mock.Mock
-}
-
-func (m *MockFileSystemResolver) Resolve(templateURI string) (string, error) {
-	args := m.Called(templateURI)
-	return args.String(0), args.Error(1)
-}
-
 func TestNewStackResolver(t *testing.T) {
 	// Test that we can create a new stack resolver
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	stackResolver := NewStackResolver(mockConfigProvider)
@@ -82,7 +30,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mocks
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	// Mock data
@@ -147,7 +95,7 @@ func TestStackResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	// Test error handling when config loading fails
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	// Set expectation for config load failure
@@ -170,7 +118,7 @@ func TestStackResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	// Test error handling when stack is not found
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
@@ -195,7 +143,7 @@ func TestStackResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	// Test error handling when template reading fails
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
@@ -225,7 +173,7 @@ func TestStackResolver_Resolve_MultipleStacks(t *testing.T) {
 	// Test resolving multiple stacks
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
@@ -270,7 +218,7 @@ func TestStackResolver_Resolve_CircularDependency(t *testing.T) {
 	// Test detection of circular dependencies
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
@@ -311,7 +259,7 @@ func TestStackResolver_Resolve_EmptyStackList(t *testing.T) {
 	// Test resolving empty stack list
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	stackResolver := NewStackResolver(mockConfigProvider)
@@ -333,7 +281,7 @@ func TestStackResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	// Test complex dependency chain: vpc -> security -> database -> app
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}
@@ -396,7 +344,7 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	// Test parameter inheritance from global config
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{
@@ -447,7 +395,7 @@ func TestStackResolver_Resolve_MissingDependency(t *testing.T) {
 	// Test handling of missing dependency (dependency not in resolved stack list)
 	ctx := context.Background()
 
-	mockConfigProvider := &MockConfigProvider{}
+	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
 	cfg := &config.Config{Project: "test-project"}

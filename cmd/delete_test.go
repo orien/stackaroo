@@ -5,7 +5,6 @@ SPDX-License-Identifier: BSD-3-Clause
 package cmd
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -17,19 +16,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-// MockDeleter implements delete.Deleter for testing
-type MockDeleter struct {
-	mock.Mock
-}
-
-// Ensure MockDeleter implements delete.Deleter interface
-var _ delete.Deleter = (*MockDeleter)(nil)
-
-func (m *MockDeleter) DeleteStack(ctx context.Context, stack *model.Stack) error {
-	args := m.Called(ctx, stack)
-	return args.Error(0)
-}
 
 func TestDeleteCommand_Exists(t *testing.T) {
 	// Test that delete command is registered with root command
@@ -68,7 +54,7 @@ func TestDeleteCommand_RequiresAtLeastOneArg(t *testing.T) {
 	// Test that delete command requires at least a context argument
 
 	// Mock deleter that shouldn't be called
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -87,7 +73,7 @@ func TestDeleteCommand_RequiresAtLeastOneArg(t *testing.T) {
 
 func TestDeleteCommand_DeleteSingleStack(t *testing.T) {
 	// Test deleting a single stack
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -144,7 +130,7 @@ stacks:
 
 func TestDeleteCommand_DeleteAllStacksInContext(t *testing.T) {
 	// Test deleting all stacks in a context with dependency ordering
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -205,7 +191,7 @@ stacks:
 
 func TestDeleteCommand_DeletionFails(t *testing.T) {
 	// Test handling of deletion failure
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -257,7 +243,7 @@ stacks:
 
 func TestDeleteCommand_NoStacksInContext(t *testing.T) {
 	// Test handling when no stacks exist in context
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -300,7 +286,7 @@ stacks: []
 
 func TestDeleteCommand_InvalidContext(t *testing.T) {
 	// Test handling of invalid context
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -347,7 +333,7 @@ stacks:
 
 func TestDeleteCommand_StackNotFound(t *testing.T) {
 	// Test handling when requested stack doesn't exist
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -394,7 +380,7 @@ stacks:
 
 func TestDeleteCommand_ComplexDependencyOrder(t *testing.T) {
 	// Test deletion with complex dependency chain
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 
 	oldDeleter := deleter
 	SetDeleter(mockDeleter)
@@ -471,7 +457,7 @@ func TestGetDeleter(t *testing.T) {
 
 func TestSetDeleter(t *testing.T) {
 	// Set up mock deleter
-	mockDeleter := &MockDeleter{}
+	mockDeleter := &delete.MockDeleter{}
 	originalDeleter := deleter
 
 	// Test setting the deleter

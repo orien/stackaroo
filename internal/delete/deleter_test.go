@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
@@ -18,144 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockClient implements aws.Client for testing
-type MockClient struct {
-	mock.Mock
-}
-
-func (m *MockClient) NewCloudFormationOperations() aws.CloudFormationOperations {
-	args := m.Called()
-	return args.Get(0).(aws.CloudFormationOperations)
-}
-
-// MockCloudFormationOperations implements aws.CloudFormationOperations for testing
-type MockCloudFormationOperations struct {
-	mock.Mock
-}
-
-func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, input, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
-	args := m.Called(ctx, stackName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
-	args := m.Called(ctx, templateBody)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
-	args := m.Called(ctx, stackName)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
-	args := m.Called(ctx, stackName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
-	args := m.Called(ctx, stackName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.StackInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
-	args := m.Called(ctx, stackName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]aws.StackEvent), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, stackName, eventCallback)
-	// Call the callback with a sample event for testing
-	if eventCallback != nil {
-		eventCallback(aws.StackEvent{
-			EventId:              "event-1",
-			StackName:            stackName,
-			LogicalResourceId:    stackName,
-			ResourceType:         "AWS::CloudFormation::Stack",
-			Timestamp:            time.Now(),
-			ResourceStatus:       "DELETE_COMPLETE",
-			ResourceStatusReason: "",
-		})
-	}
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-// MockPrompter implements prompt.Prompter for testing
-type MockPrompter struct {
-	mock.Mock
-}
-
-// Confirm mock implementation
-func (m *MockPrompter) Confirm(message string) (bool, error) {
-	args := m.Called(message)
-	return args.Bool(0), args.Error(1)
-}
-
 func TestNewStackDeleter(t *testing.T) {
-	mockClient := &MockClient{}
+	mockClient := &aws.MockClient{}
 	deleter := NewStackDeleter(mockClient)
 
 	assert.NotNil(t, deleter)
@@ -164,9 +27,9 @@ func TestNewStackDeleter(t *testing.T) {
 
 func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockPrompter := &MockPrompter{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockPrompter := &prompt.MockPrompter{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -216,9 +79,9 @@ func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 
 func TestDeleteStack_StackExists_UserCancels(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockPrompter := &MockPrompter{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockPrompter := &prompt.MockPrompter{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -261,8 +124,8 @@ func TestDeleteStack_StackExists_UserCancels(t *testing.T) {
 
 func TestDeleteStack_StackDoesNotExist(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -286,8 +149,8 @@ func TestDeleteStack_StackDoesNotExist(t *testing.T) {
 
 func TestDeleteStack_StackExistsCheckFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -312,8 +175,8 @@ func TestDeleteStack_StackExistsCheckFails(t *testing.T) {
 
 func TestDeleteStack_DescribeStackFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -341,9 +204,9 @@ func TestDeleteStack_DescribeStackFails(t *testing.T) {
 
 func TestDeleteStack_ConfirmationPromptFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockPrompter := &MockPrompter{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockPrompter := &prompt.MockPrompter{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -387,9 +250,9 @@ func TestDeleteStack_ConfirmationPromptFails(t *testing.T) {
 
 func TestDeleteStack_DeleteStackFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockPrompter := &MockPrompter{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockPrompter := &prompt.MockPrompter{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
@@ -437,9 +300,9 @@ func TestDeleteStack_DeleteStackFails(t *testing.T) {
 
 func TestDeleteStack_WaitForOperationFails(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &MockClient{}
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockPrompter := &MockPrompter{}
+	mockClient := &aws.MockClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockPrompter := &prompt.MockPrompter{}
 
 	// Set up the mock client to return our mock CloudFormation operations
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)

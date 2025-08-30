@@ -462,75 +462,91 @@ client, err := aws.NewDefaultClient(ctx, aws.Config{
 ## Testing Strategy
 
 ### Interface-Based Testing
-The AWS client architecture is designed for comprehensive testing using interface-based mocking:
+The AWS client architecture uses a consolidated mock approach with all test utilities co-located in dedicated `testing.go` files:
 
-#### Primary Testing Pattern
+#### Consolidated Mock Architecture
 
-The AWS package provides a comprehensive `MockCloudFormationClient` that implements the `CloudFormationClient` interface for testing all CloudFormation operations, including changeset functionality:
+All AWS mocks are centrally managed in `internal/aws/testing.go`, providing three levels of mocking:
+
+1. **MockClient** - Top-level AWS client interface
+2. **MockCloudFormationOperations** - High-level CloudFormation business operations  
+3. **MockCloudFormationClient** - Low-level AWS SDK client interface
 
 ```go
-import "github.com/stretchr/testify/mock"
+import "github.com/orien/stackaroo/internal/aws"
 
-// MockCloudFormationClient implements CloudFormationClient for testing
-type MockCloudFormationClient struct {
-    mock.Mock
-}
-
-// Example: Testing high-level changeset operations
+// Example: Testing high-level CloudFormation operations
 func TestCreateChangeSetPreview(t *testing.T) {
     ctx := context.Background()
-    mockClient := &MockCloudFormationClient{}
-    cf := &DefaultCloudFormationOperations{client: mockClient}
     
-    // Mock the underlying AWS calls
-    mockClient.On("CreateChangeSet", ctx, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).
-        Return(createTestChangeSetOutput("changeset-123"), nil)
-    mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).
-        Return(createTestDescribeOutput(), nil)
-    mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).
-        Return(&cloudformation.DeleteChangeSetOutput{}, nil)
+    // Use consolidated mocks from testing.go
+    mockCFOps := &aws.MockCloudFormationOperations{}
     
-    // Test the high-level operation
-    changeSetInfo, err := cf.CreateChangeSetPreview(ctx, "test-stack", template, parameters)
+    // Mock the high-level business operation
+    expectedChangeSet := &aws.ChangeSetInfo{
+        ChangeSetID: "changeset-123",
+        Status:      "CREATE_COMPLETE",
+        Changes:     []aws.ResourceChange{},
+    }
+    
+    mockCFOps.On("CreateChangeSetPreview", ctx, "test-stack", template, parameters).
+        Return(expectedChangeSet, nil)
+    
+    // Test the operation
+    changeSetInfo, err := mockCFOps.CreateChangeSetPreview(ctx, "test-stack", template, parameters)
     
     require.NoError(t, err)
     assert.Equal(t, "changeset-123", changeSetInfo.ChangeSetID)
-    mockClient.AssertExpectations(t)
+    mockCFOps.AssertExpectations(t)
 }
 ```
 
 **Key Testing Benefits:**
-- **Single Mock**: One consolidated mock eliminates code duplication
-- **Full Coverage**: Tests both low-level SDK calls and high-level workflows  
-- **Changeset Support**: Complete testing of changeset preview and deployment flows
-- **Professional Mocking**: Uses testify/mock with expectations and assertions
+- **Zero Duplication**: Single source of truth for all AWS mocks across the entire codebase
+- **Perfect Co-location**: Every mock lives alongside its corresponding interface
+- **Cross-Package Reusability**: Shared mocks eliminate ~400 lines of duplicated code
+- **Complete Consistency**: Uniform mock organisation across all internal packages
+- **Professional Mocking**: Full testify/mock integration with expectations and assertions
 
 #### Integration with Business Logic
-The `internal/deploy` package uses dependency injection for testability:
+All internal packages follow the same consolidated mock pattern for cross-package testing:
 
 ```go
+import (
+    "github.com/orien/stackaroo/internal/aws"
+    "github.com/orien/stackaroo/internal/deploy"
+)
+
 // In production
+awsClient := aws.NewDefaultClient(ctx, config)
 deployer := deploy.NewAWSDeployer(awsClient)
 
-// In tests  
-mockClient := &MockAWSClient{}
+// In tests - use consolidated mocks
+mockClient := &aws.MockClient{}
+mockDeployer := &deploy.MockDeployer{}
+
+// Test with dependency injection
 deployer := deploy.NewAWSDeployer(mockClient)
 ```
 
 ### Unit Testing
 
 #### CloudFormation Operations Testing
-- **Mock Consolidation**: Single `MockCloudFormationClient` handles all testing scenarios
-- Mock all interfaces (`Client`, `CloudFormationOperations`)
-- Use `testify/mock` for professional mocking with expectations
-- Test business logic in isolation from AWS SDK
-- Fast, deterministic tests with no external dependencies
+- **Consolidated Mock Usage**: Import shared mocks from `internal/aws/testing.go`
+- **Three-Tier Mock Architecture**: `MockClient`, `MockCloudFormationOperations`, `MockCloudFormationClient`
+- **Zero Duplication**: Single source of truth eliminates ~400 lines of duplicate mock code
+- **Cross-Package Sharing**: Same mocks used across all internal packages
+- Test business logic in isolation from AWS SDK with professional testify/mock integration
 
 #### Event Callback Testing
-When testing operations with event callbacks, use function type matchers:
+Use consolidated mocks from `testing.go` for event callback operations:
 
 ```go
-// Test deployment with event streaming
+import "github.com/orien/stackaroo/internal/aws"
+
+// Test deployment with event streaming using shared mock
+mockCfnOps := &aws.MockCloudFormationOperations{}
+
 mockCfnOps.On("DeployStackWithCallback", 
     ctx,
     mock.MatchedBy(func(input aws.DeployStackInput) bool {
@@ -545,19 +561,25 @@ eventCallback := func(event aws.StackEvent) {
     capturedEvents = append(capturedEvents, event)
 }
 
-err := cfnOps.DeployStackWithCallback(ctx, input, eventCallback)
+err := mockCfnOps.DeployStackWithCallback(ctx, input, eventCallback)
 assert.NoError(t, err)
 assert.Len(t, capturedEvents, expectedEventCount)
+mockCfnOps.AssertExpectations(t)
 ```
 
 #### Testing NoChangesError
 ```go
-// Test no changes scenario
+import "github.com/orien/stackaroo/internal/aws"
+
+// Test no changes scenario using consolidated mock
+mockCfnOps := &aws.MockCloudFormationOperations{}
+
 mockCfnOps.On("DeployStackWithCallback", ctx, input, mock.AnythingOfType("func(aws.StackEvent)")).
     Return(aws.NoChangesError{StackName: "test-stack"})
 
 err := deployer.DeployStack(ctx, stack)
 assert.NoError(t, err)  // Should handle NoChangesError gracefully
+mockCfnOps.AssertExpectations(t)
 ```
 
 ### Integration Testing  
@@ -566,10 +588,25 @@ assert.NoError(t, err)  // Should handle NoChangesError gracefully
 - End-to-end testing with real AWS SDK behavior
 
 ### Testing Best Practices
-- All external dependencies are abstracted behind interfaces
-- Use dependency injection to substitute mocks in tests
-- Follow the patterns established in `cmd/deploy_test.go`
-- Verify mock expectations with `AssertExpectations()`
+
+#### Consolidated Mock Architecture
+- **Use Shared Mocks**: Always import mocks from `internal/aws/testing.go` instead of creating inline mocks
+- **Zero Duplication**: Single source of truth for all AWS mock implementations across the codebase
+- **Perfect Co-location**: Every mock lives alongside its corresponding interface in the same package
+- **Cross-Package Reusability**: Same mocks used across all internal packages (`deploy`, `diff`, `delete`, etc.)
+
+#### Implementation Guidelines
+- All external dependencies are abstracted behind interfaces with corresponding mocks in `testing.go`
+- Use dependency injection to substitute consolidated mocks in tests
+- Import pattern: `import "github.com/orien/stackaroo/internal/aws"` then use `&aws.MockClient{}`
+- Follow three-tier mock architecture: `MockClient` → `MockCloudFormationOperations` → `MockCloudFormationClient`
+- Always verify mock expectations with `AssertExpectations(t)`
+
+#### Benefits Achieved
+- **Eliminated ~400 lines** of duplicated mock code across the codebase
+- **Consistent patterns** across all internal packages (`aws`, `deploy`, `diff`, `delete`, `resolve`, `config`, `prompt`)
+- **Maintainable tests** with single point of change for mock evolution
+- **Professional testing** with full testify/mock integration
 
 ## Performance Considerations
 

@@ -5,12 +5,9 @@ SPDX-License-Identifier: BSD-3-Clause
 package aws
 
 import (
-	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestConfig_Validation(t *testing.T) {
@@ -68,83 +65,6 @@ func TestNewCloudFormationOperationsWithClient(t *testing.T) {
 	assert.NotNil(t, ops)
 	// Client field is private, but successful creation indicates dependency injection worked
 	mockClient.AssertExpectations(t)
-}
-
-// MockCloudFormationClient is a comprehensive mock client for CloudFormation testing
-type MockCloudFormationClient struct {
-	mock.Mock
-}
-
-func (m *MockCloudFormationClient) CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*cloudformation.CreateStackOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*cloudformation.UpdateStackOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DeleteStack(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DeleteStackOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*cloudformation.DescribeStacksOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ListStacks(ctx context.Context, params *cloudformation.ListStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStacksOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.ListStacksOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ValidateTemplate(ctx context.Context, params *cloudformation.ValidateTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ValidateTemplateOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.ValidateTemplateOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.GetTemplateOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.CreateChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.ExecuteChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DeleteChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(*cloudformation.DescribeChangeSetOutput), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*cloudformation.DescribeStackEventsOutput), args.Error(1)
 }
 
 func TestConfig_RegionHandling(t *testing.T) {

@@ -10,19 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
-
-// MockPrompter is a mock implementation of the Prompter interface for testing
-type MockPrompter struct {
-	mock.Mock
-}
-
-// Confirm mock implementation
-func (m *MockPrompter) Confirm(message string) (bool, error) {
-	args := m.Called(message)
-	return args.Bool(0), args.Error(1)
-}
 
 // TestMockPrompter_Interface verifies MockPrompter implements Prompter interface
 func TestMockPrompter_Interface(t *testing.T) {

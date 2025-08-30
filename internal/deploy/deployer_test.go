@@ -14,121 +14,15 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockAWSClient is a mock implementation of aws.Client
-type MockAWSClient struct {
-	mock.Mock
-}
-
-func (m *MockAWSClient) NewCloudFormationOperations() aws.CloudFormationOperations {
-	args := m.Called()
-	return args.Get(0).(aws.CloudFormationOperations)
-}
-
-// MockPrompter is a mock implementation of the Prompter interface for testing
-type MockPrompter struct {
-	mock.Mock
-}
-
-// Confirm mock implementation
-func (m *MockPrompter) Confirm(message string) (bool, error) {
-	args := m.Called(message)
-	return args.Bool(0), args.Error(1)
-}
-
-// MockCloudFormationOperations is a mock implementation of CloudFormationOperations
-type MockCloudFormationOperations struct {
-	mock.Mock
-}
-
-func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, input, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
-	args := m.Called(ctx, templateBody)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
-	args := m.Called(ctx, stackName)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
-	args := m.Called(ctx, stackName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.StackInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-// ExecuteChangeSet executes a changeset by ID (abstracted method)
-func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).([]aws.StackEvent), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, stackName, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters)
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
 func TestNewStackDeployer(t *testing.T) {
 	// Test that NewStackDeployer creates a deployer with the provided client
-	mockClient := &MockAWSClient{}
+	mockClient := &aws.MockClient{}
 
 	deployer := NewStackDeployer(mockClient)
 
@@ -141,7 +35,7 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mock prompter for confirmation
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
 	defer prompt.SetPrompter(originalPrompter)
@@ -167,8 +61,8 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -213,7 +107,7 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 
 func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	// Set up mock prompter for confirmation
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
 	defer prompt.SetPrompter(originalPrompter)
@@ -226,8 +120,8 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -262,7 +156,7 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 
 func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	// Set up mock prompter for confirmation
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
 	defer prompt.SetPrompter(originalPrompter)
@@ -283,8 +177,8 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -328,8 +222,8 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -376,7 +270,7 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mock prompter to auto-confirm deployment
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	// Business logic sends core message, prompter adds formatting
 	expectedMessage := "Do you want to apply these changes to stack test-stack?"
 	mockPrompter.On("Confirm", expectedMessage).Return(true, nil).Once()
@@ -388,8 +282,8 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -475,8 +369,8 @@ func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
@@ -497,7 +391,7 @@ func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	// Test validate template with non-existent file
 	ctx := context.Background()
 
-	mockClient := &MockAWSClient{}
+	mockClient := &aws.MockClient{}
 	deployer := NewStackDeployer(mockClient)
 
 	// Execute with non-existent file
@@ -525,8 +419,8 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(errors.New("template validation failed"))
@@ -547,7 +441,7 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 
 func TestStackDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
 	// Set up mock prompter for confirmation
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
 	defer prompt.SetPrompter(originalPrompter)
@@ -567,8 +461,8 @@ Resources:
       BucketName: my-test-bucket`
 
 	// Set up mocks to capture the template content
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 
@@ -609,7 +503,7 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mock prompter for confirmation
-	mockPrompter := &MockPrompter{}
+	mockPrompter := &prompt.MockPrompter{}
 	originalPrompter := prompt.GetDefaultPrompter()
 	prompt.SetPrompter(mockPrompter)
 	defer prompt.SetPrompter(originalPrompter)
@@ -620,8 +514,8 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Set up mocks
-	mockCfnOps := &MockCloudFormationOperations{}
-	mockClient := &MockAWSClient{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockClient := &aws.MockClient{}
 
 	mockClient.On("NewCloudFormationOperations").Return(mockCfnOps)
 

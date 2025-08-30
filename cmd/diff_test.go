@@ -16,16 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockDiffer implements the Differ interface for testing
-type MockDiffer struct {
-	mock.Mock
-}
-
-func (m *MockDiffer) DiffStack(ctx context.Context, stack *model.Stack, options diff.Options) (*diff.Result, error) {
-	args := m.Called(ctx, stack, options)
-	return args.Get(0).(*diff.Result), args.Error(1)
-}
-
 func TestDiffCmd_Structure(t *testing.T) {
 	// Test command structure
 	assert.Equal(t, "diff <context> <stack-name>", diffCmd.Use)
@@ -97,7 +87,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	// We test the business logic without external dependencies
 
 	// Setup mock differ
-	mockDiffer := &MockDiffer{}
+	mockDiffer := &diff.MockDiffer{}
 	originalDiffer := differ
 	SetDiffer(mockDiffer)
 	defer SetDiffer(originalDiffer)
@@ -139,7 +129,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 	// This test verifies the command logic when differ returns changes
 
 	// Setup mock differ
-	mockDiffer := &MockDiffer{}
+	mockDiffer := &diff.MockDiffer{}
 	originalDiffer := differ
 	SetDiffer(mockDiffer)
 	defer SetDiffer(originalDiffer)
@@ -182,7 +172,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	// This test verifies the command logic for new stacks
 
 	// Setup mock differ
-	mockDiffer := &MockDiffer{}
+	mockDiffer := &diff.MockDiffer{}
 	originalDiffer := differ
 	SetDiffer(mockDiffer)
 	defer SetDiffer(originalDiffer)
@@ -229,7 +219,7 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 	// This test verifies error handling when the differ fails
 
 	// Setup mock differ
-	mockDiffer := &MockDiffer{}
+	mockDiffer := &diff.MockDiffer{}
 	originalDiffer := differ
 	SetDiffer(mockDiffer)
 	defer SetDiffer(originalDiffer)
@@ -337,7 +327,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			}
 
 			// Setup mock differ
-			mockDiffer := &MockDiffer{}
+			mockDiffer := &diff.MockDiffer{}
 			originalDiffer := differ
 			SetDiffer(mockDiffer)
 			defer SetDiffer(originalDiffer)
@@ -370,7 +360,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 func TestSetDiffer(t *testing.T) {
 	// Setup
 	originalDiffer := differ
-	mockDiffer := &MockDiffer{}
+	mockDiffer := &diff.MockDiffer{}
 
 	// Test setting differ
 	SetDiffer(mockDiffer)

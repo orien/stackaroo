@@ -6,6 +6,8 @@ Date: 2025-08-24
 
 Accepted
 
+Amended by [ADR 0016: Mock consolidation strategy](0016-mock-consolidation-strategy.md)
+
 ## Context
 
 We need to establish a consistent testing framework and strategy for Stackaroo to ensure high code quality, maintainability, and developer productivity. The project involves complex interactions with AWS services, CLI command processing, and file system operations that require comprehensive testing approaches.

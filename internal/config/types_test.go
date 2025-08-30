@@ -14,36 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockConfigProvider implements ConfigProvider for testing
-type MockConfigProvider struct {
-	mock.Mock
-}
-
-func (m *MockConfigProvider) LoadConfig(ctx context.Context, context string) (*Config, error) {
-	args := m.Called(ctx, context)
-	return args.Get(0).(*Config), args.Error(1)
-}
-
-func (m *MockConfigProvider) ListContexts() ([]string, error) {
-	args := m.Called()
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockConfigProvider) GetStack(stackName, context string) (*StackConfig, error) {
-	args := m.Called(stackName, context)
-	return args.Get(0).(*StackConfig), args.Error(1)
-}
-
-func (m *MockConfigProvider) ListStacks(context string) ([]string, error) {
-	args := m.Called(context)
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockConfigProvider) Validate() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
 func TestConfig_DefaultValues(t *testing.T) {
 	// Test default zero values
 	config := Config{}

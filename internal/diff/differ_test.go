@@ -10,130 +10,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 )
 
-// Mock implementations for testing
-
-type MockCloudFormationClient struct {
-	mock.Mock
-}
-
-func (m *MockCloudFormationClient) StackExists(ctx context.Context, stackName string) (bool, error) {
-	args := m.Called(ctx, stackName)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.StackInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) GetTemplate(ctx context.Context, stackName string) (string, error) {
-	args := m.Called(ctx, stackName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, input, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).(*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) ValidateTemplate(ctx context.Context, templateBody string) error {
-	args := m.Called(ctx, templateBody)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) DeleteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationClient) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).([]aws.StackEvent), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, stackName, eventCallback)
-	return args.Error(0)
-}
-
-type MockTemplateComparator struct {
-	mock.Mock
-}
-
-func (m *MockTemplateComparator) Compare(ctx context.Context, currentTemplate, proposedTemplate string) (*TemplateChange, error) {
-	args := m.Called(ctx, currentTemplate, proposedTemplate)
-	return args.Get(0).(*TemplateChange), args.Error(1)
-}
-
-type MockParameterComparator struct {
-	mock.Mock
-}
-
-func (m *MockParameterComparator) Compare(currentParams, proposedParams map[string]string) ([]ParameterDiff, error) {
-	args := m.Called(currentParams, proposedParams)
-	return args.Get(0).([]ParameterDiff), args.Error(1)
-}
-
-type MockTagComparator struct {
-	mock.Mock
-}
-
-func (m *MockTagComparator) Compare(currentTags, proposedTags map[string]string) ([]TagDiff, error) {
-	args := m.Called(currentTags, proposedTags)
-	return args.Get(0).([]TagDiff), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters)
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationClient) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-// Test helper functions
-
 // Creates a test differ with provided dependencies
-func createTestDiffer(cfClient *MockCloudFormationClient, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *StackDiffer {
+func createTestDiffer(cfClient *aws.MockCloudFormationOperations, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *StackDiffer {
 	return &StackDiffer{
 		cfClient:            cfClient,
 		templateComparator:  templateComp,
@@ -170,7 +54,7 @@ func TestStackDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -225,7 +109,7 @@ func TestStackDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -296,7 +180,7 @@ func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -342,7 +226,7 @@ func TestStackDiffer_DiffStack_StackExistsError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -371,7 +255,7 @@ func TestStackDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -440,7 +324,7 @@ func TestStackDiffer_DiffStack_FilterOptions(t *testing.T) {
 			ctx := context.Background()
 
 			// Create mocks
-			cfClient := &MockCloudFormationClient{}
+			cfClient := &aws.MockCloudFormationOperations{}
 			templateComp := &MockTemplateComparator{}
 			paramComp := &MockParameterComparator{}
 			tagComp := &MockTagComparator{}
@@ -485,7 +369,7 @@ func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
@@ -573,7 +457,7 @@ func TestStackDiffer_CompareTemplates_Error(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &MockCloudFormationClient{}
+	cfClient := &aws.MockCloudFormationOperations{}
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}

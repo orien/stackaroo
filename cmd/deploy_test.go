@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/orien/stackaroo/internal/config/file"
+	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
@@ -20,21 +21,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-// MockDeployer is a mock implementation of the Deployer interface
-type MockDeployer struct {
-	mock.Mock
-}
-
-func (m *MockDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
-	args := m.Called(ctx, stack)
-	return args.Error(0)
-}
-
-func (m *MockDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
-	args := m.Called(ctx, templateFile)
-	return args.Error(0)
-}
 
 func TestDeployCommand_Exists(t *testing.T) {
 	// Test that deploy command is registered with root command
@@ -73,7 +59,7 @@ func TestDeployCommand_RequiresAtLeastOneArg(t *testing.T) {
 	// Test that deploy command requires at least a context argument
 
 	// Mock deployer that shouldn't be called
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -137,7 +123,7 @@ Resources:
 	require.NoError(t, err)
 
 	// Mock deployer that expects two deployments
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "vpc"
 	})).Return(nil).Once()
@@ -187,7 +173,7 @@ stacks: []
 	require.NoError(t, err)
 
 	// Mock deployer that shouldn't be called
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -235,7 +221,7 @@ stacks:
 	require.NoError(t, err)
 
 	// Set up mock deployer that returns an error
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "test-stack"
 	})).Return(errors.New("deployment failed"))
@@ -268,7 +254,7 @@ func TestDeployCommand_RequiresStackName(t *testing.T) {
 	// Test that deploy command requires exactly two arguments (context and stack name)
 
 	// Mock deployer that shouldn't be called (no expectations set)
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -329,7 +315,7 @@ stacks:
 	require.NoError(t, err)
 
 	// Set up mock with multiple expectations and argument matching
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	// Expect specific calls with exact argument matching
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
@@ -424,7 +410,7 @@ stacks:
 	require.NoError(t, err)
 
 	// Set up mock deployer that expects config-resolved values
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 	// Expect Stack with resolved parameters from dev context
 	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
 		return stack.Name == "vpc" &&
@@ -508,7 +494,7 @@ stacks:
 	}
 
 	// Mock deployer that expects calls in dependency order: vpc → database → app
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	// This test will fail because current implementation doesn't resolve dependencies
 	// We expect the resolver to be called and handle the dependency ordering
@@ -586,7 +572,7 @@ stacks:
 	}
 
 	// Mock deployer that expects ALL THREE stacks in dependency order
-	mockDeployer := &MockDeployer{}
+	mockDeployer := &deploy.MockDeployer{}
 
 	// Current implementation only deploys the directly requested stack
 	// Transitive dependency resolution is not yet implemented
