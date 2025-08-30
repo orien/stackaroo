@@ -54,7 +54,8 @@ func getDescriber() describe.Describer {
 	}
 
 	cfOps := createCloudFormationOperations()
-	return describe.NewStackDescriber(cfOps)
+	describer = describe.NewStackDescriber(cfOps)
+	return describer
 }
 
 // SetDescriber allows injection of a describer (for testing)

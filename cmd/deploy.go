@@ -67,7 +67,9 @@ func getDeployer() deploy.Deployer {
 		return deployer
 	}
 
-	return deploy.NewStackDeployer(createCloudFormationOperations())
+	cfOpts := createCloudFormationOperations()
+	deployer = deploy.NewStackDeployer(cfOpts)
+	return deployer
 }
 
 // SetDeployer allows injection of a deployer (for testing)

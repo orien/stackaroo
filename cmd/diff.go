@@ -56,7 +56,8 @@ func getDiffer() diff.Differ {
 	}
 
 	cfOps := createCloudFormationOperations()
-	return diff.NewStackDiffer(cfOps)
+	differ = diff.NewStackDiffer(cfOps)
+	return differ
 }
 
 // SetDiffer allows injection of a differ (for testing)
