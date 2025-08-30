@@ -28,7 +28,7 @@ The configuration system follows these core architectural principles:
 ```mermaid
 graph TD
     A[CLI Layer] --> B[config.ConfigProvider Interface]
-    B --> C[file.Provider Implementation]
+    B --> C[file.FileConfigProvider Implementation]
     
     C --> D[Raw YAML Parsing]
     C --> E[Resolution Engine]
@@ -331,7 +331,7 @@ The file provider offers two creation methods to support different architectural
 
 ```go
 // Method 1: Explicit filename (for custom config files)
-provider := file.NewProvider("custom-config.yaml")
+provider := file.NewFileConfigProvider("custom-config.yaml")
 
 // Method 2: Default factory (recommended - no hardcoded filenames)
 provider := file.NewDefaultProvider()  // Uses "stackaroo.yaml"

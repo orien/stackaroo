@@ -16,7 +16,7 @@ import (
 
 func TestFileProvider_LoadConfig_ReturnsErrorWhenFileNotFound(t *testing.T) {
 	// Test that FileProvider returns an appropriate error when config file doesn't exist
-	provider := NewProvider("nonexistent-config.yaml")
+	provider := NewFileConfigProvider("nonexistent-config.yaml")
 
 	ctx := context.Background()
 	cfg, err := provider.LoadConfig(ctx, "dev")
@@ -58,7 +58,7 @@ stacks:
 	// Create temporary config file
 	tmpFile := createTempConfigFile(t, configContent)
 
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
 	cfg, err := provider.LoadConfig(ctx, "dev")
@@ -102,7 +102,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	contexts, err := provider.ListContexts()
 	require.NoError(t, err, "should successfully list contexts")
@@ -140,7 +140,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	// Test dev context (uses defaults)
 	devStack, err := provider.GetStack("database", "dev")
@@ -180,7 +180,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, invalidConfigContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	err := provider.Validate()
 	assert.Error(t, err, "should detect invalid configuration")
@@ -208,7 +208,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	// Test valid context
 	stackNames, err := provider.ListStacks("dev")
@@ -242,7 +242,7 @@ stacks: []
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	stackNames, err := provider.ListStacks("dev")
 	require.NoError(t, err, "should successfully handle empty stacks list")
@@ -299,7 +299,7 @@ stacks:
 	err = os.WriteFile(templatesDir+"/subdirectory/app.yaml", []byte("template content"), 0644)
 	require.NoError(t, err)
 
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
 	cfg, err := provider.LoadConfig(ctx, "dev")
@@ -337,7 +337,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
 	cfg, err := provider.LoadConfig(ctx, "dev")
@@ -372,7 +372,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
 	cfg, err := provider.LoadConfig(ctx, "dev")
@@ -405,7 +405,7 @@ stacks:
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	err := provider.Validate()
 	assert.Error(t, err)
@@ -445,7 +445,7 @@ stacks:
 	err = os.WriteFile(templatesDir+"/vpc.yaml", []byte("template content"), 0644)
 	require.NoError(t, err)
 
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 
 	err = provider.Validate()
 	assert.NoError(t, err)
@@ -483,7 +483,7 @@ stacks:
 	err = os.WriteFile(templatesDir+"/vpc.yaml", []byte("template content"), 0644)
 	require.NoError(t, err)
 
-	provider := NewProvider(tmpFile)
+	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
 	// Test loading config

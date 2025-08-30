@@ -14,27 +14,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Provider implements config.ConfigProvider by reading from a YAML file
+// FileConfigProvider implements config.ConfigProvider by reading from a YAML file
 // Based on ADR 0010 (File provider configuration structure)
-type Provider struct {
+type FileConfigProvider struct {
 	filename  string
 	rawConfig *Config
 }
 
-// NewProvider creates a new file-based ConfigProvider for the given filename
-func NewProvider(filename string) *Provider {
-	return &Provider{
+// NewFileConfigProvider creates a new file-based ConfigProvider for the given filename
+func NewFileConfigProvider(filename string) *FileConfigProvider {
+	return &FileConfigProvider{
 		filename: filename,
 	}
 }
 
 // NewDefaultProvider creates a new file-based ConfigProvider using the default config filename
-func NewDefaultProvider() *Provider {
-	return NewProvider("stackaroo.yaml")
+func NewDefaultProvider() *FileConfigProvider {
+	return NewFileConfigProvider("stackaroo.yaml")
 }
 
 // LoadConfig loads and resolves configuration for the specified context
-func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Config, error) {
+func (fp *FileConfigProvider) LoadConfig(ctx context.Context, context string) (*config.Config, error) {
 	// Load raw config if not already loaded
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (fp *Provider) LoadConfig(ctx context.Context, context string) (*config.Con
 }
 
 // ListContexts returns all available contexts in the configuration
-func (fp *Provider) ListContexts() ([]string, error) {
+func (fp *FileConfigProvider) ListContexts() ([]string, error) {
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (fp *Provider) ListContexts() ([]string, error) {
 }
 
 // GetStack returns stack configuration for a specific stack and context
-func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, error) {
+func (fp *FileConfigProvider) GetStack(stackName, context string) (*config.StackConfig, error) {
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (fp *Provider) GetStack(stackName, context string) (*config.StackConfig, er
 }
 
 // ListStacks returns all available stack names for a specific context
-func (fp *Provider) ListStacks(context string) ([]string, error) {
+func (fp *FileConfigProvider) ListStacks(context string) ([]string, error) {
 	if err := fp.ensureLoaded(); err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (fp *Provider) ListStacks(context string) ([]string, error) {
 }
 
 // Validate checks the configuration for consistency and errors
-func (fp *Provider) Validate() error {
+func (fp *FileConfigProvider) Validate() error {
 	if err := fp.ensureLoaded(); err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (fp *Provider) Validate() error {
 }
 
 // ensureLoaded loads the raw configuration from file if not already loaded
-func (fp *Provider) ensureLoaded() error {
+func (fp *FileConfigProvider) ensureLoaded() error {
 	if fp.rawConfig != nil {
 		return nil // Already loaded
 	}
@@ -193,7 +193,7 @@ func (fp *Provider) ensureLoaded() error {
 }
 
 // resolveContext creates a resolved context configuration with inheritance
-func (fp *Provider) resolveContext(name string, rawContext *Context) *config.ContextConfig {
+func (fp *FileConfigProvider) resolveContext(name string, rawContext *Context) *config.ContextConfig {
 	resolved := &config.ContextConfig{
 		Name:    name,
 		Account: rawContext.Account,
@@ -222,7 +222,7 @@ func (fp *Provider) resolveContext(name string, rawContext *Context) *config.Con
 }
 
 // resolveStacks resolves all stacks for the given context
-func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error) {
+func (fp *FileConfigProvider) resolveStacks(context string) ([]*config.StackConfig, error) {
 	resolved := make([]*config.StackConfig, 0, len(fp.rawConfig.Stacks))
 
 	for _, rawStack := range fp.rawConfig.Stacks {
@@ -237,7 +237,7 @@ func (fp *Provider) resolveStacks(context string) ([]*config.StackConfig, error)
 }
 
 // resolveStack resolves a single stack configuration for the given context
-func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.StackConfig, error) {
+func (fp *FileConfigProvider) resolveStack(rawStack *Stack, context string) (*config.StackConfig, error) {
 	resolved := &config.StackConfig{
 		Name:         rawStack.Name,
 		Template:     fp.resolveTemplateURI(rawStack.Template),
@@ -284,7 +284,7 @@ func (fp *Provider) resolveStack(rawStack *Stack, context string) (*config.Stack
 }
 
 // resolveTemplatePath resolves template path relative to global template directory or config file directory
-func (fp *Provider) resolveTemplatePath(templatePath string) string {
+func (fp *FileConfigProvider) resolveTemplatePath(templatePath string) string {
 	if filepath.IsAbs(templatePath) {
 		return templatePath
 	}
@@ -305,14 +305,14 @@ func (fp *Provider) resolveTemplatePath(templatePath string) string {
 }
 
 // resolveTemplateURI resolves template path to file:// URI relative to global template directory or config file directory
-func (fp *Provider) resolveTemplateURI(templatePath string) string {
+func (fp *FileConfigProvider) resolveTemplateURI(templatePath string) string {
 	resolvedPath := fp.resolveTemplatePath(templatePath)
 	return "file://" + resolvedPath
 }
 
 // Helper methods for copying maps and slices to avoid shared references
 
-func (fp *Provider) copyStringMap(source map[string]string) map[string]string {
+func (fp *FileConfigProvider) copyStringMap(source map[string]string) map[string]string {
 	if source == nil {
 		return nil
 	}
@@ -324,7 +324,7 @@ func (fp *Provider) copyStringMap(source map[string]string) map[string]string {
 	return copy
 }
 
-func (fp *Provider) copyStringSlice(source []string) []string {
+func (fp *FileConfigProvider) copyStringSlice(source []string) []string {
 	if source == nil {
 		return nil
 	}

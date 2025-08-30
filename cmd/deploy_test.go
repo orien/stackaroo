@@ -5,17 +5,14 @@ SPDX-License-Identifier: BSD-3-Clause
 package cmd
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/orien/stackaroo/internal/config/file"
 	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -90,7 +87,7 @@ contexts:
 stacks:
   - name: vpc
     template: templates/vpc.yaml
-  - name: app 
+  - name: app
     template: templates/app.yaml
 `
 	tmpDir := t.TempDir()
@@ -602,92 +599,6 @@ stacks:
 
 	// Verify the requested stack was deployed
 	mockDeployer.AssertExpectations(t)
-}
-
-func TestDebugResolver(t *testing.T) {
-	// Debug test to see what resolver actually returns
-	configContent := `
-project: test-project
-region: us-east-1
-
-contexts:
-  test:
-    account: "123456789012"
-    region: us-east-1
-
-stacks:
-  - name: vpc
-    template: templates/vpc.yaml
-
-  - name: database
-    template: templates/db.yaml
-    depends_on: [vpc]
-
-  - name: app
-    template: templates/app.yaml
-    depends_on: [database]
-`
-
-	// Create temporary config and template files
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "stackaroo.yaml")
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
-	require.NoError(t, err)
-
-	templatesDir := filepath.Join(tmpDir, "templates")
-	err = os.MkdirAll(templatesDir, 0755)
-	require.NoError(t, err)
-
-	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {}}`
-	for _, name := range []string{"vpc.yaml", "db.yaml", "app.yaml"} {
-		err = os.WriteFile(filepath.Join(templatesDir, name), []byte(templateContent), 0644)
-		require.NoError(t, err)
-	}
-
-	// Change to temp directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	err = os.Chdir(tmpDir)
-	require.NoError(t, err)
-	defer func() {
-		err := os.Chdir(oldWd)
-		require.NoError(t, err)
-	}()
-
-	// Test configuration provider directly first
-	provider := file.NewProvider("stackaroo.yaml")
-
-	// Debug: Check if config loads correctly
-	config, err := provider.LoadConfig(context.Background(), "test")
-	assert.NoError(t, err, "config should load")
-	if config != nil {
-		t.Logf("Config loaded successfully")
-		t.Logf("Number of stacks in config: %d", len(config.Stacks))
-		for _, stack := range config.Stacks {
-			t.Logf("Config stack: %s, deps: %v", stack.Name, stack.Dependencies)
-		}
-	}
-
-	// Debug: Check individual stack lookup
-	appStack, err := provider.GetStack("app", "test")
-	assert.NoError(t, err, "should find app stack")
-	if appStack != nil {
-		t.Logf("App stack dependencies: %v", appStack.Dependencies)
-	}
-
-	// Test resolver
-	resolver := resolve.NewStackResolver(provider)
-
-	resolved, err := resolver.ResolveStacks(context.Background(), "test", []string{"app"})
-	assert.NoError(t, err, "resolver should work")
-
-	if resolved != nil {
-		t.Logf("Resolved stacks count: %d", len(resolved.Stacks))
-		t.Logf("Deployment order: %v", resolved.DeploymentOrder)
-		for _, stack := range resolved.Stacks {
-			t.Logf("Resolved stack: %s, deps: %v", stack.Name, stack.Dependencies)
-		}
-	}
 }
 
 // Helper function to find a command by name
