@@ -198,26 +198,67 @@ make commit-check # Full validation
 
 **🚨 MANDATORY WORKFLOW - NO EXCEPTIONS 🚨**
 
-### Step 1: Prepare Changes Summary
+### KEY PRINCIPLE: Implementation ≠ Commit Approval
+
+**CRITICAL UNDERSTANDING:** Making code changes is COMPLETELY SEPARATE from committing them.
+
+- ✅ **User asks for changes** → I implement immediately 
+- ❌ **Any git operation** → I MUST get explicit approval first
+
+**This applies to ALL changes:**
+- Source code modifications
+- Documentation updates  
+- Configuration changes
+- Test updates
+- ANY file changes
+
+### Implementation vs. Git Operations Distinction
+
+**CRITICAL:** There are two distinct phases that require different handling:
+
+#### ✅ Implementation Requests (Proceed Directly)
+User requests like:
+- "Change X to Y"
+- "Update the README" 
+- "Fix the bug in file.go"
+- "Add parameter support"
+
+**Action:** Make the requested code changes immediately.
+
+#### ❌ Git Operations (ALWAYS Require Explicit Approval)
+**ANY** git command including:
+- `git add`
+- `git commit`
+- `git commit --amend` 
+- `git rebase`
+
+**🚨🚨🚨 NO GIT COMMANDS WITHOUT EXPLICIT APPROVAL 🚨🚨🚨**
+
+### Step 1: Implement Changes (When Requested)
+Make the requested code changes, but **DO NOT** execute any git commands.
+
+### Step 2: Prepare Changes Summary
 Present all modifications with:
 - File paths and detailed explanations
 - Breaking changes and dependency impacts  
 - Test results (`go test ./...`, `make lint`, `go build`)
 - Performance or security implications
 
-### Step 2: Request Approval
-**STOP HERE** - Present changes and ask:
+### Step 3: Request Approval
+**🛑 MANDATORY STOP - NO GIT COMMANDS UNTIL APPROVAL 🛑**
+
+Present changes and ask:
 > **"Do you approve these changes for commit?"**
 
-### Step 3: Wait for Explicit Approval  
-**🛑 DO NOT PROCEED WITHOUT EXPLICIT APPROVAL 🛑**
+### Step 4: Wait for Explicit Approval  
+**🛑 DO NOT EXECUTE ANY GIT COMMANDS WITHOUT EXPLICIT APPROVAL 🛑**
 
 Required approval responses:
 - ✅ "Yes, proceed" / "Approved" / "Go ahead" 
 - ✅ "proceed" / "commit these changes"
 - ❌ Any other response means DO NOT COMMIT
 
-### Step 4: Execute Git Commands (Only After Approval)
+### Step 5: Execute Git Commands (Only After Approval)
 ```bash
 git add [files]
 git commit -m "[message]"
@@ -225,8 +266,28 @@ git commit -m "[message]"
 git commit --amend
 ```
 
-### Step 5: Human Pushes to Remote
+### Step 6: Human Pushes to Remote
 Never execute `git push` - this remains human responsibility.
+
+---
+
+### Common Mistakes to Avoid
+
+❌ **WRONG:** "Please change X" → Implement change → Automatically commit  
+✅ **RIGHT:** "Please change X" → Implement change → Ask for commit approval
+
+❌ **WRONG:** User says "update the README" → Make changes → `git commit`  
+✅ **RIGHT:** User says "update the README" → Make changes → Present summary → Request approval → Wait → Commit only after approval
+
+❌ **WRONG:** Assuming implementation request = commit approval  
+✅ **RIGHT:** Implementation and git operations are separate phases
+
+**BEFORE EVERY `git` COMMAND:**
+1. ⏹️  **Stop**
+2. 📋 **Present changes summary**  
+3. ❓ **Ask: "Do you approve these changes for commit?"**
+4. ⏳ **Wait for explicit approval**
+5. ✅ **Only then execute git commands**
 
 ---
 
