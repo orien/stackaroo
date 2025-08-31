@@ -80,7 +80,7 @@ stacks:
 	assert.Equal(t, "vpc", stack.Name)
 	assert.True(t, strings.HasPrefix(stack.Template, "file://"), "template should be a file:// URI")
 	assert.True(t, strings.HasSuffix(stack.Template, "templates/vpc.yaml"), "template should end with templates/vpc.yaml")
-	assert.Equal(t, "10.1.0.0/16", stack.Parameters["VpcCidr"]) // Context-specific parameter
+	assert.Equal(t, "10.1.0.0/16", stack.Parameters["VpcCidr"].ResolutionConfig["value"]) // Context-specific parameter
 }
 
 func TestFileProvider_ListContexts_ReturnsAvailableContexts(t *testing.T) {
@@ -147,8 +147,8 @@ stacks:
 	require.NoError(t, err)
 	require.NotNil(t, devStack)
 	assert.Equal(t, "database", devStack.Name)
-	assert.Equal(t, "db.t3.micro", devStack.Parameters["DBInstanceClass"])
-	assert.Equal(t, "false", devStack.Parameters["MultiAZ"]) // Boolean as string in YAML
+	assert.Equal(t, "db.t3.micro", devStack.Parameters["DBInstanceClass"].ResolutionConfig["value"])
+	assert.Equal(t, "false", devStack.Parameters["MultiAZ"].ResolutionConfig["value"]) // Boolean as string in YAML
 	assert.Equal(t, "database", devStack.Tags["Component"])
 
 	// Test prod context (uses overrides)
@@ -156,9 +156,9 @@ stacks:
 	require.NoError(t, err)
 	require.NotNil(t, prodStack)
 	assert.Equal(t, "database", prodStack.Name)
-	assert.Equal(t, "db.t3.small", prodStack.Parameters["DBInstanceClass"]) // Overridden
-	assert.Equal(t, "true", prodStack.Parameters["MultiAZ"])                // Overridden
-	assert.Equal(t, "production-database", prodStack.Tags["Component"])     // Overridden
+	assert.Equal(t, "db.t3.small", prodStack.Parameters["DBInstanceClass"].ResolutionConfig["value"]) // Overridden
+	assert.Equal(t, "true", prodStack.Parameters["MultiAZ"].ResolutionConfig["value"])                // Overridden
+	assert.Equal(t, "production-database", prodStack.Tags["Component"])                               // Overridden
 }
 
 func TestFileProvider_Validate_DetectsInvalidConfiguration(t *testing.T) {

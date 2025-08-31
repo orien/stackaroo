@@ -6,20 +6,40 @@ package resolve
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	"github.com/orien/stackaroo/internal/config"
 	"github.com/stretchr/testify/assert"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 )
+
+// Helper function to convert string maps to ParameterValue maps for tests
+func convertStringMapToParameterValues(stringMap map[string]string) map[string]*config.ParameterValue {
+	if stringMap == nil {
+		return nil
+	}
+	result := make(map[string]*config.ParameterValue, len(stringMap))
+	for key, value := range stringMap {
+		result[key] = &config.ParameterValue{
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": value,
+			},
+		}
+	}
+	return result
+}
 
 func TestNewStackResolver(t *testing.T) {
 	// Test that we can create a new stack resolver
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	assert.NotNil(t, stackResolver, "stack resolver should not be nil")
@@ -32,6 +52,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	// Set up mocks
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
 
 	// Mock data
 	cfg := &config.Config{
@@ -44,9 +65,9 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	stackConfig := &config.StackConfig{
 		Name:     "vpc",
 		Template: "templates/vpc.yaml",
-		Parameters: map[string]string{
+		Parameters: convertStringMapToParameterValues(map[string]string{
 			"VpcCidr": "10.0.0.0/16",
-		},
+		}),
 		Tags: map[string]string{
 			"Stack": "vpc",
 		},
@@ -69,7 +90,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/vpc.yaml").Return(templateContent, nil)
 
 	// Create stack resolver
-	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Execute
@@ -91,17 +112,278 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
+func TestStackResolver_ResolveParameters_LiteralValues(t *testing.T) {
+	// Test resolution of literal parameter values
+	ctx := context.Background()
+
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	// Test literal parameters only
+	params := map[string]*config.ParameterValue{
+		"Environment": {
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": "production",
+			},
+		},
+		"InstanceType": {
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": "t3.medium",
+			},
+		},
+	}
+
+	resolved, err := resolver.resolveParameters(ctx, params, "prod")
+
+	require.NoError(t, err)
+	assert.Len(t, resolved, 2)
+	assert.Equal(t, "production", resolved["Environment"])
+	assert.Equal(t, "t3.medium", resolved["InstanceType"])
+}
+
+func TestStackResolver_ResolveParameters_StackOutputs(t *testing.T) {
+	// Test resolution of stack output parameters
+	ctx := context.Background()
+
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	// Mock CloudFormation stack with outputs
+	mockStack := &aws.Stack{
+		Name: "vpc-stack",
+		Outputs: map[string]string{
+			"VpcId":    "vpc-12345",
+			"SubnetId": "subnet-67890",
+		},
+	}
+
+	mockCfnOperations.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
+
+	// Test stack output parameters
+	params := map[string]*config.ParameterValue{
+		"VpcId": {
+			ResolutionType: "stack-output",
+			ResolutionConfig: map[string]string{
+				"stack_name": "vpc-stack",
+				"output_key": "VpcId",
+			},
+		},
+		"SubnetId": {
+			ResolutionType: "stack-output",
+			ResolutionConfig: map[string]string{
+				"stack_name": "vpc-stack",
+				"output_key": "SubnetId",
+			},
+		},
+	}
+
+	resolved, err := resolver.resolveParameters(ctx, params, "prod")
+
+	require.NoError(t, err)
+	assert.Len(t, resolved, 2)
+	assert.Equal(t, "vpc-12345", resolved["VpcId"])
+	assert.Equal(t, "subnet-67890", resolved["SubnetId"])
+
+	mockCfnOperations.AssertExpectations(t)
+}
+
+func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
+	// Test resolution of mixed literal and output parameters
+	ctx := context.Background()
+
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	// Mock CloudFormation stack
+	mockStack := &aws.Stack{
+		Name: "networking",
+		Outputs: map[string]string{
+			"VpcId": "vpc-abcdef",
+		},
+	}
+
+	mockCfnOperations.On("GetStack", ctx, "networking").Return(mockStack, nil)
+
+	// Test mixed parameter types
+	params := map[string]*config.ParameterValue{
+		"Environment": {
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": "staging",
+			},
+		},
+		"VpcId": {
+			ResolutionType: "stack-output",
+			ResolutionConfig: map[string]string{
+				"stack_name": "networking",
+				"output_key": "VpcId",
+			},
+		},
+	}
+
+	resolved, err := resolver.resolveParameters(ctx, params, "staging")
+
+	require.NoError(t, err)
+	assert.Len(t, resolved, 2)
+	assert.Equal(t, "staging", resolved["Environment"])
+	assert.Equal(t, "vpc-abcdef", resolved["VpcId"])
+
+	mockCfnOperations.AssertExpectations(t)
+}
+
+func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("unsupported resolution type", func(t *testing.T) {
+		mockConfigProvider := &config.MockConfigProvider{}
+		mockCfnOperations := &aws.MockCloudFormationOperations{}
+		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+		params := map[string]*config.ParameterValue{
+			"BadParam": {
+				ResolutionType: "unsupported",
+				ResolutionConfig: map[string]string{
+					"something": "value",
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(ctx, params, "dev")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported parameter resolution type 'unsupported'")
+	})
+
+	t.Run("literal missing value", func(t *testing.T) {
+		mockConfigProvider := &config.MockConfigProvider{}
+		mockCfnOperations := &aws.MockCloudFormationOperations{}
+		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+		params := map[string]*config.ParameterValue{
+			"BadLiteral": {
+				ResolutionType:   "literal",
+				ResolutionConfig: map[string]string{
+					// Missing "value" key
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(ctx, params, "dev")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "parameter 'BadLiteral' is literal but missing 'value' config")
+	})
+
+	t.Run("stack not found", func(t *testing.T) {
+		mockConfigProvider := &config.MockConfigProvider{}
+		mockCfnOperations := &aws.MockCloudFormationOperations{}
+		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+		mockCfnOperations.On("GetStack", ctx, "missing-stack").Return(nil, fmt.Errorf("stack not found"))
+
+		params := map[string]*config.ParameterValue{
+			"VpcId": {
+				ResolutionType: "stack-output",
+				ResolutionConfig: map[string]string{
+					"stack_name": "missing-stack",
+					"output_key": "VpcId",
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(ctx, params, "dev")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to resolve stack output parameter 'VpcId'")
+		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
+
+		mockCfnOperations.AssertExpectations(t)
+	})
+
+	t.Run("output key not found", func(t *testing.T) {
+		mockConfigProvider := &config.MockConfigProvider{}
+		mockCfnOperations := &aws.MockCloudFormationOperations{}
+		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+		mockStack := &aws.Stack{
+			Name: "vpc-stack",
+			Outputs: map[string]string{
+				"VpcId": "vpc-12345",
+				// Missing "MissingOutput"
+			},
+		}
+
+		mockCfnOperations.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
+
+		params := map[string]*config.ParameterValue{
+			"BadOutput": {
+				ResolutionType: "stack-output",
+				ResolutionConfig: map[string]string{
+					"stack_name": "vpc-stack",
+					"output_key": "MissingOutput",
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(ctx, params, "dev")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to resolve stack output parameter 'BadOutput'")
+		assert.Contains(t, err.Error(), "stack 'vpc-stack' does not have output 'MissingOutput'")
+
+		mockCfnOperations.AssertExpectations(t)
+	})
+}
+
+func TestStackResolver_ResolveStackOutput_MissingConfig(t *testing.T) {
+	ctx := context.Background()
+
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	t.Run("missing stack_name", func(t *testing.T) {
+		outputConfig := map[string]string{
+			"output_key": "VpcId",
+			// Missing stack_name
+		}
+
+		_, err := resolver.resolveStackOutput(ctx, outputConfig, "us-west-2")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "stack output resolver missing required 'stack_name'")
+	})
+
+	t.Run("missing output_key", func(t *testing.T) {
+		outputConfig := map[string]string{
+			"stack_name": "vpc-stack",
+			// Missing output_key
+		}
+
+		_, err := resolver.resolveStackOutput(ctx, outputConfig, "us-west-2")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "stack output resolver missing required 'output_key'")
+	})
+}
+
 func TestStackResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 	// Test error handling when config loading fails
 	ctx := context.Background()
 
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
 
 	// Set expectation for config load failure
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(nil, assert.AnError)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
@@ -126,7 +408,8 @@ func TestStackResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "nonexistent")
@@ -156,7 +439,8 @@ func TestStackResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/missing.yaml").Return("", assert.AnError)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
@@ -197,7 +481,8 @@ func TestStackResolver_Resolve_MultipleStacks(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/vpc.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{"vpc", "app"})
@@ -242,7 +527,8 @@ func TestStackResolver_Resolve_CircularDependency(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/a.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/b.yaml").Return("{}", nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{"stack-a", "stack-b"})
@@ -262,7 +548,8 @@ func TestStackResolver_Resolve_EmptyStackList(t *testing.T) {
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStacks(ctx, "dev", []string{})
@@ -321,7 +608,8 @@ func TestStackResolver_Resolve_ComplexDependencyChain(t *testing.T) {
 	mockFileSystemResolver.On("Resolve", "templates/database.yaml").Return("{}", nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Request stacks in random order
@@ -358,9 +646,9 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	stackConfig := &config.StackConfig{
 		Name:     "web",
 		Template: "templates/web.yaml",
-		Parameters: map[string]string{
+		Parameters: convertStringMapToParameterValues(map[string]string{
 			"InstanceType": "t3.medium",
-		},
+		}),
 		Tags: map[string]string{
 			"Component": "web-server",
 			"Project":   "overridden-project", // Should override global
@@ -371,7 +659,8 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockConfigProvider.On("GetStack", "web", "staging").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/web.yaml").Return("{}", nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "staging", "web")
@@ -411,7 +700,8 @@ func TestStackResolver_Resolve_MissingDependency(t *testing.T) {
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/app.yaml").Return("{}", nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider)
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	// Only resolve app, not its dependency

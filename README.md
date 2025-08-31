@@ -12,7 +12,11 @@ Stackaroo simplifies CloudFormation stack management by providing:
 - **Stack Information**: View comprehensive details about deployed CloudFormation stacks
 - **Template Validation**: Validate CloudFormation templates before deployment
 - **Stack Lifecycle**: Deploy, update, delete, and monitor stack status
-- **Parameter Management**: Organize parameters by context and stack
+- **Parameter Management**: Comprehensive parameter system supporting both literal values and dynamic stack output resolution
+  - **Literal Parameters**: Direct string values for configuration
+  - **Stack Output Parameters**: Pull values from existing CloudFormation stack outputs
+  - **Cross-Region Support**: Reference outputs from stacks in different AWS regions
+  - **Context Overrides**: Different parameter values per deployment context
 
 ## Features
 
@@ -50,6 +54,63 @@ Stackaroo simplifies CloudFormation stack management by providing:
 - Local CloudFormation template validation
 - Parameter validation against template requirements
 - Circular dependency detection
+
+### Parameter System
+
+Stackaroo provides a comprehensive parameter system supporting multiple resolution types:
+
+#### Literal Parameters
+Direct string values defined in configuration:
+```yaml
+parameters:
+  Environment: production
+  InstanceType: t3.medium
+  Port: "8080"
+```
+
+#### Stack Output Parameters
+Pull values dynamically from existing CloudFormation stack outputs:
+```yaml
+parameters:
+  VpcId:
+    type: stack-output
+    stack_name: networking
+    output_key: VpcId
+  
+  DatabaseEndpoint:
+    type: stack-output
+    stack_name: database
+    output_key: DatabaseEndpoint
+```
+
+#### Cross-Region Stack Outputs
+Reference outputs from stacks in different AWS regions:
+```yaml
+parameters:
+  SharedBucketArn:
+    type: stack-output
+    stack_name: shared-resources
+    output_key: BucketArn
+    region: us-east-1
+```
+
+#### Context Overrides
+Different parameter values per deployment context:
+```yaml
+parameters:
+  InstanceType: t3.micro    # Default value
+contexts:
+  production:
+    parameters:
+      InstanceType: t3.large  # Production override
+```
+
+**Benefits:**
+- **Automatic Resolution**: Stack outputs resolved at deployment time
+- **Cross-Stack Dependencies**: Reference outputs from other stacks seamlessly
+- **Environment Flexibility**: Different values per context without template changes
+- **Type Safety**: Comprehensive validation and error handling
+- **Backwards Compatible**: Existing literal parameter configurations work unchanged
 
 ### Real-time Event Streaming
 
@@ -123,8 +184,48 @@ contexts:
 stacks:
   - name: vpc
     template: templates/vpc.yaml
+    parameters:
+      # Literal parameters
+      Environment: development
+      VpcCidr: "10.0.0.0/16"
+      EnableDnsSupport: "true"
+    contexts:
+      production:
+        parameters:
+          Environment: production
+          VpcCidr: "172.16.0.0/16"
+
   - name: app
     template: templates/app.yaml
+    parameters:
+      # Literal parameters
+      InstanceType: t3.micro
+      MinCapacity: "1"
+      MaxCapacity: "3"
+
+      # Stack output parameters (pull from existing stacks)
+      VpcId:
+        type: stack-output
+        stack_name: vpc
+        output_key: VpcId
+      
+      PrivateSubnetId:
+        type: stack-output
+        stack_name: vpc
+        output_key: PrivateSubnet1Id
+        
+      # Cross-region stack output (optional region parameter)
+      SharedBucketArn:
+        type: stack-output
+        stack_name: shared-resources
+        output_key: BucketArn
+        region: us-east-1
+    contexts:
+      production:
+        parameters:
+          InstanceType: t3.small
+          MinCapacity: "2"
+          MaxCapacity: "10"
     depends_on:
       - vpc
 ```

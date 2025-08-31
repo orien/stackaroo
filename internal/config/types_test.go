@@ -14,6 +14,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Helper function to convert string maps to ParameterValue maps for tests
+func convertStringMapToParameterValues(stringMap map[string]string) map[string]*ParameterValue {
+	if stringMap == nil {
+		return nil
+	}
+	result := make(map[string]*ParameterValue, len(stringMap))
+	for key, value := range stringMap {
+		result[key] = &ParameterValue{
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": value,
+			},
+		}
+	}
+	return result
+}
+
 func TestConfig_DefaultValues(t *testing.T) {
 	// Test default zero values
 	config := Config{}
@@ -67,9 +84,9 @@ func TestConfig_JSONMarshaling(t *testing.T) {
 			{
 				Name:     "test-stack",
 				Template: "file://test.yaml",
-				Parameters: map[string]string{
+				Parameters: convertStringMapToParameterValues(map[string]string{
 					"Param1": "value1",
-				},
+				}),
 			},
 		},
 	}
@@ -163,10 +180,10 @@ func TestStackConfig_DefaultValues(t *testing.T) {
 
 func TestStackConfig_FieldAssignment(t *testing.T) {
 	// Test that StackConfig fields can be set and retrieved
-	parameters := map[string]string{
+	parameters := convertStringMapToParameterValues(map[string]string{
 		"InstanceType": "t3.medium",
 		"KeyName":      "my-key",
-	}
+	})
 	tags := map[string]string{
 		"Component": "application",
 		"Layer":     "compute",
@@ -196,10 +213,10 @@ func TestStackConfig_JSONMarshaling(t *testing.T) {
 	stack := StackConfig{
 		Name:     "database",
 		Template: "git://github.com/org/repo.git//templates/rds.yaml",
-		Parameters: map[string]string{
+		Parameters: convertStringMapToParameterValues(map[string]string{
 			"DBInstanceClass": "db.t3.micro",
 			"Engine":          "postgres",
-		},
+		}),
 		Tags: map[string]string{
 			"Component": "database",
 			"Backup":    "enabled",
@@ -477,12 +494,12 @@ func TestConfig_CompleteStructure(t *testing.T) {
 			{
 				Name:     "infrastructure",
 				Template: "file://./templates/infra.yaml",
-				Parameters: map[string]string{
+				Parameters: convertStringMapToParameterValues(map[string]string{
 					"Environment":  "integration",
 					"InstanceType": "t3.small",
 					"MinSize":      "1",
 					"MaxSize":      "3",
-				},
+				}),
 				Tags: map[string]string{
 					"Component": "infrastructure",
 					"Layer":     "foundation",
@@ -493,11 +510,11 @@ func TestConfig_CompleteStructure(t *testing.T) {
 			{
 				Name:     "application",
 				Template: "s3://templates-bucket/app-template.yaml",
-				Parameters: map[string]string{
+				Parameters: convertStringMapToParameterValues(map[string]string{
 					"ImageTag":      "latest",
 					"DesiredCount":  "2",
 					"ContainerPort": "8080",
-				},
+				}),
 				Tags: map[string]string{
 					"Component": "application",
 					"Layer":     "service",

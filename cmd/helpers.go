@@ -16,7 +16,8 @@ import (
 // createResolver creates a configuration provider and resolver
 func createResolver(configFile string) (*file.FileConfigProvider, *resolve.StackResolver) {
 	provider := file.NewFileConfigProvider(configFile)
-	resolver := resolve.NewStackResolver(provider)
+	cfnOps := getCloudFormationOperations()
+	resolver := resolve.NewStackResolver(provider, cfnOps)
 	return provider, resolver
 }
 

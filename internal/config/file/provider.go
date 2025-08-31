@@ -233,10 +233,16 @@ func (fp *FileConfigProvider) resolveStacks(context string) ([]*config.StackConf
 
 // resolveStack resolves a single stack configuration for the given context
 func (fp *FileConfigProvider) resolveStack(rawStack *Stack, context string) (*config.StackConfig, error) {
+	// Convert parameters to string map (only literal values supported)
+	parameters, err := fp.convertParameters(rawStack.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert parameters for stack '%s': %w", rawStack.Name, err)
+	}
+
 	resolved := &config.StackConfig{
 		Name:         rawStack.Name,
 		Template:     fp.resolveTemplateURI(rawStack.Template),
-		Parameters:   fp.copyStringMap(rawStack.Parameters),
+		Parameters:   parameters,
 		Tags:         fp.copyStringMap(rawStack.Tags),
 		Dependencies: fp.copyStringSlice(rawStack.Dependencies),
 		Capabilities: fp.copyStringSlice(rawStack.Capabilities),
@@ -246,10 +252,15 @@ func (fp *FileConfigProvider) resolveStack(rawStack *Stack, context string) (*co
 	if contextOverride, exists := rawStack.Contexts[context]; exists {
 		// Merge parameters (context overrides take precedence)
 		if contextOverride.Parameters != nil {
-			if resolved.Parameters == nil {
-				resolved.Parameters = make(map[string]string)
+			contextParams, err := fp.convertParameters(contextOverride.Parameters)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert context parameters for stack '%s': %w", rawStack.Name, err)
 			}
-			for k, v := range contextOverride.Parameters {
+
+			if resolved.Parameters == nil {
+				resolved.Parameters = make(map[string]*config.ParameterValue)
+			}
+			for k, v := range contextParams {
 				resolved.Parameters[k] = v
 			}
 		}
@@ -312,11 +323,36 @@ func (fp *FileConfigProvider) copyStringMap(source map[string]string) map[string
 		return nil
 	}
 
-	copy := make(map[string]string, len(source))
+	result := make(map[string]string, len(source))
 	for k, v := range source {
-		copy[k] = v
+		result[k] = v
 	}
-	return copy
+	return result
+}
+
+// convertParameters converts yamlParameterValue map to config.ParameterValue map
+func (fp *FileConfigProvider) convertParameters(params map[string]*yamlParameterValue) (map[string]*config.ParameterValue, error) {
+	if params == nil {
+		return nil, nil
+	}
+
+	result := make(map[string]*config.ParameterValue, len(params))
+
+	for key, paramValue := range params {
+		if paramValue == nil {
+			continue
+		}
+
+		// Convert YAML parameter to generic config parameter
+		configParam := paramValue.ToConfigParameterValue()
+		if configParam == nil {
+			return nil, fmt.Errorf("failed to convert parameter '%s' to config parameter value", key)
+		}
+
+		result[key] = configParam
+	}
+
+	return result, nil
 }
 
 func (fp *FileConfigProvider) copyStringSlice(source []string) []string {

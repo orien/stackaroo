@@ -7,6 +7,13 @@ SPDX-License-Identifier: BSD-3-Clause
 // These types represent the raw YAML structure before context resolution and inheritance.
 package file
 
+import (
+	"fmt"
+
+	"github.com/orien/stackaroo/internal/config"
+	"gopkg.in/yaml.v3"
+)
+
 // Config represents the raw YAML configuration file structure
 // Used for parsing the stackaroo.yaml file before context resolution
 type Config struct {
@@ -32,19 +39,132 @@ type Context struct {
 
 // Stack represents stack configuration as it appears in YAML before context resolution
 type Stack struct {
-	Name         string                      `yaml:"name"`
-	Template     string                      `yaml:"template"`
-	Parameters   map[string]string           `yaml:"parameters"`
-	Tags         map[string]string           `yaml:"tags"`
-	Dependencies []string                    `yaml:"depends_on"`
-	Capabilities []string                    `yaml:"capabilities"`
-	Contexts     map[string]*ContextOverride `yaml:"contexts"`
+	Name         string                         `yaml:"name"`
+	Template     string                         `yaml:"template"`
+	Parameters   map[string]*yamlParameterValue `yaml:"parameters"`
+	Tags         map[string]string              `yaml:"tags"`
+	Dependencies []string                       `yaml:"depends_on"`
+	Capabilities []string                       `yaml:"capabilities"`
+	Contexts     map[string]*ContextOverride    `yaml:"contexts"`
 }
 
 // ContextOverride represents context-specific overrides for a stack
 type ContextOverride struct {
-	Parameters   map[string]string `yaml:"parameters"`
-	Tags         map[string]string `yaml:"tags"`
-	Dependencies []string          `yaml:"depends_on"`
-	Capabilities []string          `yaml:"capabilities"`
+	Parameters   map[string]*yamlParameterValue `yaml:"parameters"`
+	Tags         map[string]string              `yaml:"tags"`
+	Dependencies []string                       `yaml:"depends_on"`
+	Capabilities []string                       `yaml:"capabilities"`
+}
+
+// yamlParameterValue represents either a literal value or a complex resolution object (YAML-specific)
+type yamlParameterValue struct {
+	// For literal values
+	Literal        string
+	IsLiteralValue bool // Tracks if this is a literal (needed for empty string literals)
+
+	// For complex resolution
+	Resolver *yamlParameterResolver
+}
+
+// yamlParameterResolver defines how to resolve a parameter dynamically (YAML-specific)
+type yamlParameterResolver struct {
+	Type   string                 `yaml:"type"`    // "literal", "output"
+	Config map[string]interface{} `yaml:",inline"` // Type-specific configuration
+}
+
+// StackOutputConfig represents configuration for resolving stack output values
+type StackOutputConfig struct {
+	StackName string `yaml:"stack_name"`
+	OutputKey string `yaml:"output_key"`
+	Region    string `yaml:"region,omitempty"` // Optional, defaults to current region
+}
+
+// UnmarshalYAML implements custom YAML unmarshalling for yamlParameterValue
+func (pv *yamlParameterValue) UnmarshalYAML(node *yaml.Node) error {
+	// Handle literal string values
+	if node.Kind == yaml.ScalarNode {
+		pv.Literal = node.Value
+		pv.IsLiteralValue = true
+		return nil
+	}
+
+	// Handle complex objects
+	if node.Kind == yaml.MappingNode {
+		pv.Resolver = &yamlParameterResolver{}
+		return node.Decode(pv.Resolver)
+	}
+
+	return fmt.Errorf("parameter value must be either a string literal or object")
+}
+
+// MarshalYAML implements custom YAML marshalling for yamlParameterValue
+func (pv *yamlParameterValue) MarshalYAML() (interface{}, error) {
+	if pv.IsLiteralValue {
+		return pv.Literal, nil
+	}
+
+	if pv.Resolver != nil {
+		return pv.Resolver, nil
+	}
+
+	return nil, fmt.Errorf("parameter value has neither literal nor resolver")
+}
+
+// ToConfigParameterValue converts YAML parameter value to generic config parameter value
+func (pv *yamlParameterValue) ToConfigParameterValue() *config.ParameterValue {
+	if pv.IsLiteralValue {
+		return &config.ParameterValue{
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": pv.Literal,
+			},
+		}
+	}
+
+	if pv.Resolver != nil {
+		// Convert interface{} values to strings
+		stringConfig := make(map[string]string)
+		for key, value := range pv.Resolver.Config {
+			if strValue, ok := value.(string); ok {
+				stringConfig[key] = strValue
+			} else {
+				stringConfig[key] = fmt.Sprintf("%v", value)
+			}
+		}
+
+		return &config.ParameterValue{
+			ResolutionType:   pv.Resolver.Type,
+			ResolutionConfig: stringConfig,
+		}
+	}
+
+	return nil
+}
+
+// IsLiteral returns true if this parameter value is a literal string
+func (pv *yamlParameterValue) IsLiteral() bool {
+	return pv.IsLiteralValue
+}
+
+// IsResolver returns true if this parameter value uses a resolver
+func (pv *yamlParameterValue) IsResolver() bool {
+	return pv.Resolver != nil
+}
+
+// ConvertStringMap converts a map[string]string to map[string]*config.ParameterValue for backwards compatibility
+func ConvertStringMap(stringMap map[string]string) map[string]*config.ParameterValue {
+	if stringMap == nil {
+		return nil
+	}
+
+	result := make(map[string]*config.ParameterValue, len(stringMap))
+	for key, value := range stringMap {
+		result[key] = &config.ParameterValue{
+			ResolutionType: "literal",
+			ResolutionConfig: map[string]string{
+				"value": value,
+			},
+		}
+	}
+	return result
 }

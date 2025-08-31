@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/model"
 )
@@ -17,13 +18,15 @@ import (
 type StackResolver struct {
 	configProvider     config.ConfigProvider
 	fileSystemResolver FileSystemResolver
+	cfnOperations      aws.CloudFormationOperations
 }
 
-// NewStackResolver creates a new stack resolver instance with the given config provider
-func NewStackResolver(configProvider config.ConfigProvider) *StackResolver {
+// NewStackResolver creates a new stack resolver instance with the given config provider and CloudFormation operations
+func NewStackResolver(configProvider config.ConfigProvider, cfnOperations aws.CloudFormationOperations) *StackResolver {
 	return &StackResolver{
 		configProvider:     configProvider,
 		fileSystemResolver: &DefaultFileSystemResolver{},
+		cfnOperations:      cfnOperations,
 	}
 }
 
@@ -52,8 +55,13 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 		return nil, fmt.Errorf("failed to read template: %w", err)
 	}
 
-	// Merge parameters and tags
-	parameters := r.mergeParameters(stackConfig.Parameters)
+	// Resolve parameters with new system
+	parameters, err := r.resolveParameters(ctx, stackConfig.Parameters, context)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve parameters for stack %s: %w", stackName, err)
+	}
+
+	// Merge tags
 	tags := r.mergeTags(cfg.Tags, stackConfig.Tags)
 
 	return &model.Stack{
@@ -93,14 +101,72 @@ func (r *StackResolver) ResolveStacks(ctx context.Context, context string, stack
 	}, nil
 }
 
-// mergeParameters merges parameters with inheritance
-func (r *StackResolver) mergeParameters(stackParams map[string]string) map[string]string {
-	// Simple implementation - just return stack parameters for now
-	result := make(map[string]string)
-	for k, v := range stackParams {
-		result[k] = v
+// resolveParameters resolves parameters from ParameterValue objects to final string values
+func (r *StackResolver) resolveParameters(ctx context.Context, params map[string]*config.ParameterValue, context string) (map[string]string, error) {
+	if params == nil {
+		return nil, nil
 	}
-	return result
+
+	result := make(map[string]string, len(params))
+
+	for key, paramValue := range params {
+		if paramValue == nil {
+			continue
+		}
+
+		switch paramValue.ResolutionType {
+		case "literal":
+			// Extract literal value
+			if value, exists := paramValue.ResolutionConfig["value"]; exists {
+				result[key] = value
+			} else {
+				return nil, fmt.Errorf("parameter '%s' is literal but missing 'value' config", key)
+			}
+
+		case "stack-output":
+			// Resolve stack output reference
+			resolvedValue, err := r.resolveStackOutput(ctx, paramValue.ResolutionConfig, context)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve stack output parameter '%s': %w", key, err)
+			}
+			result[key] = resolvedValue
+
+		default:
+			return nil, fmt.Errorf("unsupported parameter resolution type '%s' for parameter '%s'",
+				paramValue.ResolutionType, key)
+		}
+	}
+
+	return result, nil
+}
+
+// resolveStackOutput resolves a stack output reference to its actual value
+func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map[string]string, defaultRegion string) (string, error) {
+	stackName, exists := outputConfig["stack_name"]
+	if !exists {
+		return "", fmt.Errorf("stack output resolver missing required 'stack_name'")
+	}
+
+	outputKey, exists := outputConfig["output_key"]
+	if !exists {
+		return "", fmt.Errorf("stack output resolver missing required 'output_key'")
+	}
+
+	// TODO: Handle cross-region support using outputConfig["region"] if present
+	// For now, use the current region configured in CloudFormation operations
+
+	// Fetch stack information from CloudFormation
+	stack, err := r.cfnOperations.GetStack(ctx, stackName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get stack '%s': %w", stackName, err)
+	}
+
+	value, exists := stack.Outputs[outputKey]
+	if !exists {
+		return "", fmt.Errorf("stack '%s' does not have output '%s'", stackName, outputKey)
+	}
+
+	return value, nil
 }
 
 // mergeTags merges tags with inheritance

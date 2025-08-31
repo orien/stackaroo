@@ -8,6 +8,12 @@ import (
 	"context"
 )
 
+// ParameterValue represents a parameter with unified resolution model
+type ParameterValue struct {
+	ResolutionType   string            // "literal", "stack-output"
+	ResolutionConfig map[string]string // Resolution-specific configuration
+}
+
 // ConfigProvider defines the interface for loading and managing configuration
 // Based on ADR 0008 (Configuration abstraction) and ADR 0009 (Context abstraction)
 type ConfigProvider interface {
@@ -49,7 +55,7 @@ type ContextConfig struct {
 type StackConfig struct {
 	Name         string
 	Template     string // URI to template (file://, s3://, git://, etc.)
-	Parameters   map[string]string
+	Parameters   map[string]*ParameterValue
 	Tags         map[string]string
 	Dependencies []string
 	Capabilities []string
