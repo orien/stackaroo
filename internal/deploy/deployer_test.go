@@ -183,8 +183,8 @@ func TestDeploySingleStack_ResolverError(t *testing.T) {
 	mockProvider.AssertExpectations(t)
 }
 
-// TestDeployAllStacks_WithStacks tests successful deployment of multiple stacks
-func TestDeployAllStacks_WithStacks(t *testing.T) {
+// TestDeployAllStacks_ConfigLoadError tests error handling when config loading fails
+func TestDeployAllStacks_ConfigLoadError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock dependencies
@@ -199,16 +199,22 @@ func TestDeployAllStacks_WithStacks(t *testing.T) {
 	stackNames := []string{"stack1", "stack2"}
 	mockProvider.On("ListStacks", "test-context").Return(stackNames, nil)
 
+	// Mock GetStack calls for GetDependencyOrder
+	mockStackConfig1 := &config.StackConfig{Name: "stack1", Dependencies: []string{}}
+	mockStackConfig2 := &config.StackConfig{Name: "stack2", Dependencies: []string{}}
+	mockProvider.On("GetStack", "stack1", "test-context").Return(mockStackConfig1, nil)
+	mockProvider.On("GetStack", "stack2", "test-context").Return(mockStackConfig2, nil)
+
 	// Mock LoadConfig call that resolver will make - return error to test error handling
 	expectedError := errors.New("config resolution failed")
 	mockProvider.On("LoadConfig", ctx, "test-context").Return((*config.Config)(nil), expectedError)
 
-	// Test execution - will fail when resolver tries to resolve stacks
+	// Test execution - will fail when resolver tries to load config for individual stack resolution
 	err := deployer.DeployAllStacks(ctx, "test-context")
 
-	// Should fail during stack resolution, but we've tested the ListStacks path
+	// Should fail during config loading for individual stack resolution
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
+	assert.Contains(t, err.Error(), "failed to resolve stack")
 	assert.Contains(t, err.Error(), "config resolution failed")
 
 	mockProvider.AssertExpectations(t)

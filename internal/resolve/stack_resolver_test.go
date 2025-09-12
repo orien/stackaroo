@@ -718,3 +718,238 @@ func TestStackResolver_Resolve_MissingDependency(t *testing.T) {
 	mockConfigProvider.AssertExpectations(t)
 	mockFileSystemResolver.AssertExpectations(t)
 }
+
+func TestStackResolver_GetDependencyOrder_Success(t *testing.T) {
+	// Test successful dependency order calculation without full resolution
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	vpcConfig := &config.StackConfig{
+		Name:         "vpc",
+		Dependencies: []string{},
+	}
+
+	appConfig := &config.StackConfig{
+		Name:         "app",
+		Dependencies: []string{"vpc"},
+	}
+
+	mockConfigProvider.On("GetStack", "vpc", "dev").Return(vpcConfig, nil)
+	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"app", "vpc"})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"vpc", "app"}, order)
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_EmptyList(t *testing.T) {
+	// Test empty stack list
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{})
+
+	require.NoError(t, err)
+	assert.Empty(t, order)
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_NoDependencies(t *testing.T) {
+	// Test stacks with no dependencies
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	vpcConfig := &config.StackConfig{
+		Name:         "vpc",
+		Dependencies: []string{},
+	}
+
+	appConfig := &config.StackConfig{
+		Name:         "app",
+		Dependencies: []string{},
+	}
+
+	dbConfig := &config.StackConfig{
+		Name:         "database",
+		Dependencies: []string{},
+	}
+
+	mockConfigProvider.On("GetStack", "vpc", "dev").Return(vpcConfig, nil)
+	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
+	mockConfigProvider.On("GetStack", "database", "dev").Return(dbConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"database", "app", "vpc"})
+
+	require.NoError(t, err)
+	// Should be alphabetical since no dependencies
+	assert.Equal(t, []string{"app", "database", "vpc"}, order)
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_ComplexChain(t *testing.T) {
+	// Test complex dependency chain: vpc -> security -> database -> app
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	vpcConfig := &config.StackConfig{
+		Name:         "vpc",
+		Dependencies: []string{},
+	}
+
+	securityConfig := &config.StackConfig{
+		Name:         "security",
+		Dependencies: []string{"vpc"},
+	}
+
+	databaseConfig := &config.StackConfig{
+		Name:         "database",
+		Dependencies: []string{"security"},
+	}
+
+	appConfig := &config.StackConfig{
+		Name:         "app",
+		Dependencies: []string{"database"},
+	}
+
+	mockConfigProvider.On("GetStack", "vpc", "prod").Return(vpcConfig, nil)
+	mockConfigProvider.On("GetStack", "security", "prod").Return(securityConfig, nil)
+	mockConfigProvider.On("GetStack", "database", "prod").Return(databaseConfig, nil)
+	mockConfigProvider.On("GetStack", "app", "prod").Return(appConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	// Request stacks in random order
+	order, err := stackResolver.GetDependencyOrder("prod", []string{"app", "vpc", "database", "security"})
+
+	require.NoError(t, err)
+	expectedOrder := []string{"vpc", "security", "database", "app"}
+	assert.Equal(t, expectedOrder, order)
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_CircularDependency(t *testing.T) {
+	// Test detection of circular dependencies
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	// Create circular dependency: stack-a depends on stack-b, stack-b depends on stack-a
+	stackAConfig := &config.StackConfig{
+		Name:         "stack-a",
+		Dependencies: []string{"stack-b"},
+	}
+
+	stackBConfig := &config.StackConfig{
+		Name:         "stack-b",
+		Dependencies: []string{"stack-a"},
+	}
+
+	mockConfigProvider.On("GetStack", "stack-a", "dev").Return(stackAConfig, nil)
+	mockConfigProvider.On("GetStack", "stack-b", "dev").Return(stackBConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"stack-a", "stack-b"})
+
+	assert.Error(t, err)
+	assert.Nil(t, order)
+	assert.Contains(t, err.Error(), "circular dependency detected")
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_StackNotFound(t *testing.T) {
+	// Test error handling when stack config is not found
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"nonexistent"})
+
+	assert.Error(t, err)
+	assert.Nil(t, order)
+	assert.Contains(t, err.Error(), "failed to get stack config")
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_MissingDependency(t *testing.T) {
+	// Test handling of missing dependency (dependency not in resolution list)
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	// App depends on database, but we're only calculating order for app
+	appConfig := &config.StackConfig{
+		Name:         "app",
+		Dependencies: []string{"database"}, // database not in resolution list
+	}
+
+	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	// Only calculate order for app, not its dependency
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"app"})
+
+	// Should succeed - missing dependencies are ignored for dependency ordering
+	// (they might be deployed separately)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"app"}, order)
+
+	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testing.T) {
+	// Test stack with multiple dependencies
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOperations := &aws.MockCloudFormationOperations{}
+
+	vpcConfig := &config.StackConfig{
+		Name:         "vpc",
+		Dependencies: []string{},
+	}
+
+	securityConfig := &config.StackConfig{
+		Name:         "security",
+		Dependencies: []string{},
+	}
+
+	appConfig := &config.StackConfig{
+		Name:         "app",
+		Dependencies: []string{"vpc", "security"}, // Multiple dependencies
+	}
+
+	mockConfigProvider.On("GetStack", "vpc", "dev").Return(vpcConfig, nil)
+	mockConfigProvider.On("GetStack", "security", "dev").Return(securityConfig, nil)
+	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
+
+	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+
+	order, err := stackResolver.GetDependencyOrder("dev", []string{"app", "vpc", "security"})
+
+	require.NoError(t, err)
+	assert.Len(t, order, 3)
+	
+	// App should be last
+	assert.Equal(t, "app", order[2])
+	
+	// VPC and security should be before app (order between them doesn't matter since they're independent)
+	assert.Contains(t, order[:2], "vpc")
+	assert.Contains(t, order[:2], "security")
+
+	mockConfigProvider.AssertExpectations(t)
+}

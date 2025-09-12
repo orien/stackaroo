@@ -274,28 +274,21 @@ func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string)
 		return nil
 	}
 
-	// Resolve all stacks and their dependencies
-	resolved, err := d.resolver.ResolveStacks(ctx, contextName, stackNames)
+	// Get dependency order without resolving stacks
+	deploymentOrder, err := d.resolver.GetDependencyOrder(contextName, stackNames)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+		return fmt.Errorf("failed to calculate dependency order: %w", err)
 	}
 
-	// Deploy all stacks in dependency order
-	for _, stackName := range resolved.DeploymentOrder {
-		// Find the resolved stack
-		var stackToDeploy *model.Stack
-		for _, stack := range resolved.Stacks {
-			if stack.Name == stackName {
-				stackToDeploy = stack
-				break
-			}
+	// Deploy each stack in dependency order, resolving individually to get fresh parameters
+	for _, stackName := range deploymentOrder {
+		// Resolve this specific stack to get fresh parameter values
+		stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
 		}
 
-		if stackToDeploy == nil {
-			return fmt.Errorf("resolved stack %s not found", stackName)
-		}
-
-		err = d.deployStackWithFeedback(ctx, stackToDeploy, contextName)
+		err = d.deployStackWithFeedback(ctx, stack, contextName)
 		if err != nil {
 			return err
 		}

@@ -75,6 +75,32 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	}, nil
 }
 
+// GetDependencyOrder calculates the dependency order for stacks without resolving them
+func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) ([]string, error) {
+	// Create minimal stack objects with just names and dependencies
+	var stacks []*model.Stack
+
+	for _, stackName := range stackNames {
+		stackConfig, err := r.configProvider.GetStack(stackName, context)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get stack config %s: %w", stackName, err)
+		}
+
+		stacks = append(stacks, &model.Stack{
+			Name:         stackConfig.Name,
+			Dependencies: stackConfig.Dependencies,
+		})
+	}
+
+	// Calculate deployment order
+	deploymentOrder, err := r.calculateDependencyOrder(stacks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate dependency order: %w", err)
+	}
+
+	return deploymentOrder, nil
+}
+
 // ResolveStacks resolves multiple stacks and calculates deployment order
 func (r *StackResolver) ResolveStacks(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
 	var stacks []*model.Stack
