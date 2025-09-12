@@ -66,7 +66,16 @@ stacks:
 	// Examine the networking stack (literal parameters only)
 	networkingStack := config.Stacks[0]
 	fmt.Printf("\nNetworking Stack: %s\n", networkingStack.Name)
-	for paramName, paramValue := range networkingStack.Parameters {
+
+	// Sort networking parameter names for deterministic output
+	var networkingParamNames []string
+	for paramName := range networkingStack.Parameters {
+		networkingParamNames = append(networkingParamNames, paramName)
+	}
+	sort.Strings(networkingParamNames)
+
+	for _, paramName := range networkingParamNames {
+		paramValue := networkingStack.Parameters[paramName]
 		if paramValue.IsLiteral() {
 			fmt.Printf("  %s = %q (literal)\n", paramName, paramValue.Literal)
 		}
