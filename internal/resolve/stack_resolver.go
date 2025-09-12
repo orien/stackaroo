@@ -77,8 +77,8 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 
 // GetDependencyOrder calculates the dependency order for stacks without resolving them
 func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) ([]string, error) {
-	// Create minimal stack objects with just names and dependencies
-	var stacks []*model.Stack
+	// Get stack configurations
+	var stackConfigs []*config.StackConfig
 
 	for _, stackName := range stackNames {
 		stackConfig, err := r.configProvider.GetStack(stackName, context)
@@ -86,19 +86,74 @@ func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) 
 			return nil, fmt.Errorf("failed to get stack config %s: %w", stackName, err)
 		}
 
-		stacks = append(stacks, &model.Stack{
-			Name:         stackConfig.Name,
-			Dependencies: stackConfig.Dependencies,
-		})
+		stackConfigs = append(stackConfigs, stackConfig)
 	}
 
-	// Calculate deployment order
-	deploymentOrder, err := r.calculateDependencyOrder(stacks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate dependency order: %w", err)
+	// Calculate deployment order using topological sort
+	// Build name to stack config map
+	stackMap := make(map[string]*config.StackConfig)
+	for _, stackConfig := range stackConfigs {
+		stackMap[stackConfig.Name] = stackConfig
 	}
 
-	return deploymentOrder, nil
+	// Build dependency graph
+	inDegree := make(map[string]int)
+	adjList := make(map[string][]string)
+
+	// Initialize
+	for _, stackConfig := range stackConfigs {
+		inDegree[stackConfig.Name] = 0
+		adjList[stackConfig.Name] = []string{}
+	}
+
+	// Build graph
+	for _, stackConfig := range stackConfigs {
+		for _, dep := range stackConfig.Dependencies {
+			if _, exists := stackMap[dep]; exists {
+				adjList[dep] = append(adjList[dep], stackConfig.Name)
+				inDegree[stackConfig.Name]++
+			}
+		}
+	}
+
+	// Topological sort using Kahn's algorithm
+	var queue []string
+	var result []string
+
+	// Find all nodes with no incoming edges
+	for name, degree := range inDegree {
+		if degree == 0 {
+			queue = append(queue, name)
+		}
+	}
+
+	// Sort queue for deterministic results
+	sort.Strings(queue)
+
+	for len(queue) > 0 {
+		// Remove node from queue
+		current := queue[0]
+		queue = queue[1:]
+		result = append(result, current)
+
+		// For each neighbor, reduce in-degree
+		neighbors := adjList[current]
+		sort.Strings(neighbors) // For deterministic ordering
+		for _, neighbor := range neighbors {
+			inDegree[neighbor]--
+			if inDegree[neighbor] == 0 {
+				queue = append(queue, neighbor)
+				sort.Strings(queue) // Keep queue sorted
+			}
+		}
+	}
+
+	// Check for cycles
+	if len(result) != len(stackConfigs) {
+		return nil, fmt.Errorf("circular dependency detected in stacks")
+	}
+
+	return result, nil
 }
 
 // resolveParameters resolves parameters from ParameterValue objects to final string values
@@ -184,73 +239,4 @@ func (r *StackResolver) mergeTags(globalTags, stackTags map[string]string) map[s
 	}
 
 	return result
-}
-
-// calculateDependencyOrder calculates the deployment order based on dependencies
-func (r *StackResolver) calculateDependencyOrder(stacks []*model.Stack) ([]string, error) {
-	// Simple topological sort implementation
-	// Build name to stack map
-	stackMap := make(map[string]*model.Stack)
-	for _, stack := range stacks {
-		stackMap[stack.Name] = stack
-	}
-
-	// Build dependency graph
-	inDegree := make(map[string]int)
-	adjList := make(map[string][]string)
-
-	// Initialize
-	for _, stack := range stacks {
-		inDegree[stack.Name] = 0
-		adjList[stack.Name] = []string{}
-	}
-
-	// Build graph
-	for _, stack := range stacks {
-		for _, dep := range stack.Dependencies {
-			if _, exists := stackMap[dep]; exists {
-				adjList[dep] = append(adjList[dep], stack.Name)
-				inDegree[stack.Name]++
-			}
-		}
-	}
-
-	// Topological sort using Kahn's algorithm
-	var queue []string
-	var result []string
-
-	// Find all nodes with no incoming edges
-	for name, degree := range inDegree {
-		if degree == 0 {
-			queue = append(queue, name)
-		}
-	}
-
-	// Sort queue for deterministic results
-	sort.Strings(queue)
-
-	for len(queue) > 0 {
-		// Remove node from queue
-		current := queue[0]
-		queue = queue[1:]
-		result = append(result, current)
-
-		// For each neighbor, reduce in-degree
-		neighbors := adjList[current]
-		sort.Strings(neighbors) // For deterministic ordering
-		for _, neighbor := range neighbors {
-			inDegree[neighbor]--
-			if inDegree[neighbor] == 0 {
-				queue = append(queue, neighbor)
-				sort.Strings(queue) // Keep queue sorted
-			}
-		}
-	}
-
-	// Check for cycles
-	if len(result) != len(stacks) {
-		return nil, fmt.Errorf("circular dependency detected in stacks")
-	}
-
-	return result, nil
 }
