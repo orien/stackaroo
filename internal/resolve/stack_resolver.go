@@ -26,6 +26,7 @@ type StackResolver struct {
 	configProvider     config.ConfigProvider
 	fileSystemResolver FileSystemResolver
 	cfnOperations      aws.CloudFormationOperations
+	templateProcessor  TemplateProcessor
 }
 
 // NewStackResolver creates a new stack resolver instance with the given config provider and CloudFormation operations
@@ -34,12 +35,18 @@ func NewStackResolver(configProvider config.ConfigProvider, cfnOperations aws.Cl
 		configProvider:     configProvider,
 		fileSystemResolver: &DefaultFileSystemResolver{},
 		cfnOperations:      cfnOperations,
+		templateProcessor:  NewCfnTemplateProcessor(),
 	}
 }
 
 // SetFileSystemResolver allows injecting a custom file system resolver (for testing)
 func (r *StackResolver) SetFileSystemResolver(fileSystemResolver FileSystemResolver) {
 	r.fileSystemResolver = fileSystemResolver
+}
+
+// SetTemplateProcessor allows injecting a custom template processor (for testing)
+func (r *StackResolver) SetTemplateProcessor(templateProcessor TemplateProcessor) {
+	r.templateProcessor = templateProcessor
 }
 
 // ResolveStack resolves a single stack configuration
@@ -56,10 +63,17 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 		return nil, fmt.Errorf("failed to get stack %s: %w", stackName, err)
 	}
 
-	// Read template
-	templateBody, err := r.fileSystemResolver.Resolve(stackConfig.Template)
+	// Read raw template content
+	rawTemplate, err := r.fileSystemResolver.Resolve(stackConfig.Template)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template: %w", err)
+	}
+
+	// Process template with variables (parameters and context)
+	templateVars := r.buildTemplateVariables(stackConfig, context)
+	templateBody, err := r.templateProcessor.Process(rawTemplate, templateVars)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process template: %w", err)
 	}
 
 	// Resolve parameters with new system
@@ -282,4 +296,15 @@ func (r *StackResolver) mergeTags(globalTags, stackTags map[string]string) map[s
 	}
 
 	return result
+}
+
+// buildTemplateVariables creates the variable map for template processing
+func (r *StackResolver) buildTemplateVariables(stackConfig *config.StackConfig, context string) map[string]interface{} {
+	variables := make(map[string]interface{})
+
+	// Add context information
+	variables["Context"] = context
+	variables["StackName"] = stackConfig.Name
+
+	return variables
 }

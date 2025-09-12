@@ -41,3 +41,13 @@ func (m *MockResolver) GetDependencyOrder(context string, stackNames []string) (
 	}
 	return args.Get(0).([]string), args.Error(1)
 }
+
+// MockTemplateProcessor implements TemplateProcessor for testing
+type MockTemplateProcessor struct {
+	mock.Mock
+}
+
+func (m *MockTemplateProcessor) Process(templateContent string, variables map[string]interface{}) (string, error) {
+	args := m.Called(templateContent, variables)
+	return args.String(0), args.Error(1)
+}

@@ -52,6 +52,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	// Set up mocks
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
+	mockTemplateProcessor := &MockTemplateProcessor{}
 	mockCfnOperations := &aws.MockCloudFormationOperations{}
 
 	// Mock data
@@ -88,10 +89,12 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/vpc.yaml").Return(templateContent, nil)
+	mockTemplateProcessor.On("Process", templateContent, mock.AnythingOfType("map[string]interface {}")).Return(templateContent, nil)
 
 	// Create stack resolver
 	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
+	stackResolver.SetTemplateProcessor(mockTemplateProcessor)
 
 	// Execute
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
@@ -110,6 +113,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	// Verify all expectations were met
 	mockConfigProvider.AssertExpectations(t)
 	mockFileSystemResolver.AssertExpectations(t)
+	mockTemplateProcessor.AssertExpectations(t)
 }
 
 func TestStackResolver_ResolveParameters_LiteralValues(t *testing.T) {

@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: {{ .Context | title }} web application for {{ .StackName }}
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+
+  Environment:
+    Type: String
+    Default: {{ .Context }}
+    Description: Deployment environment
+
+Resources:
+{{- if eq .Context "production" }}
+  # Production-only monitoring role
+  MonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {{ .StackName }}-monitoring-{{ .Context }}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Tags:
+        - Key: Environment
+          Value: {{ .Context | upper }}
+        - Key: Stack
+          Value: {{ .StackName }}
+{{- end }}
+
+  # Web server instance
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2023
+      InstanceType: !Ref InstanceType
+      UserData:
+        Fn::Base64: |
+{{- `#!/bin/bash
+          yum update -y
+          yum install -y docker nginx
+          systemctl start docker nginx
+          systemctl enable docker nginx
+          
+          # Environment-specific configuration
+          echo "ENVIRONMENT=` | nindent 10 }}{{ .Context | upper }}{{ `" > /etc/webapp.conf
+          echo "STACK_NAME=` | nindent 10 }}{{ .StackName }}{{ `" >> /etc/webapp.conf
+          echo "INSTANCE_SIZE=` | nindent 10 }}{{ if eq .Context "production" }}large{{ else }}small{{ end }}{{ `" >> /etc/webapp.conf
+          
+          # Start the application
+          docker pull nginx:latest
+          docker run -d --name webapp \
+            -p 80:80 \
+            -e ENV=` | nindent 10 }}{{ .Context | upper }}{{ ` \
+            nginx:latest` | nindent 10 }}
+      Tags:
+        - Key: Name
+          Value: {{ .StackName }}-web-{{ .Context }}
+        - Key: Environment
+          Value: {{ .Context | title }}
+        - Key: Purpose
+          Value: "{{ .Context | title }} web server"
+
+{{- if ne .Context "development" }}
+  # Security group for non-dev environments
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: {{ .StackName }}-web-sg-{{ .Context }}
+      GroupDescription: Security group for {{ .Context }} web server
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        {{- if eq .Context "production" }}
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+        {{- end }}
+      Tags:
+        - Key: Environment
+          Value: {{ .Context | upper }}
+        - Key: Stack
+          Value: {{ .StackName }}
+{{- end }}
+
+  # Data bucket with environment-specific settings
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: {{ .StackName }}-data-{{ .Context }}-{{ randAlphaNum 6 | lower }}
+      VersioningConfiguration:
+        Status: {{ if eq .Context "production" }}Enabled{{ else }}Suspended{{ end }}
+      Tags:
+        - Key: Environment
+          Value: {{ .Context | title }}
+        - Key: Stack
+          Value: {{ .StackName }}
+        - Key: Retention
+          Value: {{ if eq .Context "production" }}"long-term"{{ else }}"short-term"{{ end }}
+
+Outputs:
+  Environment:
+    Description: Deployment environment
+    Value: {{ .Context | upper }}
+
+  WebServerInstanceId:
+    Description: Web server instance ID
+    Value: !Ref WebServer
+
+  {{- if ne .Context "development" }}
+  SecurityGroupId:
+    Description: Web security group ID
+    Value: !Ref WebSecurityGroup
+  {{- end }}
+
+  DataBucketName:
+    Description: S3 data bucket name
+    Value: !Ref DataBucket
+
+  ApplicationURL:
+    Description: Web application URL
+    Value: !Sub 
+      - "http://${PublicIP}/{{ .Context }}"
+      - PublicIP: !GetAtt WebServer.PublicIp

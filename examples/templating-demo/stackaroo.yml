@@ -1,0 +1,21 @@
+# Stackaroo Templating Demo
+project: webapp-demo
+
+contexts:
+  development:
+    region: us-west-2
+    stacks:
+      - name: webapp
+        template: templates/webapp.yml
+        parameters:
+          InstanceType: t3.micro
+          Environment: development
+
+  production:
+    region: us-east-1
+    stacks:
+      - name: webapp
+        template: templates/webapp.yml
+        parameters:
+          InstanceType: t3.large
+          Environment: production
