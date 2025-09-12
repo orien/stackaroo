@@ -56,7 +56,7 @@ type ContextOverride struct {
 	Capabilities []string                       `yaml:"capabilities"`
 }
 
-// yamlParameterValue represents either a literal value or a complex resolution object (YAML-specific)
+// yamlParameterValue represents either a literal value, complex resolution object, or list (YAML-specific)
 type yamlParameterValue struct {
 	// For literal values
 	Literal        string
@@ -64,6 +64,10 @@ type yamlParameterValue struct {
 
 	// For complex resolution
 	Resolver *yamlParameterResolver
+
+	// For list parameters - detected automatically from YAML array structure
+	ListItems   []*yamlParameterValue
+	IsListValue bool // Tracks if this is a list parameter
 }
 
 // yamlParameterResolver defines how to resolve a parameter dynamically (YAML-specific)
@@ -81,20 +85,34 @@ type StackOutputConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshalling for yamlParameterValue
 func (pv *yamlParameterValue) UnmarshalYAML(node *yaml.Node) error {
-	// Handle literal string values
-	if node.Kind == yaml.ScalarNode {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		// Handle literal string values
 		pv.Literal = node.Value
 		pv.IsLiteralValue = true
 		return nil
-	}
 
-	// Handle complex objects
-	if node.Kind == yaml.MappingNode {
+	case yaml.MappingNode:
+		// Handle complex resolver objects
 		pv.Resolver = &yamlParameterResolver{}
 		return node.Decode(pv.Resolver)
-	}
 
-	return fmt.Errorf("parameter value must be either a string literal or object")
+	case yaml.SequenceNode:
+		// Handle array/list parameters
+		pv.IsListValue = true
+		pv.ListItems = make([]*yamlParameterValue, len(node.Content))
+
+		for i, itemNode := range node.Content {
+			pv.ListItems[i] = &yamlParameterValue{}
+			if err := pv.ListItems[i].UnmarshalYAML(itemNode); err != nil {
+				return fmt.Errorf("failed to parse list item %d: %w", i, err)
+			}
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("parameter value must be a string literal, resolver object, or array")
+	}
 }
 
 // MarshalYAML implements custom YAML marshalling for yamlParameterValue
@@ -103,11 +121,16 @@ func (pv *yamlParameterValue) MarshalYAML() (interface{}, error) {
 		return pv.Literal, nil
 	}
 
+	if pv.IsListValue {
+		// Return the list items directly as a YAML sequence
+		return pv.ListItems, nil
+	}
+
 	if pv.Resolver != nil {
 		return pv.Resolver, nil
 	}
 
-	return nil, fmt.Errorf("parameter value has neither literal nor resolver")
+	return nil, fmt.Errorf("parameter value has no valid content")
 }
 
 // ToConfigParameterValue converts YAML parameter value to generic config parameter value
@@ -118,6 +141,20 @@ func (pv *yamlParameterValue) ToConfigParameterValue() *config.ParameterValue {
 			ResolutionConfig: map[string]string{
 				"value": pv.Literal,
 			},
+		}
+	}
+
+	if pv.IsListValue {
+		// Convert list items to config parameter values
+		configListItems := make([]*config.ParameterValue, len(pv.ListItems))
+		for i, item := range pv.ListItems {
+			configListItems[i] = item.ToConfigParameterValue()
+		}
+
+		return &config.ParameterValue{
+			ResolutionType:   "list",
+			ResolutionConfig: make(map[string]string), // List metadata if needed
+			ListItems:        configListItems,
 		}
 	}
 
@@ -149,6 +186,11 @@ func (pv *yamlParameterValue) IsLiteral() bool {
 // IsResolver returns true if this parameter value uses a resolver
 func (pv *yamlParameterValue) IsResolver() bool {
 	return pv.Resolver != nil
+}
+
+// IsList returns true if this parameter value is a list
+func (pv *yamlParameterValue) IsList() bool {
+	return pv.IsListValue
 }
 
 // ConvertStringMap converts a map[string]string to map[string]*config.ParameterValue for backwards compatibility

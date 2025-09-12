@@ -378,3 +378,121 @@ stacks:
 
 	fmt.Printf("Raw YAML parsing works fine, resolver info preserved for higher-level processing\n")
 }
+
+// TestExample_ListParameters demonstrates the full list parameter workflow
+func TestExample_ListParameters(t *testing.T) {
+	// Example YAML configuration with list parameters
+	yamlConfig := `
+project: ecommerce-platform
+region: us-east-1
+contexts:
+  prod:
+    account: "123456789012"
+    region: us-east-1
+stacks:
+  - name: web-application
+    template: webapp.yml
+    parameters:
+      # Simple literal list
+      AllowedPorts:
+        - "80"
+        - "443"
+        - "8080"
+      
+      # Mixed list with literals and stack outputs  
+      SecurityGroupIds:
+        - sg-baseline123
+        - type: stack-output
+          stack_name: security-stack
+          output_key: WebServerSGId
+        - type: stack-output
+          stack_name: database-stack
+          output_key: DatabaseSGId
+        - sg-additional456
+      
+      # All stack outputs from different stacks
+      SubnetIds:
+        - type: stack-output
+          stack_name: vpc-stack
+          output_key: PublicSubnet1Id
+        - type: stack-output
+          stack_name: vpc-stack
+          output_key: PublicSubnet2Id
+        - type: stack-output
+          stack_name: additional-vpc
+          output_key: ExtraSubnetId
+`
+
+	// Parse YAML into raw config structure
+	var rawConfig Config
+	err := yaml.Unmarshal([]byte(yamlConfig), &rawConfig)
+	if err != nil {
+		fmt.Printf("Failed to parse YAML: %v\n", err)
+		return
+	}
+
+	// Get the web application stack
+	webAppStack := rawConfig.Stacks[0]
+	fmt.Printf("Stack: %s\n", webAppStack.Name)
+	fmt.Printf("Parameters parsed:\n")
+
+	// Examine each parameter type
+	for paramName, paramValue := range webAppStack.Parameters {
+		if paramValue.IsLiteral() {
+			fmt.Printf("  %s = \"%s\" (literal)\n", paramName, paramValue.Literal)
+		} else if paramValue.IsList() {
+			fmt.Printf("  %s = [list with %d items]\n", paramName, len(paramValue.ListItems))
+
+			// Show details of list items
+			for i, item := range paramValue.ListItems {
+				if item.IsLiteral() {
+					fmt.Printf("    [%d] = \"%s\" (literal)\n", i, item.Literal)
+				} else if item.IsResolver() {
+					fmt.Printf("    [%d] = resolver(type=%s", i, item.Resolver.Type)
+					if stackName, exists := item.Resolver.Config["stack_name"]; exists {
+						outputKey := item.Resolver.Config["output_key"]
+						fmt.Printf(", %s.%s", stackName, outputKey)
+					}
+					fmt.Printf(")\n")
+				}
+			}
+		} else if paramValue.IsResolver() {
+			fmt.Printf("  %s = resolver(type=%s)\n", paramName, paramValue.Resolver.Type)
+		}
+	}
+
+	// Convert to config.ParameterValue format
+	fmt.Printf("\nConverted to config.ParameterValue:\n")
+	for paramName, paramValue := range webAppStack.Parameters {
+		configParam := paramValue.ToConfigParameterValue()
+		if configParam != nil {
+			fmt.Printf("  %s: ResolutionType=%s", paramName, configParam.ResolutionType)
+			if configParam.ResolutionType == "list" {
+				fmt.Printf(" (list with %d items)", len(configParam.ListItems))
+			}
+			fmt.Printf("\n")
+		}
+	}
+
+	// Output:
+	// Stack: web-application
+	// Parameters parsed:
+	//   AllowedPorts = [list with 3 items]
+	//     [0] = "80" (literal)
+	//     [1] = "443" (literal)
+	//     [2] = "8080" (literal)
+	//   SecurityGroupIds = [list with 4 items]
+	//     [0] = "sg-baseline123" (literal)
+	//     [1] = resolver(type=stack-output, security-stack.WebServerSGId)
+	//     [2] = resolver(type=stack-output, database-stack.DatabaseSGId)
+	//     [3] = "sg-additional456" (literal)
+	//   SubnetIds = [list with 3 items]
+	//     [0] = resolver(type=stack-output, vpc-stack.PublicSubnet1Id)
+	//     [1] = resolver(type=stack-output, vpc-stack.PublicSubnet2Id)
+	//     [2] = resolver(type=stack-output, additional-vpc.ExtraSubnetId)
+	//
+	// Converted to config.ParameterValue:
+	//   AllowedPorts: ResolutionType=list (list with 3 items)
+	//   SecurityGroupIds: ResolutionType=list (list with 4 items)
+	//   SubnetIds: ResolutionType=list (list with 3 items)
+}

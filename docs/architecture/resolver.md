@@ -31,9 +31,10 @@ The resolver module is responsible for transforming high-level configuration int
 ### Core Types
 
 ```go
-type Resolver struct {
-    configProvider config.ConfigProvider
-    templateReader TemplateReader
+type StackResolver struct {
+    configProvider     config.ConfigProvider
+    fileSystemResolver FileSystemResolver
+    cfnOperations      aws.CloudFormationOperations
 }
 
 type ResolvedStack struct {
@@ -58,10 +59,28 @@ type ConfigProvider interface {
 }
 ```
 
-#### TemplateReader
+#### FileSystemResolver
 ```go
-type TemplateReader interface {
-    ReadTemplate(templateURI string) (string, error)
+type FileSystemResolver interface {
+    Resolve(templateURI string) (string, error)
+}
+```
+
+#### Configuration Types
+```go
+type StackConfig struct {
+    Name         string
+    Template     string
+    Parameters   map[string]*ParameterValue  // Rich parameter resolution model
+    Tags         map[string]string
+    Dependencies []string
+    Capabilities []string
+}
+
+type ParameterValue struct {
+    ResolutionType   string            // "literal", "stack-output", "list"
+    ResolutionConfig map[string]string // Resolution-specific configuration
+    ListItems        []*ParameterValue // For list parameters
 }
 ```
 
@@ -78,11 +97,11 @@ flowchart LR
 
 **Steps:**
 1. **Load Configuration** - Get global config for context
-2. **Get Stack Config** - Retrieve stack-specific configuration
+2. **Get Stack Config** - Retrieve stack-specific configuration with `ParameterValue` structures
 3. **Read Template** - Load CloudFormation template content from URI
-4. **Merge Parameters** - Apply inheritance rules
+4. **Resolve Parameters** - Process `ParameterValue` objects using resolution engine
 5. **Merge Tags** - Combine global and stack tags
-6. **Create ResolvedStack** - Package everything together
+6. **Create ResolvedStack** - Package everything together with resolved parameter strings
 
 ### 2. Multi-Stack Resolution
 
@@ -135,7 +154,119 @@ stacks:
 # Resolved Order: vpc → security → database → app
 ```
 
-## Parameter and Tag Inheritance
+## Parameter Resolution System
+
+### Parameter Resolution Architecture
+
+The resolver includes a sophisticated parameter resolution system that transforms `ParameterValue` objects into final string values for CloudFormation.
+
+```mermaid
+flowchart LR
+    A[ParameterValue<br/>Objects] --> B[Resolution<br/>Engine]
+    B --> C[CloudFormation<br/>Parameters]
+
+    B --> D[Literal<br/>Resolution]
+    B --> E[Stack Output<br/>Resolution]
+    B --> F[List<br/>Resolution]
+```
+
+### Resolution Types
+
+#### **Literal Parameters**
+Direct string values used as-is:
+```go
+paramValue := &ParameterValue{
+    ResolutionType: "literal",
+    ResolutionConfig: map[string]string{
+        "value": "production",
+    },
+}
+// Resolves to: "production"
+```
+
+#### **Stack Output Parameters**
+Dynamic references to CloudFormation stack outputs:
+```go
+paramValue := &ParameterValue{
+    ResolutionType: "stack-output",
+    ResolutionConfig: map[string]string{
+        "stack_name": "vpc-stack",
+        "output_key": "VpcId",
+    },
+}
+// Resolves to: "vpc-12345abc" (fetched from CloudFormation)
+```
+
+#### **List Parameters**
+Arrays supporting mixed resolution types:
+```go
+paramValue := &ParameterValue{
+    ResolutionType: "list",
+    ListItems: []*ParameterValue{
+        {
+            ResolutionType: "literal",
+            ResolutionConfig: map[string]string{"value": "sg-123"},
+        },
+        {
+            ResolutionType: "stack-output",
+            ResolutionConfig: map[string]string{
+                "stack_name": "security-stack",
+                "output_key": "WebSGId",
+            },
+        },
+    },
+}
+// Resolves to: "sg-123,sg-456" (comma-separated for CloudFormation)
+```
+
+### Resolution Engine
+
+The resolver uses a unified resolution method:
+
+```go
+func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *ParameterValue, context string) (string, error) {
+    switch paramValue.ResolutionType {
+    case "literal":
+        return paramValue.ResolutionConfig["value"], nil
+    case "stack-output":
+        return r.resolveStackOutput(ctx, paramValue.ResolutionConfig, context)
+    case "list":
+        return r.resolveParameterList(ctx, paramValue.ListItems, context)
+    default:
+        return "", fmt.Errorf("unsupported resolution type '%s'", paramValue.ResolutionType)
+    }
+}
+```
+
+### List Parameter Processing
+
+List parameters are resolved recursively and joined with commas:
+
+1. **Iterate List Items** - Process each `ParameterValue` in `ListItems`
+2. **Resolve Each Item** - Use `resolveSingleParameter()` for each item
+3. **Filter Empty Values** - Remove empty resolved values
+4. **Join Values** - Combine with commas for CloudFormation compatibility
+
+```go
+func (r *StackResolver) resolveParameterList(ctx context.Context, listItems []*ParameterValue, context string) (string, error) {
+    var resolvedValues []string
+
+    for i, item := range listItems {
+        resolvedValue, err := r.resolveSingleParameter(ctx, item, context)
+        if err != nil {
+            return "", fmt.Errorf("failed to resolve list item %d: %w", i, err)
+        }
+
+        if resolvedValue != "" {
+            resolvedValues = append(resolvedValues, resolvedValue)
+        }
+    }
+
+    return strings.Join(resolvedValues, ","), nil
+}
+```
+
+## Tag Inheritance
 
 ### Inheritance Hierarchy
 
@@ -176,6 +307,51 @@ tags:
   Component: "web-server"
 ```
 
+### Parameter Resolution Examples
+
+**Simple Parameters:**
+```yaml
+# Configuration
+parameters:
+  Environment: production
+  InstanceType: t3.micro
+
+# Resolution
+Environment: "production"
+InstanceType: "t3.micro"
+```
+
+**Mixed List Parameters:**
+```yaml
+# Configuration
+parameters:
+  SecurityGroupIds:
+    - sg-baseline123
+    - type: stack-output
+      stack_name: security-stack
+      output_key: WebSGId
+    - sg-additional456
+
+# Resolution (assuming WebSGId resolves to "sg-web789")
+SecurityGroupIds: "sg-baseline123,sg-web789,sg-additional456"
+```
+
+**Cross-Stack Dependencies:**
+```yaml
+# Configuration
+parameters:
+  SubnetIds:
+    - type: stack-output
+      stack_name: vpc-stack
+      output_key: PublicSubnet1Id
+    - type: stack-output
+      stack_name: vpc-stack
+      output_key: PublicSubnet2Id
+
+# Resolution
+SubnetIds: "subnet-abc123,subnet-def456"
+```
+
 ## Integration Architecture
 
 ### Module Dependencies
@@ -208,10 +384,13 @@ if err != nil {
 
 // Deploy each stack in dependency order
 for _, stackName := range deploymentOrder {
+    // ResolveStack now handles parameter resolution internally
     stack, err := resolver.ResolveStack(ctx, "dev", stackName)
     if err != nil {
         return fmt.Errorf("stack resolution failed: %w", err)
     }
+
+    // stack.Parameters is now map[string]string with resolved values
     err = deployer.DeployStack(ctx, stack)
     // ...
 }
@@ -248,11 +427,13 @@ graph TD
 #### **config/file Module**
 - **Handles config file resolution** - Via --config flag with "stackaroo.yaml" default
 - **Path-to-URI conversion** - Converts relative paths to `file://` URIs
-- **Configuration file knowledge** - Understands YAML structure and resolution
+- **Configuration file knowledge** - Understands YAML structure and parameter parsing
+- **Parameter value parsing** - Converts YAML to `ParameterValue` structures
 
 #### **resolve Module**
 - **URI-based template loading** - No assumptions about template sources
-- **Business logic only** - Dependency resolution, parameter inheritance
+- **Parameter resolution engine** - Processes `ParameterValue` objects into final strings
+- **Business logic only** - Dependency resolution, parameter resolution, tag inheritance
 - **Template preprocessing** - Handles multiple URI schemes (file://, s3://, git://)
 
 ### URI-Based Template Architecture
@@ -301,7 +482,13 @@ type TemplateReader interface {
    - Circular dependencies
    - Invalid dependency references
 
-4. **Resolution Errors**
+4. **Parameter Resolution Errors**
+   - Unsupported resolution types
+   - Missing stack output references
+   - Invalid parameter configurations
+   - List item resolution failures
+
+5. **Resolution Errors**
    - Parameter inheritance conflicts
    - Missing required fields
 
@@ -362,10 +549,11 @@ func (m *MockConfigProvider) LoadConfig(ctx context.Context, context string) (*c
 
 ### Adding New Resolution Logic
 
-1. **Parameter Sources** - Extend parameter inheritance beyond stack level
+1. **Parameter Resolver Types** - Add SSM, Secrets Manager, Lambda-invoke resolvers
 2. **Template Processing** - Add template validation or transformation
 3. **Dependency Types** - Support different dependency relationships
 4. **Output Formats** - Generate different artifact types
+5. **Parameter Validation** - Validate parameters against CloudFormation template schemas
 
 ### Template Reader Implementations
 
@@ -395,12 +583,13 @@ func (gtr *GitTemplateReader) ReadTemplate(templateURI string) (string, error) {
 
 ### Future Enhancements
 
-1. **Context Parameter Inheritance** - Global → Stack → Context hierarchy
+1. **Enhanced Parameter Resolvers** - SSM Parameter Store, AWS Secrets Manager, Lambda functions
 2. **Template Validation** - Validate CloudFormation syntax during resolution
 3. **Conditional Dependencies** - Dependencies based on parameter values
 4. **Template Preprocessing** - Jinja2-style template processing
 5. **Parallel Resolution** - Resolve independent stacks concurrently
 6. **Resolution Caching** - Cache resolved artifacts for performance
+7. **Parameter Schema Validation** - Validate parameter types against CloudFormation templates
 
 ## Security Considerations
 

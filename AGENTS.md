@@ -10,7 +10,7 @@ Stackaroo is a Go CLI tool for managing AWS CloudFormation stacks as code. Provi
 
 ```bash
 make build              # Build binary
-make test               # Run tests  
+make test               # Run tests
 make lint               # Run linting
 ./bin/stackaroo --help  # Test CLI
 ```
@@ -19,7 +19,7 @@ make lint               # Run linting
 
 **Essential Commands:**
 - `make build` - Build main binary
-- `make build-all` - Build all binaries  
+- `make build-all` - Build all binaries
 - `make test` - Unit tests
 - `make test-aws` - AWS integration (dry-run)
 - `make test-aws-live` - Live AWS tests (destructive!)
@@ -52,8 +52,8 @@ docs/          - Documentation
 
 Choose approach based on context:
 
-**Complex Logic (TDD):** Write failing tests → implement → refactor  
-**AWS Integration:** Build + mock together, test success/error paths  
+**Complex Logic (TDD):** Write failing tests → implement → refactor
+**AWS Integration:** Build + mock together, test success/error paths
 **Simple CLI:** Implement → test edge cases and validation
 
 **Test Categories:**
@@ -129,12 +129,40 @@ templates/
 - Context-specific parameter overrides
 - Template path resolution
 - Dependency declarations with `depends_on`
+- List parameter support for CloudFormation `List<Type>` and `CommaDelimitedList`
+- Mixed parameter resolution (literals + stack outputs in single parameter)
+- Heterogeneous list parameters with clean YAML array syntax
+
+**Example Configuration with List Parameters:**
+```yaml
+# stackaroo.yml
+stacks:
+  - name: web-app
+    template: templates/webapp.yml
+    parameters:
+      # Simple literal parameter
+      Environment: production
+
+      # List parameter with mixed resolution types
+      SecurityGroupIds:
+        - sg-baseline123         # Literal value
+        - type: stack-output     # Dynamic from stack output
+          stack_name: security-stack
+          output_key: WebSGId
+        - sg-additional456       # Another literal
+
+      # Simple literal list
+      AllowedPorts:
+        - "80"
+        - "443"
+        - "8080"
+```
 
 ## Dependencies
 
 **Core:**
 - `github.com/aws/aws-sdk-go-v2` - AWS SDK
-- `github.com/spf13/cobra` - CLI framework  
+- `github.com/spf13/cobra` - CLI framework
 - `gopkg.in/yaml.v3` - YAML parsing
 - `github.com/stretchr/testify` - Testing
 
@@ -146,7 +174,7 @@ templates/
 
 ### Adding Commands
 1. Create `cmd/newcommand.go`
-2. Register in `cmd/root.go` 
+2. Register in `cmd/root.go`
 3. Add tests `cmd/newcommand_test.go`
 4. Update documentation
 
@@ -166,7 +194,7 @@ templates/
 
 GitHub Actions runs:
 1. **Test** - Unit tests with race detection
-2. **Lint** - golangci-lint 
+2. **Lint** - golangci-lint
 3. **Security** - govulncheck
 4. **Build** - Cross-platform (Linux/macOS/Windows, AMD64/ARM64)
 5. **Integration** - Basic CLI functionality
@@ -185,7 +213,7 @@ All checks must pass before merge.
 ### Pre-commit
 ```bash
 make lint          # Format and lint
-make test         # Run tests  
+make test         # Run tests
 make commit-check # Full validation
 ```
 
@@ -202,12 +230,12 @@ make commit-check # Full validation
 
 **CRITICAL UNDERSTANDING:** Making code changes is COMPLETELY SEPARATE from committing them.
 
-- ✅ **User asks for changes** → I implement immediately 
+- ✅ **User asks for changes** → I implement immediately
 - ❌ **Any git operation** → I MUST get explicit approval first
 
 **This applies to ALL changes:**
 - Source code modifications
-- Documentation updates  
+- Documentation updates
 - Configuration changes
 - Test updates
 - ANY file changes
@@ -219,7 +247,7 @@ make commit-check # Full validation
 #### ✅ Implementation Requests (Proceed Directly)
 User requests like:
 - "Change X to Y"
-- "Update the README" 
+- "Update the README"
 - "Fix the bug in file.go"
 - "Add parameter support"
 
@@ -229,7 +257,7 @@ User requests like:
 **ANY** git command including:
 - `git add`
 - `git commit`
-- `git commit --amend` 
+- `git commit --amend`
 - `git rebase`
 
 **🚨🚨🚨 NO GIT COMMANDS WITHOUT EXPLICIT APPROVAL 🚨🚨🚨**
@@ -240,7 +268,7 @@ Make the requested code changes, but **DO NOT** execute any git commands.
 ### Step 2: Prepare Changes Summary
 Present all modifications with:
 - File paths and detailed explanations
-- Breaking changes and dependency impacts  
+- Breaking changes and dependency impacts
 - Test results (`go test ./...`, `make lint`, `go build`)
 - Performance or security implications
 
@@ -250,11 +278,11 @@ Present all modifications with:
 Present changes and ask:
 > **"Do you approve these changes for commit?"**
 
-### Step 4: Wait for Explicit Approval  
+### Step 4: Wait for Explicit Approval
 **🛑 DO NOT EXECUTE ANY GIT COMMANDS WITHOUT EXPLICIT APPROVAL 🛑**
 
 Required approval responses:
-- ✅ "Yes, proceed" / "Approved" / "Go ahead" 
+- ✅ "Yes, proceed" / "Approved" / "Go ahead"
 - ✅ "proceed" / "commit these changes"
 - ❌ Any other response means DO NOT COMMIT
 
@@ -273,18 +301,18 @@ Never execute `git push` - this remains human responsibility.
 
 ### Common Mistakes to Avoid
 
-❌ **WRONG:** "Please change X" → Implement change → Automatically commit  
+❌ **WRONG:** "Please change X" → Implement change → Automatically commit
 ✅ **RIGHT:** "Please change X" → Implement change → Ask for commit approval
 
-❌ **WRONG:** User says "update the README" → Make changes → `git commit`  
+❌ **WRONG:** User says "update the README" → Make changes → `git commit`
 ✅ **RIGHT:** User says "update the README" → Make changes → Present summary → Request approval → Wait → Commit only after approval
 
-❌ **WRONG:** Assuming implementation request = commit approval  
+❌ **WRONG:** Assuming implementation request = commit approval
 ✅ **RIGHT:** Implementation and git operations are separate phases
 
 **BEFORE EVERY `git` COMMAND:**
 1. ⏹️  **Stop**
-2. 📋 **Present changes summary**  
+2. 📋 **Present changes summary**
 3. ❓ **Ask: "Do you approve these changes for commit?"**
 4. ⏳ **Wait for explicit approval**
 5. ✅ **Only then execute git commands**
@@ -293,7 +321,7 @@ Never execute `git push` - this remains human responsibility.
 
 **This process applies to ALL changes:**
 - Source code (`.go` files)
-- Configuration (YAML, Makefile)  
+- Configuration (YAML, Makefile)
 - Documentation (README.md, AGENTS.md)
 - Tests and dependencies
 - CI/CD pipeline changes
@@ -305,7 +333,7 @@ Never execute `git push` - this remains human responsibility.
 
 **Common Issues:**
 - Credentials: `aws configure list`
-- Templates: `aws cloudformation validate-template`  
+- Templates: `aws cloudformation validate-template`
 - Dependencies: Review `depends_on` cycles
 - Permissions: Verify IAM policies
 

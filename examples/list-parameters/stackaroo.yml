@@ -1,0 +1,290 @@
+# Stackaroo Configuration Example: List Parameters
+# This example demonstrates the new list parameter functionality
+# supporting CloudFormation List<Type> and CommaDelimitedList parameters
+
+project: ecommerce-platform
+region: us-east-1
+tags:
+  Project: stackaroo-example
+  Owner: platform-team
+
+# Global template directory
+templates:
+  directory: templates
+
+# Define contexts for different environments
+contexts:
+  dev:
+    account: "111111111111"
+    region: us-east-1
+    tags:
+      Environment: development
+      
+  staging:
+    account: "222222222222"
+    region: us-east-1
+    tags:
+      Environment: staging
+      
+  prod:
+    account: "333333333333"
+    region: us-east-1
+    tags:
+      Environment: production
+
+# Stack definitions with list parameter examples
+stacks:
+  # VPC Stack - provides outputs for other stacks
+  - name: networking
+    template: vpc.yml
+    parameters:
+      # Simple literal list for CIDR blocks
+      AllowedCIDRs:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+      
+      # Availability zones as a literal list
+      AvailabilityZones:
+        - "us-east-1a"
+        - "us-east-1b"
+        - "us-east-1c"
+    
+    # Context-specific overrides
+    contexts:
+      prod:
+        parameters:
+          # Production uses all AZs for high availability
+          AvailabilityZones:
+            - "us-east-1a"
+            - "us-east-1b"
+            - "us-east-1c"
+            - "us-east-1d"
+            - "us-east-1f"
+
+  # Security Groups Stack - demonstrates complex list scenarios
+  - name: security
+    template: security-groups.yml
+    depends_on: [networking]
+    parameters:
+      # Mixed list: some hardcoded IPs + dynamic VPC CIDR
+      TrustedCIDRs:
+        - "203.0.113.0/24"  # Office network
+        - "198.51.100.0/24"  # Partner network
+        - type: stack-output
+          stack_name: networking
+          output_key: VpcCidrBlock
+      
+      # Web tier allowed ports
+      WebPorts:
+        - "80"
+        - "443"
+        - "8080"  # Alt HTTP for health checks
+      
+      # Database ports - different per environment
+      DatabasePorts:
+        - "3306"  # MySQL
+        - "5432"  # PostgreSQL
+    
+    contexts:
+      prod:
+        parameters:
+          # Production includes additional monitoring ports
+          WebPorts:
+            - "80"
+            - "443"
+            - "8080"
+            - "9090"  # Prometheus metrics
+            - "3000"  # Grafana dashboard
+
+  # Application Load Balancer - demonstrates cross-stack dependencies
+  - name: load-balancer
+    template: alb.yml
+    depends_on: [networking, security]
+    parameters:
+      # Subnets from VPC stack
+      SubnetIds:
+        - type: stack-output
+          stack_name: networking
+          output_key: PublicSubnet1Id
+        - type: stack-output
+          stack_name: networking
+          output_key: PublicSubnet2Id
+        - type: stack-output
+          stack_name: networking
+          output_key: PublicSubnet3Id
+      
+      # Security groups from security stack + base security group
+      SecurityGroupIds:
+        - sg-baseline123456789  # Company baseline security group
+        - type: stack-output
+          stack_name: security
+          output_key: LoadBalancerSecurityGroupId
+        - type: stack-output
+          stack_name: security
+          output_key: WebTierSecurityGroupId
+
+  # Web Application - demonstrates complex mixed lists
+  - name: web-application
+    template: web-app.yml
+    depends_on: [networking, security, load-balancer]
+    parameters:
+      # Instance types for auto scaling
+      InstanceTypes:
+        - "t3.micro"
+        - "t3.small"
+        - "t3.medium"
+      
+      # Mixed security groups: baseline + dynamic + environment-specific
+      SecurityGroupIds:
+        - sg-company-baseline  # Literal: company standard
+        - type: stack-output   # Dynamic: web tier security group
+          stack_name: security
+          output_key: WebTierSecurityGroupId
+        - type: stack-output   # Dynamic: app-specific security group
+          stack_name: security
+          output_key: ApplicationSecurityGroupId
+      
+      # Target group ARNs from load balancer
+      TargetGroupArns:
+        - type: stack-output
+          stack_name: load-balancer
+          output_key: WebTargetGroupArn
+        - type: stack-output
+          stack_name: load-balancer
+          output_key: ApiTargetGroupArn
+      
+      # Environment variables as key=value pairs
+      EnvironmentVariables:
+        - "NODE_ENV=production"
+        - "LOG_LEVEL=info"
+        - "PORT=3000"
+    
+    contexts:
+      dev:
+        parameters:
+          # Development uses smaller instances
+          InstanceTypes:
+            - "t3.micro"
+            - "t3.small"
+          
+          # Development environment variables
+          EnvironmentVariables:
+            - "NODE_ENV=development"
+            - "LOG_LEVEL=debug"
+            - "PORT=3000"
+            - "DEBUG=*"
+      
+      staging:
+        parameters:
+          # Staging includes monitoring
+          SecurityGroupIds:
+            - sg-company-baseline
+            - type: stack-output
+              stack_name: security
+              output_key: WebTierSecurityGroupId
+            - type: stack-output
+              stack_name: security
+              output_key: ApplicationSecurityGroupId
+            - type: stack-output
+              stack_name: monitoring
+              output_key: MonitoringSecurityGroupId
+      
+      prod:
+        parameters:
+          # Production uses larger instances
+          InstanceTypes:
+            - "t3.large"
+            - "t3.xlarge"
+            - "c5.large"
+          
+          # Production includes all monitoring and compliance security groups
+          SecurityGroupIds:
+            - sg-company-baseline
+            - type: stack-output
+              stack_name: security
+              output_key: WebTierSecurityGroupId
+            - type: stack-output
+              stack_name: security
+              output_key: ApplicationSecurityGroupId
+            - type: stack-output
+              stack_name: monitoring
+              output_key: MonitoringSecurityGroupId
+            - type: stack-output
+              stack_name: compliance
+              output_key: ComplianceSecurityGroupId
+
+  # Database - demonstrates nested dependency resolution
+  - name: database
+    template: rds.yml
+    depends_on: [networking, security]
+    parameters:
+      # Database subnet group from VPC
+      DBSubnetGroupSubnetIds:
+        - type: stack-output
+          stack_name: networking
+          output_key: DatabaseSubnet1Id
+        - type: stack-output
+          stack_name: networking
+          output_key: DatabaseSubnet2Id
+        - type: stack-output
+          stack_name: networking
+          output_key: DatabaseSubnet3Id
+      
+      # Security groups for database access
+      VpcSecurityGroupIds:
+        - type: stack-output
+          stack_name: security
+          output_key: DatabaseSecurityGroupId
+        - type: stack-output
+          stack_name: security
+          output_key: ApplicationSecurityGroupId
+      
+      # Backup window (hours in UTC)
+      BackupRetentionPeriods:
+        - "1"   # Dev: 1 day
+        - "7"   # Default: 1 week
+        - "30"  # Prod: 30 days (set in context)
+    
+    contexts:
+      prod:
+        parameters:
+          # Production database configuration
+          BackupRetentionPeriods:
+            - "30"  # 30 days backup retention
+            - "90"  # 90 days for compliance backups
+
+  # Multi-region example - demonstrates cross-region dependencies
+  - name: global-cdn
+    template: cloudfront.yml
+    depends_on: [load-balancer]
+    parameters:
+      # Origins from multiple regions (example of complex resolution)
+      OriginDomainNames:
+        - type: stack-output
+          stack_name: load-balancer
+          output_key: LoadBalancerDNSName
+        - api.example.com  # Literal: legacy API endpoint
+        - assets.example.com  # Literal: assets CDN
+      
+      # Cache behaviors - different caching rules
+      CacheBehaviorPatterns:
+        - "/api/*"
+        - "/assets/*"
+        - "/static/*"
+        - "*.css"
+        - "*.js"
+        - "*.png"
+      
+      # Custom SSL certificate ARNs (different per environment)
+      CertificateArns:
+        - "arn:aws:acm:us-east-1:111111111111:certificate/example-dev"
+    
+    contexts:
+      prod:
+        parameters:
+          # Production uses multiple certificates for different domains
+          CertificateArns:
+            - "arn:aws:acm:us-east-1:333333333333:certificate/example-com"
+            - "arn:aws:acm:us-east-1:333333333333:certificate/api-example-com"
+            - "arn:aws:acm:us-east-1:333333333333:certificate/assets-example-com"

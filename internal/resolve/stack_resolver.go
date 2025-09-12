@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
@@ -169,27 +170,11 @@ func (r *StackResolver) resolveParameters(ctx context.Context, params map[string
 			continue
 		}
 
-		switch paramValue.ResolutionType {
-		case "literal":
-			// Extract literal value
-			if value, exists := paramValue.ResolutionConfig["value"]; exists {
-				result[key] = value
-			} else {
-				return nil, fmt.Errorf("parameter '%s' is literal but missing 'value' config", key)
-			}
-
-		case "stack-output":
-			// Resolve stack output reference
-			resolvedValue, err := r.resolveStackOutput(ctx, paramValue.ResolutionConfig, context)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve stack output parameter '%s': %w", key, err)
-			}
-			result[key] = resolvedValue
-
-		default:
-			return nil, fmt.Errorf("unsupported parameter resolution type '%s' for parameter '%s'",
-				paramValue.ResolutionType, key)
+		resolvedValue, err := r.resolveSingleParameter(ctx, paramValue, context)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve parameter '%s': %w", key, err)
 		}
+		result[key] = resolvedValue
 	}
 
 	return result, nil
@@ -222,6 +207,58 @@ func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map
 	}
 
 	return value, nil
+}
+
+// resolveSingleParameter resolves a single parameter value to a string
+func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *config.ParameterValue, context string) (string, error) {
+	switch paramValue.ResolutionType {
+	case "literal":
+		if value, exists := paramValue.ResolutionConfig["value"]; exists {
+			return value, nil
+		} else {
+			return "", fmt.Errorf("literal parameter missing 'value' config")
+		}
+
+	case "stack-output":
+		return r.resolveStackOutput(ctx, paramValue.ResolutionConfig, context)
+
+	case "list":
+		return r.resolveParameterList(ctx, paramValue.ListItems, context)
+
+	default:
+		return "", fmt.Errorf("unsupported resolution type '%s'", paramValue.ResolutionType)
+	}
+}
+
+// resolveParameterList resolves lists with mixed resolution types
+func (r *StackResolver) resolveParameterList(ctx context.Context, listItems []*config.ParameterValue, context string) (string, error) {
+	if len(listItems) == 0 {
+		return "", nil // Empty list becomes empty string
+	}
+
+	var resolvedValues []string
+
+	for i, item := range listItems {
+		if item == nil {
+			return "", fmt.Errorf("list item %d is nil", i)
+		}
+
+		var resolvedValue string
+		var err error
+
+		resolvedValue, err = r.resolveSingleParameter(ctx, item, context)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve list item %d: %w", i, err)
+		}
+
+		// Handle empty resolved values
+		if resolvedValue != "" {
+			resolvedValues = append(resolvedValues, resolvedValue)
+		}
+	}
+
+	// Join all resolved values with commas (CloudFormation list format)
+	return strings.Join(resolvedValues, ","), nil
 }
 
 // mergeTags merges tags with inheritance

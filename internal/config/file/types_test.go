@@ -595,6 +595,163 @@ stacks:
 	assert.Equal(t, "enabled", appStack.Contexts["prod"].Tags["Monitoring"])
 }
 
+func TestParameterValue_ListParameterIntegration(t *testing.T) {
+	// Test complete YAML parsing with list parameters
+	yamlConfig := `
+name: test-stack
+template: test.yml
+parameters:
+  # Single literal
+  Environment: production
+  
+  # Single resolver
+  VpcId:
+    type: stack-output
+    stack_name: vpc-stack
+    output_key: VpcId
+  
+  # List parameter with mixed types
+  SecurityGroupIds:
+    - sg-baseline123
+    - type: stack-output
+      stack_name: security-stack  
+      output_key: WebSGId
+    - type: stack-output
+      stack_name: database-stack
+      output_key: DatabaseSGId
+    - sg-additional456
+  
+  # Simple literal list
+  Ports:
+    - "80"
+    - "443"
+    - "8080"
+`
+
+	var stack Stack
+	err := yaml.Unmarshal([]byte(yamlConfig), &stack)
+	require.NoError(t, err)
+
+	// Test single literal parameter
+	envParam := stack.Parameters["Environment"]
+	assert.True(t, envParam.IsLiteral())
+	assert.Equal(t, "production", envParam.Literal)
+
+	// Test single resolver parameter
+	vpcIdParam := stack.Parameters["VpcId"]
+	assert.True(t, vpcIdParam.IsResolver())
+	assert.Equal(t, "stack-output", vpcIdParam.Resolver.Type)
+
+	// Test mixed list parameter
+	sgParam := stack.Parameters["SecurityGroupIds"]
+	assert.True(t, sgParam.IsList())
+	assert.Len(t, sgParam.ListItems, 4)
+
+	// Verify list items
+	assert.True(t, sgParam.ListItems[0].IsLiteral())
+	assert.Equal(t, "sg-baseline123", sgParam.ListItems[0].Literal)
+
+	assert.True(t, sgParam.ListItems[1].IsResolver())
+	assert.Equal(t, "stack-output", sgParam.ListItems[1].Resolver.Type)
+	assert.Equal(t, "security-stack", sgParam.ListItems[1].Resolver.Config["stack_name"])
+
+	assert.True(t, sgParam.ListItems[2].IsResolver())
+	assert.Equal(t, "stack-output", sgParam.ListItems[2].Resolver.Type)
+	assert.Equal(t, "database-stack", sgParam.ListItems[2].Resolver.Config["stack_name"])
+
+	assert.True(t, sgParam.ListItems[3].IsLiteral())
+	assert.Equal(t, "sg-additional456", sgParam.ListItems[3].Literal)
+
+	// Test simple literal list
+	portsParam := stack.Parameters["Ports"]
+	assert.True(t, portsParam.IsList())
+	assert.Len(t, portsParam.ListItems, 3)
+	assert.True(t, portsParam.ListItems[0].IsLiteral())
+	assert.Equal(t, "80", portsParam.ListItems[0].Literal)
+	assert.True(t, portsParam.ListItems[1].IsLiteral())
+	assert.Equal(t, "443", portsParam.ListItems[1].Literal)
+	assert.True(t, portsParam.ListItems[2].IsLiteral())
+	assert.Equal(t, "8080", portsParam.ListItems[2].Literal)
+}
+
+func TestParameterValue_ToConfigParameterValue_List(t *testing.T) {
+	// Test conversion of list parameters to config.ParameterValue
+	yamlParam := &yamlParameterValue{
+		IsListValue: true,
+		ListItems: []*yamlParameterValue{
+			{Literal: "sg-literal123", IsLiteralValue: true},
+			{
+				Resolver: &yamlParameterResolver{
+					Type: "stack-output",
+					Config: map[string]interface{}{
+						"stack_name": "security-stack",
+						"output_key": "WebSGId",
+					},
+				},
+			},
+			{Literal: "sg-literal456", IsLiteralValue: true},
+		},
+	}
+
+	configParam := yamlParam.ToConfigParameterValue()
+	require.NotNil(t, configParam)
+
+	// Verify list parameter properties
+	assert.Equal(t, "list", configParam.ResolutionType)
+	assert.NotNil(t, configParam.ListItems)
+	assert.Len(t, configParam.ListItems, 3)
+
+	// Verify first item (literal)
+	assert.Equal(t, "literal", configParam.ListItems[0].ResolutionType)
+	assert.Equal(t, "sg-literal123", configParam.ListItems[0].ResolutionConfig["value"])
+
+	// Verify second item (stack-output)
+	assert.Equal(t, "stack-output", configParam.ListItems[1].ResolutionType)
+	assert.Equal(t, "security-stack", configParam.ListItems[1].ResolutionConfig["stack_name"])
+	assert.Equal(t, "WebSGId", configParam.ListItems[1].ResolutionConfig["output_key"])
+
+	// Verify third item (literal)
+	assert.Equal(t, "literal", configParam.ListItems[2].ResolutionType)
+	assert.Equal(t, "sg-literal456", configParam.ListItems[2].ResolutionConfig["value"])
+}
+
+func TestParameterValue_MarshalYAML_List(t *testing.T) {
+	// Test marshalling list parameters back to YAML
+	yamlParam := &yamlParameterValue{
+		IsListValue: true,
+		ListItems: []*yamlParameterValue{
+			{Literal: "literal-value", IsLiteralValue: true},
+			{
+				Resolver: &yamlParameterResolver{
+					Type: "stack-output",
+					Config: map[string]interface{}{
+						"stack_name": "vpc-stack",
+						"output_key": "VpcId",
+					},
+				},
+			},
+		},
+	}
+
+	result, err := yaml.Marshal(yamlParam)
+	require.NoError(t, err)
+
+	// Parse the result back to verify structure instead of exact string match
+	var unmarshalled []*yamlParameterValue
+	err = yaml.Unmarshal(result, &unmarshalled)
+	require.NoError(t, err)
+
+	// Verify structure
+	assert.Len(t, unmarshalled, 2)
+	assert.True(t, unmarshalled[0].IsLiteral())
+	assert.Equal(t, "literal-value", unmarshalled[0].Literal)
+
+	assert.True(t, unmarshalled[1].IsResolver())
+	assert.Equal(t, "stack-output", unmarshalled[1].Resolver.Type)
+	assert.Equal(t, "vpc-stack", unmarshalled[1].Resolver.Config["stack_name"])
+	assert.Equal(t, "VpcId", unmarshalled[1].Resolver.Config["output_key"])
+}
+
 func TestConfig_EmptyMaps(t *testing.T) {
 	// Test behavior with empty maps vs nil maps
 	config1 := Config{

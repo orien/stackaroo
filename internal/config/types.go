@@ -10,8 +10,11 @@ import (
 
 // ParameterValue represents a parameter with unified resolution model
 type ParameterValue struct {
-	ResolutionType   string            // "literal", "stack-output"
+	ResolutionType   string            // "literal", "stack-output", "list"
 	ResolutionConfig map[string]string // Resolution-specific configuration
+
+	// For list parameters
+	ListItems []*ParameterValue // List of parameter values to resolve
 }
 
 // ConfigProvider defines the interface for loading and managing configuration

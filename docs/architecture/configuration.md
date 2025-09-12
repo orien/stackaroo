@@ -104,12 +104,161 @@ Represents stack configuration with context overrides applied:
 
 ```go
 type StackConfig struct {
-    Name         string            // Stack name
-    Template     string            // Template URI (file://, s3://, git://, etc.)
-    Parameters   map[string]string // Resolved parameters
-    Tags         map[string]string // Resolved tags
-    Dependencies []string          // Stack dependencies
-    Capabilities []string          // CloudFormation capabilities
+    Name         string                         // Stack name
+    Template     string                         // Template URI (file://, s3://, git://, etc.)
+    Parameters   map[string]*ParameterValue     // Rich parameter resolution model
+    Tags         map[string]string              // Resolved tags
+    Dependencies []string                       // Stack dependencies
+    Capabilities []string                       // CloudFormation capabilities
+}
+```
+
+## Parameter Resolution System
+
+The parameter resolution system provides flexible parameter handling supporting both simple literal values and complex resolution scenarios including CloudFormation list parameters.
+
+### Architecture Overview
+
+The parameter resolution system operates through three layers:
+
+1. **YAML Layer** (`yamlParameterValue`) - Parses YAML into parameter structures
+2. **Configuration Layer** (`config.ParameterValue`) - Unified resolution model
+3. **Resolution Layer** (`StackResolver`) - Converts to final string values
+
+### Parameter Value Structure
+
+```go
+type ParameterValue struct {
+    ResolutionType   string            // "literal", "stack-output", "list"
+    ResolutionConfig map[string]string // Resolution-specific configuration
+    ListItems        []*ParameterValue // For list parameters
+}
+```
+
+### Resolution Types
+
+#### **Literal Parameters**
+Direct string values used as-is:
+```yaml
+parameters:
+  Environment: production
+  InstanceType: t3.micro
+```
+
+#### **Stack Output Parameters**
+Dynamic references to CloudFormation stack outputs:
+```yaml
+parameters:
+  VpcId:
+    type: stack-output
+    stack_name: vpc-stack
+    output_key: VpcId
+```
+
+#### **List Parameters**
+Arrays supporting mixed resolution types for CloudFormation `List<Type>` and `CommaDelimitedList` parameters:
+```yaml
+parameters:
+  # Heterogeneous list mixing literals and stack outputs
+  SecurityGroupIds:
+    - sg-baseline123           # Literal value
+    - type: stack-output       # Dynamic resolution
+      stack_name: security-stack
+      output_key: WebSGId
+    - sg-additional456         # Another literal
+
+  # Simple literal list
+  AllowedPorts:
+    - "80"
+    - "443"
+    - "8080"
+```
+
+### Resolution Process
+
+1. **YAML Parsing** - `yamlParameterValue.UnmarshalYAML()` detects parameter type:
+   - Scalar nodes → Literal parameters
+   - Mapping nodes → Resolver parameters  
+   - Sequence nodes → List parameters
+
+2. **Configuration Conversion** - `ToConfigParameterValue()` creates unified `ParameterValue` structures
+
+3. **Value Resolution** - `StackResolver.resolveSingleParameter()` processes each parameter:
+   - Literal: Returns string value directly
+   - Stack-output: Fetches from CloudFormation API
+   - List: Recursively resolves each item and joins with commas
+
+### CloudFormation Integration
+
+List parameters resolve to comma-separated strings compatible with CloudFormation:
+
+```yaml
+# YAML Configuration
+SecurityGroupIds:
+  - sg-123
+  - type: stack-output
+    stack_name: vpc-stack  
+    output_key: WebSGId    # Resolves to "sg-456"
+
+# Resolved Parameter Value
+SecurityGroupIds: "sg-123,sg-456"
+
+# CloudFormation Template Usage
+Parameters:
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+Resources:
+  LaunchTemplate:
+    Properties:
+      SecurityGroupIds: !Ref SecurityGroupIds
+```
+
+### Context-Specific Overrides
+
+List parameters support context-specific overrides like simple parameters:
+
+```yaml
+stacks:
+  - name: web-app
+    parameters:
+      SecurityGroupIds:
+        - sg-base
+        - type: stack-output
+          stack_name: security
+          output_key: WebSGId
+    contexts:
+      prod:
+        parameters:
+          SecurityGroupIds:
+            - sg-prod-base      # Different baseline for prod
+            - type: stack-output
+              stack_name: security
+              output_key: WebSGId
+            - type: stack-output  # Additional monitoring SG
+              stack_name: monitoring
+              output_key: MonitoringSGId
+```
+
+### Error Handling
+
+The resolution system provides detailed error context:
+- Parameter name and resolution type in error messages
+- List item index for list parameter failures
+- Stack output resolution errors include stack and output key details
+- Validation of required configuration fields
+
+### Extension Points
+
+The system is designed for extensibility with new resolution types:
+```go
+// Future resolver types can be added easily
+switch paramValue.ResolutionType {
+case "literal":        // Existing
+case "stack-output":   // Existing  
+case "list":          // Existing
+case "ssm-parameter": // Future: Systems Manager parameters
+case "secrets-manager": // Future: Secrets Manager values
+case "lambda-invoke":  // Future: Lambda function results
 }
 ```
 
@@ -149,13 +298,31 @@ type Context struct {
 #### **Raw Stack (`file.Stack`)**
 ```go
 type Stack struct {
-    Name         string                      `yaml:"name"`
-    Template     string                      `yaml:"template"`
-    Parameters   map[string]string           `yaml:"parameters"`
-    Tags         map[string]string           `yaml:"tags"`
-    Dependencies []string                    `yaml:"depends_on"`
-    Capabilities []string                    `yaml:"capabilities"`
-    Contexts     map[string]*ContextOverride `yaml:"contexts"`
+    Name         string                         `yaml:"name"`
+    Template     string                         `yaml:"template"`
+    Parameters   map[string]*yamlParameterValue `yaml:"parameters"`
+    Tags         map[string]string              `yaml:"tags"`
+    Dependencies []string                       `yaml:"depends_on"`
+    Capabilities []string                       `yaml:"capabilities"`
+    Contexts     map[string]*ContextOverride    `yaml:"contexts"`
+}
+```
+
+#### **YAML Parameter Value (`file.yamlParameterValue`)**
+Handles flexible parameter parsing from YAML:
+
+```go
+type yamlParameterValue struct {
+    // For literal values
+    Literal        string
+    IsLiteralValue bool
+
+    // For complex resolution
+    Resolver *yamlParameterResolver
+    
+    // For list parameters - detected from YAML arrays
+    ListItems   []*yamlParameterValue
+    IsListValue bool
 }
 ```
 
@@ -274,8 +441,23 @@ stacks:
   - name: vpc
     template: templates/vpc.yaml
     parameters:
+      # Simple literal parameters (traditional syntax)
       VpcCidr: 10.0.0.0/16
       EnableDnsHostnames: "true"
+      
+      # List parameter with mixed resolution types
+      SecurityGroupIds:
+        - sg-baseline123         # Literal value
+        - type: stack-output     # Dynamic from stack output
+          stack_name: security-stack
+          output_key: WebSGId
+        - sg-additional456       # Another literal
+      
+      # Simple list of literals
+      AllowedPorts:
+        - "80"
+        - "443"
+        - "8080"
     tags:
       Component: networking
     capabilities:
@@ -284,9 +466,24 @@ stacks:
       dev:
         parameters:
           VpcCidr: 10.1.0.0/16
+          # Context-specific security groups for dev
+          SecurityGroupIds:
+            - sg-dev-baseline
+            - type: stack-output
+              stack_name: dev-security
+              output_key: DevWebSGId
       prod:
         parameters:
           VpcCidr: 10.2.0.0/16
+          # Production includes additional security groups
+          SecurityGroupIds:
+            - sg-prod-baseline
+            - type: stack-output
+              stack_name: security-stack
+              output_key: WebSGId
+            - type: stack-output
+              stack_name: monitoring-stack
+              output_key: MonitoringSGId
         tags:
           Component: prod-networking
           
@@ -295,6 +492,17 @@ stacks:
     depends_on: [vpc]
     parameters:
       DBInstanceClass: db.t3.micro
+      # Database subnets from VPC stack
+      DBSubnetGroupSubnetIds:
+        - type: stack-output
+          stack_name: vpc
+          output_key: DatabaseSubnet1Id
+        - type: stack-output
+          stack_name: vpc
+          output_key: DatabaseSubnet2Id
+        - type: stack-output
+          stack_name: vpc
+          output_key: DatabaseSubnet3Id
     contexts:
       prod:
         parameters:

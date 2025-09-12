@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/orien/stackaroo/internal/aws"
@@ -256,7 +257,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 		_, err := resolver.resolveParameters(ctx, params, "dev")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported parameter resolution type 'unsupported'")
+		assert.Contains(t, err.Error(), "unsupported resolution type 'unsupported'")
 	})
 
 	t.Run("literal missing value", func(t *testing.T) {
@@ -276,7 +277,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 		_, err := resolver.resolveParameters(ctx, params, "dev")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "parameter 'BadLiteral' is literal but missing 'value' config")
+		assert.Contains(t, err.Error(), "literal parameter missing 'value' config")
 	})
 
 	t.Run("stack not found", func(t *testing.T) {
@@ -299,7 +300,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 		_, err := resolver.resolveParameters(ctx, params, "dev")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to resolve stack output parameter 'VpcId'")
+		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
 		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
 
 		mockCfnOperations.AssertExpectations(t)
@@ -333,7 +334,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 		_, err := resolver.resolveParameters(ctx, params, "dev")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to resolve stack output parameter 'BadOutput'")
+		assert.Contains(t, err.Error(), "stack 'vpc-stack' does not have output 'MissingOutput'")
 		assert.Contains(t, err.Error(), "stack 'vpc-stack' does not have output 'MissingOutput'")
 
 		mockCfnOperations.AssertExpectations(t)
@@ -738,4 +739,274 @@ func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testin
 	assert.Contains(t, order[:2], "security")
 
 	mockConfigProvider.AssertExpectations(t)
+}
+
+func TestStackResolver_ResolveParameters_LiteralList(t *testing.T) {
+	// Test resolution of simple literal lists
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	parameters := map[string]*config.ParameterValue{
+		"Ports": {
+			ResolutionType: "list",
+			ListItems: []*config.ParameterValue{
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "80"},
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "443"},
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "8080"},
+				},
+			},
+		},
+	}
+
+	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	require.NoError(t, err)
+
+	assert.Equal(t, "80,443,8080", result["Ports"])
+}
+
+func TestStackResolver_ResolveParameters_MixedList(t *testing.T) {
+	// Test resolution of mixed literal + stack output lists
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	// Mock stack outputs
+	mockCfnOps.On("GetStack", mock.Anything, "security-stack").Return(&aws.Stack{
+		Outputs: map[string]string{
+			"WebSGId": "sg-web123",
+		},
+	}, nil)
+
+	mockCfnOps.On("GetStack", mock.Anything, "database-stack").Return(&aws.Stack{
+		Outputs: map[string]string{
+			"DatabaseSGId": "sg-db456",
+		},
+	}, nil)
+
+	parameters := map[string]*config.ParameterValue{
+		"SecurityGroupIds": {
+			ResolutionType: "list",
+			ListItems: []*config.ParameterValue{
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "sg-baseline123"},
+				},
+				{
+					ResolutionType: "stack-output",
+					ResolutionConfig: map[string]string{
+						"stack_name": "security-stack",
+						"output_key": "WebSGId",
+					},
+				},
+				{
+					ResolutionType: "stack-output",
+					ResolutionConfig: map[string]string{
+						"stack_name": "database-stack",
+						"output_key": "DatabaseSGId",
+					},
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "sg-additional789"},
+				},
+			},
+		},
+	}
+
+	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	require.NoError(t, err)
+
+	assert.Equal(t, "sg-baseline123,sg-web123,sg-db456,sg-additional789", result["SecurityGroupIds"])
+	mockCfnOps.AssertExpectations(t)
+}
+
+func TestStackResolver_ResolveParameters_EmptyList(t *testing.T) {
+	// Test resolution of empty lists
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	parameters := map[string]*config.ParameterValue{
+		"EmptyList": {
+			ResolutionType: "list",
+			ListItems:      []*config.ParameterValue{},
+		},
+	}
+
+	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	require.NoError(t, err)
+
+	assert.Equal(t, "", result["EmptyList"])
+}
+
+func TestStackResolver_ResolveParameters_ListWithEmptyValues(t *testing.T) {
+	// Test handling of empty values in lists (should be filtered out)
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	parameters := map[string]*config.ParameterValue{
+		"FilteredList": {
+			ResolutionType: "list",
+			ListItems: []*config.ParameterValue{
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "value1"},
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": ""}, // Empty value
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "value2"},
+				},
+			},
+		},
+	}
+
+	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	require.NoError(t, err)
+
+	// Empty values should be filtered out
+	assert.Equal(t, "value1,value2", result["FilteredList"])
+}
+
+func TestStackResolver_ResolveParameters_NestedList(t *testing.T) {
+	// Test resolution of nested lists (lists within lists)
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	parameters := map[string]*config.ParameterValue{
+		"NestedList": {
+			ResolutionType: "list",
+			ListItems: []*config.ParameterValue{
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "outer1"},
+				},
+				{
+					ResolutionType: "list",
+					ListItems: []*config.ParameterValue{
+						{
+							ResolutionType:   "literal",
+							ResolutionConfig: map[string]string{"value": "inner1"},
+						},
+						{
+							ResolutionType:   "literal",
+							ResolutionConfig: map[string]string{"value": "inner2"},
+						},
+					},
+				},
+				{
+					ResolutionType:   "literal",
+					ResolutionConfig: map[string]string{"value": "outer2"},
+				},
+			},
+		},
+	}
+
+	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	require.NoError(t, err)
+
+	assert.Equal(t, "outer1,inner1,inner2,outer2", result["NestedList"])
+}
+
+func TestStackResolver_ResolveParameters_ListErrorCases(t *testing.T) {
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+
+	t.Run("nil list item", func(t *testing.T) {
+		parameters := map[string]*config.ParameterValue{
+			"BadList": {
+				ResolutionType: "list",
+				ListItems: []*config.ParameterValue{
+					{
+						ResolutionType:   "literal",
+						ResolutionConfig: map[string]string{"value": "value1"},
+					},
+					nil, // Nil item
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "list item 1 is nil")
+	})
+
+	t.Run("invalid resolution type in list", func(t *testing.T) {
+		parameters := map[string]*config.ParameterValue{
+			"BadList": {
+				ResolutionType: "list",
+				ListItems: []*config.ParameterValue{
+					{
+						ResolutionType:   "invalid-type",
+						ResolutionConfig: map[string]string{},
+					},
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported resolution type 'invalid-type'")
+	})
+
+	t.Run("literal list item missing value", func(t *testing.T) {
+		parameters := map[string]*config.ParameterValue{
+			"BadList": {
+				ResolutionType: "list",
+				ListItems: []*config.ParameterValue{
+					{
+						ResolutionType:   "literal",
+						ResolutionConfig: map[string]string{}, // Missing value
+					},
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "literal parameter missing 'value' config")
+	})
+
+	t.Run("stack output list item error", func(t *testing.T) {
+		// Mock stack output failure
+		mockCfnOps.On("GetStack", mock.Anything, "missing-stack").Return(
+			(*aws.Stack)(nil), fmt.Errorf("stack not found"))
+
+		parameters := map[string]*config.ParameterValue{
+			"BadList": {
+				ResolutionType: "list",
+				ListItems: []*config.ParameterValue{
+					{
+						ResolutionType: "stack-output",
+						ResolutionConfig: map[string]string{
+							"stack_name": "missing-stack",
+							"output_key": "SomeOutput",
+						},
+					},
+				},
+			},
+		}
+
+		_, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
+		assert.Contains(t, err.Error(), "stack not found")
+
+		mockCfnOps.AssertExpectations(t)
+	})
 }
