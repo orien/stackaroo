@@ -2,7 +2,7 @@
 # Copyright © 2025 Stackaroo Contributors
 # SPDX-License-Identifier: BSD-3-Clause
 
-.PHONY: build test test-unit test-aws clean help run install lint fmt vet
+.PHONY: build test test-unit clean help run install lint fmt vet
 
 # Variables
 BINARY_NAME := stackaroo
@@ -43,13 +43,7 @@ build: ## Build the main stackaroo binary
 	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "✅ Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
 
-build-test-aws: ## Build the AWS module test program
-	@echo "🔨 Building AWS test program..."
-	@mkdir -p $(BUILD_DIR)
-	@go build $(LDFLAGS) -o $(BUILD_DIR)/test-aws $(CMD_DIR)/test-aws
-	@echo "✅ AWS test program built: $(BUILD_DIR)/test-aws"
-
-build-all: build build-test-aws ## Build all binaries
+build-all: build ## Build all binaries
 
 ##@ Test
 
@@ -58,16 +52,6 @@ test: test-unit ## Run all tests
 test-unit: ## Run unit tests
 	@echo "🧪 Running unit tests..."
 	@go test -v ./cmd/... ./internal/...
-
-test-aws: build-test-aws ## Run AWS module test program (dry-run)
-	@echo "🔍 Testing AWS module..."
-	@$(BUILD_DIR)/test-aws -dry-run=true -verbose=true
-
-test-aws-live: build-test-aws ## Run AWS module test program against real AWS (BE CAREFUL!)
-	@echo "⚠️  Running AWS module test against REAL AWS..."
-	@echo "⚠️  This will create real resources. Press Ctrl+C to cancel."
-	@sleep 3
-	@$(BUILD_DIR)/test-aws -dry-run=false -verbose=true
 
 ##@ Development
 

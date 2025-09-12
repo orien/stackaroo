@@ -21,8 +21,6 @@ make lint               # Run linting
 - `make build` - Build main binary
 - `make build-all` - Build all binaries
 - `make test` - Unit tests
-- `make test-aws` - AWS integration (dry-run)
-- `make test-aws-live` - Live AWS tests (destructive!)
 - `make lint` - Format + vet + golangci-lint
 - `make commit-check` - Pre-commit validation
 
@@ -107,12 +105,6 @@ func (m *mockCloudFormationAPI) CreateStack(ctx context.Context, input *cloudfor
 - Use separate dev account/profile
 - Dry-run mode is default for safety
 - Clean up resources after testing
-
-```bash
-make test-aws                    # Safe dry-run
-PROFILE=dev make aws-test-profile # With specific profile
-make aws-test-us-east-1         # Specific region
-```
 
 ## Configuration Management
 
