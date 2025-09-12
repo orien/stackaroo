@@ -111,35 +111,28 @@ func deleteAllStacks(ctx context.Context, contextName, configFile string) error 
 		return nil
 	}
 
-	// Resolve all stacks and their dependencies
-	resolved, err := resolver.ResolveStacks(ctx, contextName, stackNames)
+	// Get dependency order without resolving stacks
+	deploymentOrder, err := resolver.GetDependencyOrder(contextName, stackNames)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+		return fmt.Errorf("failed to calculate dependency order: %w", err)
 	}
 
 	// Reverse the deployment order for safe deletion
 	// Dependencies should be deleted before the stacks that depend on them
-	deletionOrder := make([]string, len(resolved.DeploymentOrder))
-	for i, stackName := range resolved.DeploymentOrder {
-		deletionOrder[len(resolved.DeploymentOrder)-1-i] = stackName
+	deletionOrder := make([]string, len(deploymentOrder))
+	for i, stackName := range deploymentOrder {
+		deletionOrder[len(deploymentOrder)-1-i] = stackName
 	}
 
-	// Delete all stacks in reverse dependency order
+	// Delete each stack in reverse dependency order, resolving individually
 	for _, stackName := range deletionOrder {
-		// Find the resolved stack
-		var stackToDelete *model.Stack
-		for _, stack := range resolved.Stacks {
-			if stack.Name == stackName {
-				stackToDelete = stack
-				break
-			}
+		// Resolve this specific stack
+		stack, err := resolver.ResolveStack(ctx, contextName, stackName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
 		}
 
-		if stackToDelete == nil {
-			return fmt.Errorf("resolved stack %s not found", stackName)
-		}
-
-		err = deleteStackWithFeedback(ctx, stackToDelete, contextName)
+		err = deleteStackWithFeedback(ctx, stack, contextName)
 		if err != nil {
 			return err
 		}

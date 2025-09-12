@@ -943,10 +943,10 @@ func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testin
 
 	require.NoError(t, err)
 	assert.Len(t, order, 3)
-	
+
 	// App should be last
 	assert.Equal(t, "app", order[2])
-	
+
 	// VPC and security should be before app (order between them doesn't matter since they're independent)
 	assert.Contains(t, order[:2], "vpc")
 	assert.Contains(t, order[:2], "security")
