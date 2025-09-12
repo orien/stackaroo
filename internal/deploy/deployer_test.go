@@ -637,3 +637,163 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
 }
+
+// TestDeployStack_NewStack_UserCancels tests cancellation during new stack creation
+func TestDeployStack_NewStack_UserCancels(t *testing.T) {
+	ctx := context.Background()
+
+	// Set up mock prompter for cancellation
+	mockPrompter := &prompt.MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (user cancels)
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
+
+	// Set up mocks
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+
+	// Mock StackExists call (new stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	// Create deployer with mock CloudFormation operations
+	deployer := createMockDeployer(mockCfnOps)
+
+	// Create resolved stack
+	stack := &model.Stack{
+		Name:         "test-stack",
+		TemplateBody: "template content",
+		Parameters:   map[string]string{"Environment": "test"},
+		Tags:         map[string]string{"Project": "stackaroo"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute
+	err := deployer.DeployStack(ctx, stack)
+
+	// Verify that CancellationError is returned
+	assert.Error(t, err)
+	var cancellationErr CancellationError
+	assert.ErrorAs(t, err, &cancellationErr)
+	assert.Equal(t, "test-stack", cancellationErr.StackName)
+	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
+}
+
+// TestDeployStackWithFeedback_CancellationHandling tests that deployStackWithFeedback handles cancellation correctly
+func TestDeployStackWithFeedback_CancellationHandling(t *testing.T) {
+	ctx := context.Background()
+
+	// Set up mock prompter for cancellation
+	mockPrompter := &prompt.MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (user cancels)
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
+
+	// Set up mocks
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
+
+	// Create deployer with mock CloudFormation operations
+	deployer := createMockDeployer(mockCfnOps)
+
+	// Create resolved stack
+	stack := &model.Stack{
+		Name:         "test-stack",
+		TemplateBody: "template content",
+		Parameters:   map[string]string{"Environment": "test"},
+		Tags:         map[string]string{"Project": "stackaroo"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute deployStackWithFeedback directly
+	err := deployer.deployStackWithFeedback(ctx, stack, "test-context")
+
+	// Verify that no error is returned (cancellation is handled gracefully)
+	assert.NoError(t, err)
+	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
+}
+
+// TestDeployStack_ExistingStack_UserCancelsChangeset tests cancellation during changeset deployment
+func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
+	ctx := context.Background()
+
+	// Set up mock prompter for cancellation
+	mockPrompter := &prompt.MockPrompter{}
+	originalPrompter := prompt.GetDefaultPrompter()
+	prompt.SetPrompter(mockPrompter)
+	defer prompt.SetPrompter(originalPrompter)
+
+	// Mock user confirmation (user cancels changeset)
+	expectedMessage := "Do you want to apply these changes to stack test-stack?"
+	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
+
+	// Set up mocks
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+
+	// Mock StackExists call (existing stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
+
+	// Mock differ operations (required for changeset approach)
+	currentStackInfo := &aws.StackInfo{
+		Name:       "test-stack",
+		Status:     "UPDATE_COMPLETE",
+		Parameters: map[string]string{"Environment": "test"},
+		Tags:       map[string]string{"Project": "stackaroo"},
+	}
+	mockCfnOps.On("DescribeStack", mock.Anything, "test-stack").Return(currentStackInfo, nil)
+	mockCfnOps.On("GetTemplate", mock.Anything, "test-stack").Return(`{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"OldBucket": {"Type": "AWS::S3::Bucket"}}}`, nil)
+
+	// Mock changeset creation for deployment
+	changeSetInfo := &aws.ChangeSetInfo{
+		ChangeSetID: "changeset-123",
+		Status:      "CREATE_COMPLETE",
+		Changes: []aws.ResourceChange{
+			{
+				Action:       "Add",
+				ResourceType: "AWS::S3::Bucket",
+				LogicalID:    "TestBucket",
+				PhysicalID:   "test-bucket-123",
+				Replacement:  "False",
+				Details:      []string{},
+			},
+		},
+	}
+	mockCfnOps.On("CreateChangeSetForDeployment", mock.Anything, "test-stack", `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`, map[string]string{"Environment": "test"}, []string{"CAPABILITY_IAM"}, map[string]string{"Project": "stackaroo"}).Return(changeSetInfo, nil)
+
+	// Mock changeset deletion (cleanup after cancellation)
+	mockCfnOps.On("DeleteChangeSet", mock.Anything, "changeset-123").Return(nil)
+
+	// Create deployer with mock CloudFormation operations
+	deployer := createMockDeployer(mockCfnOps)
+
+	// Create resolved stack
+	stack := &model.Stack{
+		Name:         "test-stack",
+		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`,
+		Parameters:   map[string]string{"Environment": "test"},
+		Tags:         map[string]string{"Project": "stackaroo"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute
+	err := deployer.DeployStack(ctx, stack)
+
+	// Verify that CancellationError is returned
+	assert.Error(t, err)
+	var cancellationErr CancellationError
+	assert.ErrorAs(t, err, &cancellationErr)
+	assert.Equal(t, "test-stack", cancellationErr.StackName)
+	mockCfnOps.AssertExpectations(t)
+	mockPrompter.AssertExpectations(t)
+}

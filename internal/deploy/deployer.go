@@ -6,6 +6,7 @@ package deploy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,6 +17,15 @@ import (
 	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/orien/stackaroo/internal/resolve"
 )
+
+// CancellationError indicates that a stack operation was cancelled by the user
+type CancellationError struct {
+	StackName string
+}
+
+func (e CancellationError) Error() string {
+	return fmt.Sprintf("deployment of stack %s was cancelled by user", e.StackName)
+}
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
@@ -81,7 +91,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) 
 	}
 	if !confirmed {
 		fmt.Printf("Stack creation cancelled for %s\n", stack.Name)
-		return nil
+		return CancellationError{StackName: stack.Name}
 	}
 
 	// Convert parameters to AWS format
@@ -167,7 +177,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 				_ = d.cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
-			return nil
+			return CancellationError{StackName: stack.Name}
 		}
 	} else {
 		fmt.Printf("No changes detected for stack %s\n", stack.Name)
@@ -244,6 +254,11 @@ func (d *StackDeployer) readTemplateFile(filename string) (string, error) {
 func (d *StackDeployer) deployStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
 	err := d.DeployStack(ctx, stack)
 	if err != nil {
+		// Handle cancellation - don't treat it as an error for the caller
+		var cancellationErr CancellationError
+		if errors.As(err, &cancellationErr) {
+			return nil
+		}
 		return fmt.Errorf("error deploying stack %s: %w", stack.Name, err)
 	}
 
