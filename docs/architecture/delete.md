@@ -14,7 +14,13 @@ graph TB
 
     subgraph "Core Delete Module"
         DI[Deleter Interface<br/>deleter.go]
-        AD[AWSDeleter<br/>deleter.go]
+        SD[StackDeleter<br/>deleter.go]
+
+        subgraph "Business Methods"
+            DS[DeleteStack<br/>single stack deletion]
+            DSS[DeleteSingleStack<br/>with resolution]
+            DAS[DeleteAllStacks<br/>with dependency ordering]
+        end
 
         subgraph "Safety Features"
             SP[Stack Preview<br/>deleter.go]
@@ -22,9 +28,9 @@ graph TB
             EV[Existence Validation<br/>deleter.go]
         end
 
-        subgraph "Deletion Orchestration"
-            DO[Dependency Ordering<br/>cmd/delete.go]
-            DS[Deletion Sequencing<br/>deleter.go]
+        subgraph "Internal Orchestration"
+            DO[Dependency Ordering<br/>deleter.go]
+            DS_SEQ[Deletion Sequencing<br/>deleter.go]
             EM[Event Monitoring<br/>deleter.go]
         end
     end
@@ -34,21 +40,28 @@ graph TB
         PROMPT[Prompt System<br/>internal/prompt]
         CFG[Configuration<br/>internal/config]
         RES[Stack Resolver<br/>internal/resolve]
+        RI[resolve.Resolver Interface<br/>internal/resolve]
     end
 
     CLI --> DI
-    DI --> AD
-    AD --> SP
-    AD --> UC
-    AD --> EV
-    CLI --> DO
-    DO --> DS
-    DS --> EM
-
-    AD --> AWS
-    UC --> PROMPT
     CLI --> CFG
     CLI --> RES
+    DI <|-- SD
+    RI --> SD
+    SD --> DS
+    SD --> DSS
+    SD --> DAS
+    SD --> SP
+    SD --> UC
+    SD --> EV
+    SD --> DO
+    SD --> DS_SEQ
+    SD --> EM
+
+    SD --> AWS
+    UC --> PROMPT
+    SD --> CFG
+    RES --> RI
 ```
 
 ## Component Architecture

@@ -7,9 +7,8 @@ package diff
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestChangeType_Constants(t *testing.T) {

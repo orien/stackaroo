@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/orien/stackaroo/internal/delete"
-	"github.com/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -108,16 +107,8 @@ stacks:
 		require.NoError(t, err)
 	}()
 
-	// Set up expected stack
-	expectedStack := &model.Stack{
-		Name:    "vpc",
-		Context: "dev",
-	}
-
-	// Set up mock expectations
-	mockDeleter.On("DeleteStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == expectedStack.Name && stack.Context == expectedStack.Context
-	})).Return(nil)
+	// Set up mock expectations for the new DeleteSingleStack method
+	mockDeleter.On("DeleteSingleStack", mock.Anything, "vpc", "dev").Return(nil)
 
 	// Execute command
 	rootCmd.SetArgs([]string{"delete", "dev", "vpc"})
@@ -172,13 +163,8 @@ stacks:
 	}()
 
 	// Set up mock expectations - app should be deleted before vpc (reverse dependency order)
-	mockDeleter.On("DeleteStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "app" && stack.Context == "dev"
-	})).Return(nil).Once()
-
-	mockDeleter.On("DeleteStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "vpc" && stack.Context == "dev"
-	})).Return(nil).Once()
+	// Set up mock expectations
+	mockDeleter.On("DeleteAllStacks", mock.Anything, "dev").Return(nil)
 
 	// Execute command
 	rootCmd.SetArgs([]string{"delete", "dev"})
@@ -227,9 +213,7 @@ stacks:
 	}()
 
 	// Set up mock expectations with error
-	mockDeleter.On("DeleteStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "vpc" && stack.Context == "dev"
-	})).Return(errors.New("deletion failed"))
+	mockDeleter.On("DeleteSingleStack", mock.Anything, "vpc", "dev").Return(errors.New("deletion failed"))
 
 	// Execute command
 	rootCmd.SetArgs([]string{"delete", "dev", "vpc"})
@@ -237,7 +221,7 @@ stacks:
 
 	// Assertions
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error deleting stack vpc")
+	assert.Contains(t, err.Error(), "deletion failed")
 	mockDeleter.AssertExpectations(t)
 }
 
@@ -274,14 +258,16 @@ stacks: []
 		require.NoError(t, err)
 	}()
 
+	// Set up mock expectations for DeleteAllStacks
+	mockDeleter.On("DeleteAllStacks", mock.Anything, "dev").Return(nil)
+
 	// Execute command
 	rootCmd.SetArgs([]string{"delete", "dev"})
 	err = rootCmd.Execute()
 
 	// Should succeed with no stacks to delete
 	require.NoError(t, err)
-	// Should not call DeleteStack
-	mockDeleter.AssertNotCalled(t, "DeleteStack")
+	mockDeleter.AssertExpectations(t)
 }
 
 func TestDeleteCommand_InvalidContext(t *testing.T) {
@@ -321,6 +307,9 @@ stacks:
 		require.NoError(t, err)
 	}()
 
+	// Set up mock expectations for DeleteAllStacks with error
+	mockDeleter.On("DeleteAllStacks", mock.Anything, "invalid-context").Return(errors.New("failed to get stacks for context invalid-context"))
+
 	// Execute command with invalid context
 	rootCmd.SetArgs([]string{"delete", "invalid-context"})
 	err = rootCmd.Execute()
@@ -328,7 +317,7 @@ stacks:
 	// Assertions
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get stacks for context")
-	mockDeleter.AssertNotCalled(t, "DeleteStack")
+	mockDeleter.AssertExpectations(t)
 }
 
 func TestDeleteCommand_StackNotFound(t *testing.T) {
@@ -368,6 +357,9 @@ stacks:
 		require.NoError(t, err)
 	}()
 
+	// Set up mock expectations for DeleteSingleStack to return error
+	mockDeleter.On("DeleteSingleStack", mock.Anything, "non-existent-stack", "dev").Return(errors.New("failed to resolve stack dependencies"))
+
 	// Execute command with non-existent stack
 	rootCmd.SetArgs([]string{"delete", "dev", "non-existent-stack"})
 	err = rootCmd.Execute()
@@ -375,7 +367,7 @@ stacks:
 	// Assertions
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
-	mockDeleter.AssertNotCalled(t, "DeleteStack")
+	mockDeleter.AssertExpectations(t)
 }
 
 func TestDeleteCommand_ComplexDependencyOrder(t *testing.T) {
@@ -421,13 +413,8 @@ stacks:
 		require.NoError(t, err)
 	}()
 
-	// Set up expectations for reverse order: app -> database -> vpc
-	deleteOrder := []string{"app", "database", "vpc"}
-	for _, stackName := range deleteOrder {
-		mockDeleter.On("DeleteStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-			return stack.Name == stackName && stack.Context == "dev"
-		})).Return(nil).Once()
-	}
+	// Set up mock expectations for DeleteAllStacks
+	mockDeleter.On("DeleteAllStacks", mock.Anything, "dev").Return(nil)
 
 	// Execute command to delete all stacks
 	rootCmd.SetArgs([]string{"delete", "dev"})
@@ -447,11 +434,11 @@ func TestGetDeleter(t *testing.T) {
 	}()
 
 	// Test that getDeleter creates a default deleter
-	result := getDeleter()
+	result := getDeleter("stackaroo.yaml")
 	assert.NotNil(t, result)
 
 	// Test that getDeleter returns the same instance
-	result2 := getDeleter()
+	result2 := getDeleter("stackaroo.yaml")
 	assert.Equal(t, result, result2)
 }
 

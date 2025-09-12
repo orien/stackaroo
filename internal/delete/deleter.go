@@ -9,24 +9,32 @@ import (
 	"fmt"
 
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
+	"github.com/orien/stackaroo/internal/resolve"
 )
 
 // Deleter defines the interface for stack deletion operations
 type Deleter interface {
 	DeleteStack(ctx context.Context, stack *model.Stack) error
+	DeleteSingleStack(ctx context.Context, stackName, contextName string) error
+	DeleteAllStacks(ctx context.Context, contextName string) error
 }
 
 // StackDeleter implements Deleter using AWS CloudFormation
 type StackDeleter struct {
-	cfnOps aws.CloudFormationOperations
+	cfnOps         aws.CloudFormationOperations
+	configProvider config.ConfigProvider
+	resolver       resolve.Resolver
 }
 
 // NewStackDeleter creates a new StackDeleter
-func NewStackDeleter(cfnOps aws.CloudFormationOperations) *StackDeleter {
+func NewStackDeleter(cfnOps aws.CloudFormationOperations, configProvider config.ConfigProvider, resolver resolve.Resolver) *StackDeleter {
 	return &StackDeleter{
-		cfnOps: cfnOps,
+		cfnOps:         cfnOps,
+		configProvider: configProvider,
+		resolver:       resolver,
 	}
 }
 
@@ -98,5 +106,69 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 		return fmt.Errorf("stack deletion failed or timed out: %w", err)
 	}
 
+	return nil
+}
+
+// DeleteSingleStack handles deletion of a single stack
+func (d *StackDeleter) DeleteSingleStack(ctx context.Context, stackName, contextName string) error {
+	// Resolve single stack
+	stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
+	if err != nil {
+		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+	}
+
+	return d.deleteStackWithFeedback(ctx, stack, contextName)
+}
+
+// DeleteAllStacks handles deletion of all stacks in a context
+func (d *StackDeleter) DeleteAllStacks(ctx context.Context, contextName string) error {
+	// Get list of stacks to delete
+	stackNames, err := d.configProvider.ListStacks(contextName)
+	if err != nil {
+		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+	}
+	if len(stackNames) == 0 {
+		fmt.Printf("No stacks found in context %s\n", contextName)
+		return nil
+	}
+
+	// Get dependency order without resolving stacks
+	deploymentOrder, err := d.resolver.GetDependencyOrder(contextName, stackNames)
+	if err != nil {
+		return fmt.Errorf("failed to calculate dependency order: %w", err)
+	}
+
+	// Reverse the deployment order for safe deletion
+	// Dependencies should be deleted before the stacks that depend on them
+	deletionOrder := make([]string, len(deploymentOrder))
+	for i, stackName := range deploymentOrder {
+		deletionOrder[len(deploymentOrder)-1-i] = stackName
+	}
+
+	// Delete each stack in reverse dependency order, resolving individually
+	for _, stackName := range deletionOrder {
+		// Resolve this specific stack
+		stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+		}
+
+		err = d.deleteStackWithFeedback(ctx, stack, contextName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// deleteStackWithFeedback deletes a stack and provides feedback
+func (d *StackDeleter) deleteStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
+	err := d.DeleteStack(ctx, stack)
+	if err != nil {
+		return fmt.Errorf("error deleting stack %s: %w", stack.Name, err)
+	}
+
+	fmt.Printf("Successfully deleted stack %s in context %s\n", stack.Name, contextName)
 	return nil
 }

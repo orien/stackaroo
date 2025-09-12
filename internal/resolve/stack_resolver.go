@@ -15,6 +15,12 @@ import (
 	"github.com/orien/stackaroo/internal/model"
 )
 
+// Resolver defines the interface for stack resolution operations
+type Resolver interface {
+	ResolveStack(ctx context.Context, context string, stackName string) (*model.Stack, error)
+	GetDependencyOrder(context string, stackNames []string) ([]string, error)
+}
+
 // StackResolver resolves configuration into deployment-ready artifacts
 type StackResolver struct {
 	configProvider     config.ConfigProvider

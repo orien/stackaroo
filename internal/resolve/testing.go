@@ -5,6 +5,9 @@ SPDX-License-Identifier: BSD-3-Clause
 package resolve
 
 import (
+	"context"
+
+	"github.com/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -16,4 +19,25 @@ type MockFileSystemResolver struct {
 func (m *MockFileSystemResolver) Resolve(templateURI string) (string, error) {
 	args := m.Called(templateURI)
 	return args.String(0), args.Error(1)
+}
+
+// MockResolver implements Resolver for testing
+type MockResolver struct {
+	mock.Mock
+}
+
+func (m *MockResolver) ResolveStack(ctx context.Context, context string, stackName string) (*model.Stack, error) {
+	args := m.Called(ctx, context, stackName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Stack), args.Error(1)
+}
+
+func (m *MockResolver) GetDependencyOrder(context string, stackNames []string) ([]string, error) {
+	args := m.Called(context, stackNames)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
 }

@@ -29,11 +29,11 @@ type Deployer interface {
 type StackDeployer struct {
 	cfnOps   aws.CloudFormationOperations
 	provider config.ConfigProvider
-	resolver *resolve.StackResolver
+	resolver resolve.Resolver
 }
 
 // NewStackDeployer creates a new StackDeployer
-func NewStackDeployer(cfnOps aws.CloudFormationOperations, provider config.ConfigProvider, resolver *resolve.StackResolver) *StackDeployer {
+func NewStackDeployer(cfnOps aws.CloudFormationOperations, provider config.ConfigProvider, resolver resolve.Resolver) *StackDeployer {
 	return &StackDeployer{
 		cfnOps:   cfnOps,
 		provider: provider,

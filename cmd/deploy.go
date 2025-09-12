@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/orien/stackaroo/internal/deploy"
-
 	"github.com/spf13/cobra"
 )
 
