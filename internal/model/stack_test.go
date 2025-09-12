@@ -118,49 +118,6 @@ func TestStack_Creation(t *testing.T) {
 	})
 }
 
-func TestResolvedStacks_Creation(t *testing.T) {
-	t.Run("create resolved stacks with multiple stacks", func(t *testing.T) {
-		stack1 := &Stack{
-			Name:       "vpc-stack",
-			Context:    "dev",
-			Parameters: map[string]string{"VpcCidr": "10.0.0.0/16"},
-		}
-
-		stack2 := &Stack{
-			Name:         "app-stack",
-			Context:      "dev",
-			Parameters:   map[string]string{"Environment": "dev"},
-			Dependencies: []string{"vpc-stack"},
-		}
-
-		rs := &ResolvedStacks{
-			Context:         "dev",
-			Stacks:          []*Stack{stack1, stack2},
-			DeploymentOrder: []string{"vpc-stack", "app-stack"},
-		}
-
-		assert.Equal(t, "dev", rs.Context)
-		assert.Equal(t, 2, len(rs.Stacks))
-		assert.Equal(t, "vpc-stack", rs.Stacks[0].Name)
-		assert.Equal(t, "app-stack", rs.Stacks[1].Name)
-		assert.Equal(t, 2, len(rs.DeploymentOrder))
-		assert.Equal(t, "vpc-stack", rs.DeploymentOrder[0])
-		assert.Equal(t, "app-stack", rs.DeploymentOrder[1])
-	})
-
-	t.Run("create empty resolved stacks", func(t *testing.T) {
-		rs := &ResolvedStacks{
-			Context:         "test",
-			Stacks:          []*Stack{},
-			DeploymentOrder: []string{},
-		}
-
-		assert.Equal(t, "test", rs.Context)
-		assert.Empty(t, rs.Stacks)
-		assert.Empty(t, rs.DeploymentOrder)
-	})
-}
-
 func TestStack_NilMaps(t *testing.T) {
 	t.Run("resolved stack with nil maps should work", func(t *testing.T) {
 		rs := &Stack{

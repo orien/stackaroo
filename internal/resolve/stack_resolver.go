@@ -101,32 +101,6 @@ func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) 
 	return deploymentOrder, nil
 }
 
-// ResolveStacks resolves multiple stacks and calculates deployment order
-func (r *StackResolver) ResolveStacks(ctx context.Context, context string, stackNames []string) (*model.ResolvedStacks, error) {
-	var stacks []*model.Stack
-
-	// Resolve each stack
-	for _, stackName := range stackNames {
-		resolved, err := r.ResolveStack(ctx, context, stackName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
-		}
-		stacks = append(stacks, resolved)
-	}
-
-	// Calculate deployment order
-	deploymentOrder, err := r.calculateDependencyOrder(stacks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate dependency order: %w", err)
-	}
-
-	return &model.ResolvedStacks{
-		Context:         context,
-		Stacks:          stacks,
-		DeploymentOrder: deploymentOrder,
-	}, nil
-}
-
 // resolveParameters resolves parameters from ParameterValue objects to final string values
 func (r *StackResolver) resolveParameters(ctx context.Context, params map[string]*config.ParameterValue, context string) (map[string]string, error) {
 	if params == nil {

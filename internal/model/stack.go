@@ -19,10 +19,3 @@ type Stack struct {
 func (rs *Stack) GetTemplateContent() (string, error) {
 	return rs.TemplateBody, nil
 }
-
-// ResolvedStacks represents a collection of resolved stacks
-type ResolvedStacks struct {
-	Context         string
-	Stacks          []*Stack
-	DeploymentOrder []string
-}

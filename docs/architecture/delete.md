@@ -168,7 +168,7 @@ stateDiagram-v2
 
 **Function Separation:**
 - `deleteSingleStack()` - Handles single stack deletion using `ResolveStack()`
-- `deleteAllStacks()` - Handles multiple stack deletion using `ResolveStacks()` with reverse dependency ordering
+- `deleteAllStacks()` - Handles multiple stack deletion using `GetDependencyOrder()` with reverse dependency ordering
 - Command routing logic at action level based on argument count
 
 **Shared Infrastructure (`cmd/helpers.go`):**
@@ -297,8 +297,8 @@ sequenceDiagram
     CLI->>Config: ListStacks(context)
     Config->>CLI: []stackNames
 
-    CLI->>Resolver: Resolve(context, stackNames)
-    Resolver->>CLI: ResolvedStacks with order
+    CLI->>Resolver: GetDependencyOrder(context, stackNames)
+    Resolver->>CLI: deploymentOrder []string
 
     CLI->>CLI: Reverse deployment order
 
@@ -380,7 +380,7 @@ graph LR
 
 **Dependency Management:**
 - `StackResolver.Resolve(ctx, context, stackNames)` - Full dependency resolution
-- `ResolvedStacks.DeploymentOrder` - Ordered list for reversal
+- `deploymentOrder` - Ordered list for reversal
 - Complete dependency graph for safe deletion ordering
 
 ## Error Handling Strategy

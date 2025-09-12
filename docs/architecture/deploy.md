@@ -156,7 +156,7 @@ stateDiagram-v2
 
 **Function Separation:**
 - `deploySingleStack()` - Handles single stack deployment using `ResolveStack()`
-- `deployAllStacks()` - Handles multiple stack deployment using `ResolveStacks()` with dependency ordering
+- `deployAllStacks()` - Handles multiple stack deployment using `GetDependencyOrder()` with dependency ordering
 - Command routing logic at action level based on argument count
 
 **Shared Infrastructure (`cmd/helpers.go`):**

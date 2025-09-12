@@ -44,12 +44,6 @@ type ResolvedStack struct {
     Capabilities []string
     Dependencies []string
 }
-
-type ResolvedStacks struct {
-    Context         string
-    Stacks          []*ResolvedStack
-    DeploymentOrder []string
-}
 ```
 
 ### Interfaces
@@ -94,16 +88,16 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A[Resolve Each<br/>Stack<br/>Individually] --> B[Calculate<br/>Dependencies<br/>Order]
-    B --> C[Create<br/>ResolvedStacks]
+    A[Get Dependency<br/>Order] --> B[Resolve Each<br/>Stack Individually]
+    B --> C[Process in<br/>Dependency Order]
 ```
 
 **Steps:**
-1. **Resolve Individual Stacks** - Process each stack through single resolution
+1. **Calculate Dependency Order** - Use GetDependencyOrder() to get deployment order
 2. **Build Dependency Graph** - Create adjacency list from dependencies
 3. **Topological Sort** - Use Kahn's algorithm for deployment order
 4. **Detect Cycles** - Identify circular dependencies and fail fast
-5. **Package Results** - Combine into final ResolvedStacks
+5. **Individual Resolution** - Resolve each stack as needed using ResolveStack()
 
 ## Dependency Management
 
@@ -131,7 +125,7 @@ The resolver uses **Kahn's algorithm** for dependency resolution:
 stacks:
   - name: vpc
     dependencies: []
-  - name: security  
+  - name: security
     dependencies: [vpc]
   - name: database
     dependencies: [security]
@@ -170,7 +164,7 @@ tags:
   Project: "my-project"
   Environment: "dev"
 
-# Stack Config  
+# Stack Config
 tags:
   Project: "overridden-project"  # Overrides global
   Component: "web-server"        # New tag
@@ -204,18 +198,21 @@ flowchart LR
 // Example usage in deploy command
 configFile := "stackaroo.yaml"  // From --config flag or default
 configProvider := file.NewFileConfigProvider(configFile)
-templateReader := &resolve.FileTemplateReader{}
-resolver := resolve.NewStackResolver(configProvider, templateReader)
+resolver := resolve.NewStackResolver(configProvider, cfnOperations)
 
-resolved, err := resolver.ResolveStacks(ctx, "dev", []string{"vpc", "app"})
+// Get dependency order first
+deploymentOrder, err := resolver.GetDependencyOrder("dev", []string{"vpc", "app"})
 if err != nil {
-    return fmt.Errorf("resolution failed: %w", err)
+    return fmt.Errorf("dependency order calculation failed: %w", err)
 }
 
-// Deploy in dependency order
-for _, stackName := range resolved.DeploymentOrder {
-    stack := findStack(resolved.Stacks, stackName)
-    err := deployer.DeployResolvedStack(ctx, stack)
+// Deploy each stack in dependency order
+for _, stackName := range deploymentOrder {
+    stack, err := resolver.ResolveStack(ctx, "dev", stackName)
+    if err != nil {
+        return fmt.Errorf("stack resolution failed: %w", err)
+    }
+    err = deployer.DeployStack(ctx, stack)
     // ...
 }
 ```
@@ -230,10 +227,10 @@ The resolver module has been designed with clear separation of concerns to preve
 graph TD
     A[cmd/deploy<br/>CLI Orchestration] --> B[config/file<br/>Configuration & URI Resolution]
     A --> C[resolve<br/>Business Logic & Template Loading]
-    
+
     B --> D[stackaroo.yaml<br/>File Knowledge]
     C --> E[URI Parsing<br/>file://, s3://, git://]
-    
+
     style A fill:#e1f5fe
     style B fill:#f3e5f5
     style C fill:#f1f8e9
@@ -248,7 +245,7 @@ graph TD
 - **Uses explicit config files** - `file.NewFileConfigProvider(configFile)` with --config flag support
 - **Dependency injection** - Accepts resolver and configuration provider interfaces
 
-#### **config/file Module**  
+#### **config/file Module**
 - **Handles config file resolution** - Via --config flag with "stackaroo.yaml" default
 - **Path-to-URI conversion** - Converts relative paths to `file://` URIs
 - **Configuration file knowledge** - Understands YAML structure and resolution
@@ -268,7 +265,7 @@ type StackConfig struct {
     Template string  // Assumed to be file path
 }
 
-// After: URI-based (clean abstraction)  
+// After: URI-based (clean abstraction)
 type StackConfig struct {
     Template string  // URI: file://, s3://, git://, etc.
 }
@@ -410,7 +407,7 @@ func (gtr *GitTemplateReader) ReadTemplate(templateURI string) (string, error) {
 ### Input Validation
 
 - **Template URIs** - Validate URI schemes and prevent malicious URIs
-- **Parameter Values** - Sanitize user inputs  
+- **Parameter Values** - Sanitize user inputs
 - **Stack Names** - Validate naming conventions
 
 ### Template Security

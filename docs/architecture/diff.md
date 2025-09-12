@@ -280,7 +280,7 @@ sequenceDiagram
 
 **Enhanced Integration:**
 - `ResolvedStack.GetTemplateContent()` - Access resolved template
-- `ResolvedStacks.Context` - Track deployment context
+- Context tracking through individual stack resolution
 - Dependency resolution for complete stack information
 
 ### 4. Deployment Integration (`internal/deploy`)
