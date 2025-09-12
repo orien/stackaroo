@@ -21,6 +21,16 @@ func (m *MockDeployer) DeployStack(ctx context.Context, stack *model.Stack) erro
 	return args.Error(0)
 }
 
+func (m *MockDeployer) DeploySingleStack(ctx context.Context, stackName, contextName string) error {
+	args := m.Called(ctx, stackName, contextName)
+	return args.Error(0)
+}
+
+func (m *MockDeployer) DeployAllStacks(ctx context.Context, contextName string) error {
+	args := m.Called(ctx, contextName)
+	return args.Error(0)
+}
+
 func (m *MockDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
 	args := m.Called(ctx, templateFile)
 	return args.Error(0)

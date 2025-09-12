@@ -8,11 +8,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
+
 	"testing"
 
 	"github.com/orien/stackaroo/internal/deploy"
-	"github.com/orien/stackaroo/internal/model"
+
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -55,7 +55,7 @@ func TestDeployCommand_AcceptsTwoArgs(t *testing.T) {
 func TestDeployCommand_RequiresAtLeastOneArg(t *testing.T) {
 	// Test that deploy command requires at least a context argument
 
-	// Mock deployer that shouldn't be called
+	// Mock deployer that shouldn't be called for argument validation tests
 	mockDeployer := &deploy.MockDeployer{}
 
 	oldDeployer := deployer
@@ -121,13 +121,7 @@ Resources:
 
 	// Mock deployer that expects two deployments
 	mockDeployer := &deploy.MockDeployer{}
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "vpc"
-	})).Return(nil).Once()
-
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "app"
-	})).Return(nil).Once()
+	mockDeployer.On("DeployAllStacks", mock.Anything, "test-context").Return(nil).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -169,8 +163,9 @@ stacks: []
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	require.NoError(t, err)
 
-	// Mock deployer that shouldn't be called
+	// Mock deployer that expects DeployAllStacks call (will handle no stacks internally)
 	mockDeployer := &deploy.MockDeployer{}
+	mockDeployer.On("DeployAllStacks", mock.Anything, "empty-context").Return(nil).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -219,9 +214,7 @@ stacks:
 
 	// Set up mock deployer that returns an error
 	mockDeployer := &deploy.MockDeployer{}
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "test-stack"
-	})).Return(errors.New("deployment failed"))
+	mockDeployer.On("DeploySingleStack", mock.Anything, "test-stack", "test").Return(errors.New("deployment failed"))
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -243,36 +236,36 @@ stacks:
 	// Execute the command - should return error
 	err = rootCmd.Execute()
 	assert.Error(t, err, "deploy command should return error when deployer fails")
-	assert.Contains(t, err.Error(), "error deploying stack test-stack", "error should contain stack name")
 	assert.Contains(t, err.Error(), "deployment failed", "error should contain original error")
 }
 
-func TestDeployCommand_RequiresStackName(t *testing.T) {
-	// Test that deploy command requires exactly two arguments (context and stack name)
+func TestDeployCommand_AcceptsOneOrTwoArgs(t *testing.T) {
+	// Test that deploy command accepts 1-2 arguments (context and optional stack name)
 
-	// Mock deployer that shouldn't be called (no expectations set)
+	// Mock deployer for valid calls
 	mockDeployer := &deploy.MockDeployer{}
+	mockDeployer.On("DeployAllStacks", mock.Anything, "dev").Return(nil).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
 	defer SetDeployer(oldDeployer) // Restore after test
 
-	// Test with no arguments
+	// Test with no arguments - should error
 	rootCmd.SetArgs([]string{"deploy"})
 	err := rootCmd.Execute()
 	assert.Error(t, err, "should error when no arguments provided")
 
-	// Test with one argument (missing stack name)
+	// Test with one argument (context only) - should work
 	rootCmd.SetArgs([]string{"deploy", "dev"})
 	err = rootCmd.Execute()
-	assert.Error(t, err, "should error when only context provided")
+	assert.NoError(t, err, "should work with just context")
 
-	// Test with too many arguments
+	// Test with too many arguments - should error
 	rootCmd.SetArgs([]string{"deploy", "dev", "stack1", "stack2"})
 	err = rootCmd.Execute()
 	assert.Error(t, err, "should error when too many arguments provided")
 
-	// Verify deployer was not called
+	// Verify deployer was called as expected
 	mockDeployer.AssertExpectations(t)
 }
 
@@ -315,13 +308,9 @@ stacks:
 	mockDeployer := &deploy.MockDeployer{}
 
 	// Expect specific calls with exact argument matching
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "stack-1"
-	})).Return(nil).Once()
+	mockDeployer.On("DeploySingleStack", mock.Anything, "stack-1", "test").Return(nil).Once()
 
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "stack-2"
-	})).Return(errors.New("second deployment failed")).Once()
+	mockDeployer.On("DeploySingleStack", mock.Anything, "stack-2", "test").Return(errors.New("second deployment failed")).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -408,13 +397,8 @@ stacks:
 
 	// Set up mock deployer that expects config-resolved values
 	mockDeployer := &deploy.MockDeployer{}
-	// Expect Stack with resolved parameters from dev context
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "vpc" &&
-			stack.Parameters["VpcCidr"] == "10.1.0.0/16" &&
-			strings.Contains(stack.TemplateBody, "AWSTemplateFormatVersion") &&
-			strings.Contains(stack.TemplateBody, "AWS::EC2::VPC")
-	})).Return(nil)
+	// Expect DeploySingleStack call for vpc in dev context
+	mockDeployer.On("DeploySingleStack", mock.Anything, "vpc", "dev").Return(nil)
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -494,11 +478,8 @@ stacks:
 	mockDeployer := &deploy.MockDeployer{}
 
 	// This test will fail because current implementation doesn't resolve dependencies
-	// We expect the resolver to be called and handle the dependency ordering
-	// For now, just expect app deployment (what current implementation does)
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "app" // Current implementation only deploys single stack
-	})).Return(nil)
+	// We expect DeploySingleStack to be called for the app stack
+	mockDeployer.On("DeploySingleStack", mock.Anything, "app", "test").Return(nil)
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)
@@ -573,9 +554,7 @@ stacks:
 
 	// Current implementation only deploys the directly requested stack
 	// Transitive dependency resolution is not yet implemented
-	mockDeployer.On("DeployStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "app"
-	})).Return(nil).Once()
+	mockDeployer.On("DeploySingleStack", mock.Anything, "app", "test").Return(nil).Once()
 
 	oldDeployer := deployer
 	SetDeployer(mockDeployer)

@@ -6,10 +6,8 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/orien/stackaroo/internal/deploy"
-	"github.com/orien/stackaroo/internal/model"
 
 	"github.com/spf13/cobra"
 )
@@ -54,99 +52,31 @@ waits for your confirmation before applying the changes.`,
 		ctx := context.Background()
 
 		configFile, _ := cmd.Flags().GetString("config")
+		d := getDeployer(configFile)
 
 		if len(args) > 1 {
 			stackName := args[1]
-			return deploySingleStack(ctx, stackName, contextName, configFile)
+			return d.DeploySingleStack(ctx, stackName, contextName)
 		}
-		return deployAllStacks(ctx, contextName, configFile)
+		return d.DeployAllStacks(ctx, contextName)
 	},
 }
 
 // getDeployer returns the deployer instance, creating a default one if none is set
-func getDeployer() deploy.Deployer {
+func getDeployer(configFile string) deploy.Deployer {
 	if deployer != nil {
 		return deployer
 	}
 
+	provider, resolver := createResolver(configFile)
 	cfOpts := getCloudFormationOperations()
-	deployer = deploy.NewStackDeployer(cfOpts)
+	deployer = deploy.NewStackDeployer(cfOpts, provider, resolver)
 	return deployer
 }
 
 // SetDeployer allows injection of a deployer (for testing)
 func SetDeployer(d deploy.Deployer) {
 	deployer = d
-}
-
-// deployStackWithFeedback deploys a stack and provides feedback
-func deployStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
-	d := getDeployer()
-
-	err := d.DeployStack(ctx, stack)
-	if err != nil {
-		return fmt.Errorf("error deploying stack %s: %w", stack.Name, err)
-	}
-
-	fmt.Printf("Successfully deployed stack %s in context %s\n", stack.Name, contextName)
-	return nil
-}
-
-// deploySingleStack handles deployment of a single stack
-func deploySingleStack(ctx context.Context, stackName, contextName, configFile string) error {
-	_, resolver := createResolver(configFile)
-
-	// Resolve single stack
-	stack, err := resolver.ResolveStack(ctx, contextName, stackName)
-	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
-	}
-
-	return deployStackWithFeedback(ctx, stack, contextName)
-}
-
-// deployAllStacks handles deployment of all stacks in a context using configuration file
-func deployAllStacks(ctx context.Context, contextName, configFile string) error {
-	provider, resolver := createResolver(configFile)
-
-	// Get list of stacks to deploy
-	stackNames, err := provider.ListStacks(contextName)
-	if err != nil {
-		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
-	}
-	if len(stackNames) == 0 {
-		fmt.Printf("No stacks found in context %s\n", contextName)
-		return nil
-	}
-
-	// Resolve all stacks and their dependencies
-	resolved, err := resolver.ResolveStacks(ctx, contextName, stackNames)
-	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
-	}
-
-	// Deploy all stacks in dependency order
-	for _, stackName := range resolved.DeploymentOrder {
-		// Find the resolved stack
-		var stackToDeploy *model.Stack
-		for _, stack := range resolved.Stacks {
-			if stack.Name == stackName {
-				stackToDeploy = stack
-				break
-			}
-		}
-
-		if stackToDeploy == nil {
-			return fmt.Errorf("resolved stack %s not found", stackName)
-		}
-
-		err = deployStackWithFeedback(ctx, stackToDeploy, contextName)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func init() {

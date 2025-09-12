@@ -12,19 +12,29 @@ import (
 	"testing"
 
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
+	"github.com/orien/stackaroo/internal/resolve"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
+// createMockDeployer creates a StackDeployer with mock dependencies for testing DeployStack method
+func createMockDeployer(mockCfnOps aws.CloudFormationOperations) *StackDeployer {
+	// Create minimal mock provider and resolver (won't be called in DeployStack tests)
+	mockProvider := &config.MockConfigProvider{}
+	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+	return NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+}
+
 func TestNewStackDeployer(t *testing.T) {
 	// Test that NewStackDeployer creates a deployer with the provided CloudFormation operations
 	mockCfnOps := &aws.MockCloudFormationOperations{}
 
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	assert.NotNil(t, deployer)
 	// We can't directly test the internal cfnOps field, but we can test behavior
@@ -80,7 +90,7 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -125,7 +135,7 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack with empty template body
 	stack := &model.Stack{
@@ -144,6 +154,111 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
 	mockPrompter.AssertExpectations(t)
+}
+
+// TestDeploySingleStack_ResolverError tests error handling when resolver fails
+func TestDeploySingleStack_ResolverError(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock dependencies
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockProvider := &config.MockConfigProvider{}
+	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+
+	// Create deployer
+	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+
+	// Mock provider to return error when resolver tries to load config
+	expectedError := errors.New("config load failed")
+	mockProvider.On("LoadConfig", ctx, "test-context").Return((*config.Config)(nil), expectedError)
+
+	// Test execution - should propagate resolver error
+	err := deployer.DeploySingleStack(ctx, "test-stack", "test-context")
+
+	// Verify error is propagated correctly
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
+	assert.Contains(t, err.Error(), "config load failed")
+
+	mockProvider.AssertExpectations(t)
+}
+
+// TestDeployAllStacks_WithStacks tests successful deployment of multiple stacks
+func TestDeployAllStacks_WithStacks(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock dependencies
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockProvider := &config.MockConfigProvider{}
+	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+
+	// Create deployer
+	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+
+	// Mock provider to return stack list
+	stackNames := []string{"stack1", "stack2"}
+	mockProvider.On("ListStacks", "test-context").Return(stackNames, nil)
+
+	// Mock LoadConfig call that resolver will make - return error to test error handling
+	expectedError := errors.New("config resolution failed")
+	mockProvider.On("LoadConfig", ctx, "test-context").Return((*config.Config)(nil), expectedError)
+
+	// Test execution - will fail when resolver tries to resolve stacks
+	err := deployer.DeployAllStacks(ctx, "test-context")
+
+	// Should fail during stack resolution, but we've tested the ListStacks path
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
+	assert.Contains(t, err.Error(), "config resolution failed")
+
+	mockProvider.AssertExpectations(t)
+}
+
+// TestDeployAllStacks_EmptyContext tests deploying to context with no stacks
+func TestDeployAllStacks_EmptyContext(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock dependencies
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockProvider := &config.MockConfigProvider{}
+	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+
+	// Create deployer
+	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+
+	// Mock provider to return empty stack list
+	mockProvider.On("ListStacks", "empty-context").Return([]string{}, nil)
+
+	// Execute - should handle empty context gracefully
+	err := deployer.DeployAllStacks(ctx, "empty-context")
+	assert.NoError(t, err, "Should handle empty context without error")
+
+	mockProvider.AssertExpectations(t)
+}
+
+// TestDeployAllStacks_ProviderError tests error handling when provider fails
+func TestDeployAllStacks_ProviderError(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock dependencies
+	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockProvider := &config.MockConfigProvider{}
+	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+
+	// Create deployer
+	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+
+	// Mock provider to return error
+	expectedError := errors.New("failed to list stacks")
+	mockProvider.On("ListStacks", "error-context").Return([]string(nil), expectedError)
+
+	// Execute - should propagate provider error
+	err := deployer.DeployAllStacks(ctx, "error-context")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get stacks for context error-context")
+	assert.Contains(t, err.Error(), "failed to list stacks")
+
+	mockProvider.AssertExpectations(t)
 }
 
 func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
@@ -179,7 +294,7 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack with template content
 	stack := &model.Stack{
@@ -229,7 +344,7 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	// The deployer should return early when no changes are detected
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -309,7 +424,7 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -355,7 +470,7 @@ func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Execute
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -370,7 +485,7 @@ func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	mockCfnOps := &aws.MockCloudFormationOperations{}
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Execute with non-existent file
 	err := deployer.ValidateTemplate(ctx, "/nonexistent/template.json")
@@ -400,7 +515,7 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(errors.New("template validation failed"))
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Execute ValidateTemplate instead - this test is for template validation
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -446,7 +561,7 @@ Resources:
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -497,7 +612,7 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := NewStackDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockCfnOps)
 
 	// Create resolved stack with parameters and tags
 	stack := &model.Stack{

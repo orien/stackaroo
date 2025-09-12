@@ -10,26 +10,34 @@ import (
 	"os"
 
 	"github.com/orien/stackaroo/internal/aws"
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/diff"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/orien/stackaroo/internal/prompt"
+	"github.com/orien/stackaroo/internal/resolve"
 )
 
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
 	DeployStack(ctx context.Context, stack *model.Stack) error
+	DeploySingleStack(ctx context.Context, stackName, contextName string) error
+	DeployAllStacks(ctx context.Context, contextName string) error
 	ValidateTemplate(ctx context.Context, templateFile string) error
 }
 
 // StackDeployer implements Deployer using AWS CloudFormation
 type StackDeployer struct {
-	cfnOps aws.CloudFormationOperations
+	cfnOps   aws.CloudFormationOperations
+	provider config.ConfigProvider
+	resolver *resolve.StackResolver
 }
 
 // NewStackDeployer creates a new StackDeployer
-func NewStackDeployer(cfnOps aws.CloudFormationOperations) *StackDeployer {
+func NewStackDeployer(cfnOps aws.CloudFormationOperations, provider config.ConfigProvider, resolver *resolve.StackResolver) *StackDeployer {
 	return &StackDeployer{
-		cfnOps: cfnOps,
+		cfnOps:   cfnOps,
+		provider: provider,
+		resolver: resolver,
 	}
 }
 
@@ -230,4 +238,68 @@ func (d *StackDeployer) readTemplateFile(filename string) (string, error) {
 		return "", fmt.Errorf("failed to read template file %s: %w", filename, err)
 	}
 	return string(content), nil
+}
+
+// deployStackWithFeedback deploys a stack and provides feedback
+func (d *StackDeployer) deployStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
+	err := d.DeployStack(ctx, stack)
+	if err != nil {
+		return fmt.Errorf("error deploying stack %s: %w", stack.Name, err)
+	}
+
+	fmt.Printf("Successfully deployed stack %s in context %s\n", stack.Name, contextName)
+	return nil
+}
+
+// DeploySingleStack handles deployment of a single stack
+func (d *StackDeployer) DeploySingleStack(ctx context.Context, stackName, contextName string) error {
+	// Resolve single stack
+	stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
+	if err != nil {
+		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+	}
+
+	return d.deployStackWithFeedback(ctx, stack, contextName)
+}
+
+// DeployAllStacks handles deployment of all stacks in a context
+func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string) error {
+	// Get list of stacks to deploy
+	stackNames, err := d.provider.ListStacks(contextName)
+	if err != nil {
+		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+	}
+	if len(stackNames) == 0 {
+		fmt.Printf("No stacks found in context %s\n", contextName)
+		return nil
+	}
+
+	// Resolve all stacks and their dependencies
+	resolved, err := d.resolver.ResolveStacks(ctx, contextName, stackNames)
+	if err != nil {
+		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+	}
+
+	// Deploy all stacks in dependency order
+	for _, stackName := range resolved.DeploymentOrder {
+		// Find the resolved stack
+		var stackToDeploy *model.Stack
+		for _, stack := range resolved.Stacks {
+			if stack.Name == stackName {
+				stackToDeploy = stack
+				break
+			}
+		}
+
+		if stackToDeploy == nil {
+			return fmt.Errorf("resolved stack %s not found", stackName)
+		}
+
+		err = d.deployStackWithFeedback(ctx, stackToDeploy, contextName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
