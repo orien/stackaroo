@@ -112,6 +112,50 @@ contexts:
 - **Type Safety**: Comprehensive validation and error handling
 - **Backwards Compatible**: Existing literal parameter configurations work unchanged
 
+### CloudFormation Template Templating
+
+Stackaroo supports dynamic CloudFormation template generation using Go templates with Sprig functions:
+
+```yaml
+# Template: templates/webapp.yml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: {{ .Context | title }} web application for {{ .StackName }}
+
+Resources:
+{{- if eq .Context "production" }}
+  MonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {{ .StackName }}-monitoring-{{ .Context }}
+{{- end }}
+
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      UserData:
+        Fn::Base64: |
+{{- `#!/bin/bash
+          yum update -y
+          echo "ENVIRONMENT=` | nindent 10 }}{{ .Context | upper }}{{ `" > /etc/app.conf` | nindent 10 }}
+      Tags:
+        - Key: Name
+          Value: {{ .StackName }}-web-{{ .Context }}
+        - Key: Environment
+          Value: {{ .Context | title }}
+
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: {{ .StackName }}-data-{{ .Context }}-{{ randAlphaNum 6 | lower }}
+```
+
+**Features:**
+- **Context Variables**: `{{ .Context }}`, `{{ .StackName }}`
+- **Conditional Resources**: Different resources per environment
+- **Multiline Script Injection**: Clean UserData and script templating
+- **Sprig Functions**: `upper`, `title`, `nindent`, `randAlphaNum`, conditionals
+- **Always-On**: All templates processed, backward compatible
+
 ### Real-time Event Streaming
 
 - See exactly what will change before applying
