@@ -76,7 +76,7 @@ parameters:
     type: stack-output
     stack_name: networking
     output_key: VpcId
-  
+
   DatabaseEndpoint:
     type: stack-output
     stack_name: database
@@ -92,6 +92,25 @@ parameters:
     stack_name: shared-resources
     output_key: BucketArn
     region: us-east-1
+```
+
+#### List Parameters
+Support for CloudFormation `List<Type>` and `CommaDelimitedList` parameters with mixed resolution types:
+```yaml
+parameters:
+  # Mix literals and stack outputs in a single list parameter
+  SecurityGroupIds:
+    - sg-baseline123         # Literal value
+    - type: stack-output     # Dynamic from stack output
+      stack_name: security-stack
+      output_key: WebSGId
+    - sg-additional456       # Another literal
+
+  # Simple literal list
+  AllowedPorts:
+    - "80"
+    - "443"
+    - "8080"
 ```
 
 #### Context Overrides
@@ -252,12 +271,12 @@ stacks:
         type: stack-output
         stack_name: vpc
         output_key: VpcId
-      
+
       PrivateSubnetId:
         type: stack-output
         stack_name: vpc
         output_key: PrivateSubnet1Id
-        
+
       # Cross-region stack output (optional region parameter)
       SharedBucketArn:
         type: stack-output
