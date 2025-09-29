@@ -427,9 +427,8 @@ graph LR
 
 1. **Template Hashing** - Quick change detection via SHA256
 2. **Lazy ChangeSet Creation** - Only when changes detected and full diff requested
-3. **Parallel Comparisons** - Template, parameter, and tag comparisons can run concurrently
-4. **ChangeSet Cleanup** - Immediate cleanup to avoid AWS resource accumulation
-5. **Simplified Output** - Text-only format reduces processing overhead and complexity
+3. **ChangeSet Cleanup** - Immediate cleanup to avoid AWS resource accumulation
+4. **Simplified Output** - Text-only format reduces processing overhead and complexity
 
 ### Resource Management
 
@@ -484,7 +483,6 @@ sequenceDiagram
 
 3. **Performance Optimisation**
    - Caching of frequently accessed stacks
-   - Parallel processing of multiple stacks
    - Incremental diff capabilities
 
 4. **Output Enhancements**

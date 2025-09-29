@@ -28,7 +28,6 @@ Stackaroo simplifies CloudFormation stack management by providing:
 
 - Define stack dependencies with `depends_on`
 - Automatic deployment ordering
-- Parallel deployment where possible
 
 ### Change Preview
 
