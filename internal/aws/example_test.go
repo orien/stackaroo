@@ -10,15 +10,20 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 )
 
-// ExampleClient demonstrates how to create and use the AWS client
-func ExampleClient() {
-	// Example of client configuration structure
-	config := aws.Config{
-		Region: "us-east-1",
-	}
+// ExampleClientFactory demonstrates how to create and use the AWS client factory
+func ExampleClientFactory() {
+	// Example of client factory usage
+	// ctx := context.Background()
 
-	fmt.Printf("Client would be configured for region: %s\n", config.Region)
-	// Output: Client would be configured for region: us-east-1
+	// Create a client factory (would use actual AWS credentials in real usage)
+	// factory, _ := aws.NewClientFactory(ctx)
+
+	// Example of getting CloudFormation operations for a specific region
+	region := "us-east-1"
+	// cfOps, _ := factory.GetCloudFormationOperations(ctx, region)
+
+	fmt.Printf("ClientFactory would create operations for region: %s\n", region)
+	// Output: ClientFactory would create operations for region: us-east-1
 }
 
 // ExampleCloudFormationOperations demonstrates CloudFormation operations
@@ -52,17 +57,17 @@ func ExampleCloudFormationOperations() {
 	// Stack name: my-example-stack
 }
 
-// ExampleClient_extensibleDesign demonstrates how to extend for other AWS services
-func ExampleClient_extensibleDesign() {
-	// Example of how the client would be extensible
+// ExampleClientFactory_extensibleDesign demonstrates how to extend for other AWS services
+func ExampleClientFactory_extensibleDesign() {
+	// Example of how the client factory could be extended
 	fmt.Println("CloudFormation operations available")
-	fmt.Println("Future services could include:")
-	fmt.Println("- S3Operations")
-	fmt.Println("- EC2Operations")
-	fmt.Println("- IAMOperations")
+	fmt.Println("Future ClientFactory methods could include:")
+	fmt.Println("- GetS3Operations(ctx, region)")
+	fmt.Println("- GetEC2Operations(ctx, region)")
+	fmt.Println("- GetIAMOperations(ctx, region)")
 	// Output: CloudFormation operations available
-	// Future services could include:
-	// - S3Operations
-	// - EC2Operations
-	// - IAMOperations
+	// Future ClientFactory methods could include:
+	// - GetS3Operations(ctx, region)
+	// - GetEC2Operations(ctx, region)
+	// - GetIAMOperations(ctx, region)
 }

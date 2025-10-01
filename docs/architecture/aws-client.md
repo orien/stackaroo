@@ -2,375 +2,189 @@
 
 ## Overview
 
-The AWS client abstraction provides a clean, type-safe interface for interacting with AWS services in Stackaroo. It wraps the AWS SDK v2 to provide higher-level operations whilst maintaining flexibility and extensibility.
+The AWS client architecture uses a ClientFactory pattern that creates region-specific CloudFormation operations with shared credentials. This enables each stack to deploy to its context-defined region while maintaining efficient credential reuse.
 
-## Design Principles
+## Core Components
 
-### 1. **Type Safety**
-- Use Go structs instead of AWS SDK pointers throughout the public API
-- Provide clear, strongly-typed parameters and return values
-- Hide AWS SDK complexity behind clean interfaces
+### ClientFactory (`internal/aws/factory.go`)
 
-### 2. **Extensibility**
-- Modular design allowing easy addition of new AWS services
-- Service-specific operation wrappers that share common configuration
-- Direct access to underlying SDK clients when needed
-
-### 3. **Error Handling**
-- Wrap AWS errors with contextual information
-- Provide meaningful error messages for common scenarios
-- Distinguish between different types of failures (not found, permission denied, etc.)
-
-### 4. **Configuration**
-- Support multiple AWS configuration methods (profiles, environment variables, IAM roles)
-- Allow per-operation overrides of region and credentials
-- Consistent configuration across all AWS service interactions
-
-## Architecture Components
-
-### Core Client (`internal/aws/client.go`)
-
-The main `DefaultClient` struct serves as the entry point for all AWS operations:
+Creates region-specific AWS clients with shared authentication:
 
 ```go
-type DefaultClient struct {
-    config aws.Config
-    cfn    *cloudformation.Client
+type ClientFactory interface {
+    GetCloudFormationOperations(ctx context.Context, region string) (CloudFormationOperations, error)
+    GetBaseConfig() aws.Config
+    ValidateRegion(region string) error
+}
+
+type DefaultClientFactory struct {
+    baseConfig  aws.Config      // Shared credentials
+    clientCache map[string]CloudFormationOperations  // Cached by region
+    mutex       sync.RWMutex
 }
 ```
 
-The `DefaultClient` implements the `Client` interface:
-
-```go
-type Client interface {
-    NewCloudFormationOperations() CloudFormationOperations
-}
-```
-
-**Responsibilities:**
-- Load and manage AWS configuration
-- Create and cache service-specific clients
-- Provide factory methods for service operations
-- Implement interfaces for testability and dependency injection
-
-**Key Methods:**
-- `NewDefaultClient(ctx, Config)` - Create new client with custom configuration
-- `NewCloudFormationOperations()` - Create CloudFormation operations (implements interface)
-- `CloudFormation()` - Access underlying CloudFormation client
-- `Region()` - Get configured AWS region
+**Key Features:**
+- **Credential Sharing**: Single authentication across all regions
+- **Client Caching**: Region-specific clients cached for performance
+- **Thread Safety**: Concurrent access protection
 
 ### CloudFormation Operations (`internal/aws/cloudformation.go`)
 
-The `DefaultCloudFormationOperations` struct provides high-level CloudFormation operations:
+Provides high-level CloudFormation operations:
 
 ```go
-type DefaultCloudFormationOperations struct {
-    client CloudFormationClient
-}
-```
-
-The operations implement the `CloudFormationOperations` interface:
-
-```go
-// Import context for interface:
-// "github.com/aws/aws-sdk-go-v2/service/cloudformation"
-
 type CloudFormationOperations interface {
+    // Stack lifecycle
     DeployStack(ctx context.Context, input DeployStackInput) error
-    DeployStackWithCallback(ctx context.Context, input DeployStackInput, eventCallback func(StackEvent)) error
-    UpdateStack(ctx context.Context, input UpdateStackInput) error
+    DeployStackWithCallback(ctx context.Context, input DeployStackInput, callback func(StackEvent)) error
     DeleteStack(ctx context.Context, input DeleteStackInput) error
-    GetStack(ctx context.Context, stackName string) (*Stack, error)
-    ListStacks(ctx context.Context) ([]*Stack, error)
-    ValidateTemplate(ctx context.Context, templateBody string) error
+    
+    // Stack information
     StackExists(ctx context.Context, stackName string) (bool, error)
-    GetTemplate(ctx context.Context, stackName string) (string, error)
     DescribeStack(ctx context.Context, stackName string) (*StackInfo, error)
-    DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
-    WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
-    // Changeset operations
+    GetTemplate(ctx context.Context, stackName string) (string, error)
+    
+    // Change management
+    CreateChangeSetPreview(ctx context.Context, stackName, template string, params map[string]string) (*ChangeSetInfo, error)
     ExecuteChangeSet(ctx context.Context, changeSetID string) error
     DeleteChangeSet(ctx context.Context, changeSetID string) error
-    CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
-    CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
+    
+    // Operations
+    ValidateTemplate(ctx context.Context, templateBody string) error
+    WaitForStackOperation(ctx context.Context, stackName string, callback func(StackEvent)) error
 }
 ```
-
-**Core Operations:**
-- `DeployStack()` - Create or update CloudFormation stacks (simple version)
-- `DeployStackWithCallback()` - Create or update stacks with real-time event streaming
-- `UpdateStack()` - Update existing stacks
-- `DeleteStack()` - Delete stacks
-- `GetStack()` - Retrieve stack information
-- `ListStacks()` - List all stacks
-- `ValidateTemplate()` - Validate CloudFormation templates
-- `StackExists()` - Check stack existence
-- `GetTemplate()` - Retrieve template content for existing stacks
-- `DescribeStack()` - Get detailed stack information including template
-- `DescribeStackEvents()` - Retrieve CloudFormation events for a stack
-- `WaitForStackOperation()` - Wait for stack operation completion with event streaming
-- `CreateChangeSet()` - Create CloudFormation changesets for diff operations
-- `DeleteChangeSet()` - Remove CloudFormation changesets
-- `DescribeChangeSet()` - Get changeset details and proposed changes
-
-**Data Types:**
-- `Stack` - Represents CloudFormation stack with cleaned-up fields
-- `StackInfo` - Detailed stack information including template content
-- `StackEvent` - Represents CloudFormation stack events with timestamp and resource information
-- `Parameter` - Key-value pairs for stack parameters
-- `StackStatus` - Enumerated stack status values
-- `NoChangesError` - Special error type indicating no changes need to be deployed
-- Input structs for each operation with required and optional fields
-
-**Interface Design:**
-All operations are interface-based to support dependency injection and testing:
-- `Client` - Main AWS client abstraction
-- `CloudFormationOperations` - CloudFormation-specific operations
-- `CloudFormationClient` - Low-level CloudFormation client interface
 
 ## Usage Patterns
 
-### Basic Client Creation
+### Basic Usage
 
 ```go
-// Default configuration (uses AWS default credential chain)
-client, err := aws.NewDefaultClient(ctx, aws.Config{})
+// Create factory (once per application)
+factory, err := aws.NewClientFactory(ctx)
 
-// Custom configuration
-client, err := aws.NewDefaultClient(ctx, aws.Config{
-    Region:  "us-west-2",
-    Profile: "production",
-})
+// Get region-specific operations
+cfnOps, err := factory.GetCloudFormationOperations(ctx, "us-east-1")
+
+// Use operations
+err = cfnOps.DeployStack(ctx, deployInput)
 ```
 
-### CloudFormation Operations
+### Multi-Region Deployment
 
 ```go
-// Get CloudFormation operations (returns interface)
-cfnOps := client.NewCloudFormationOperations()
+// Deploy to multiple regions with shared credentials
+regions := []string{"us-east-1", "eu-west-1", "ap-southeast-2"}
 
-// Deploy a stack with event streaming
-eventCallback := func(event aws.StackEvent) {
-    timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
-    fmt.Printf("[%s] %-20s %-40s %s\n", 
-        timestamp, event.ResourceStatus, event.ResourceType, event.LogicalResourceId)
+for _, region := range regions {
+    cfnOps, err := factory.GetCloudFormationOperations(ctx, region)
+    if err != nil {
+        return err
+    }
+    
+    err = cfnOps.DeployStack(ctx, input)
+    if err != nil {
+        return err
+    }
 }
+```
 
-err := cfnOps.DeployStackWithCallback(ctx, aws.DeployStackInput{
-    StackName:    "my-stack",
-    TemplateBody: templateContent,
-    Parameters: []aws.Parameter{
-        {Key: "Environment", Value: "prod"},
+### Cross-Region Stack Dependencies
+
+```go
+// Reference stack output from different region
+parameters := map[string]*config.ParameterValue{
+    "VpcId": {
+        ResolutionType: "stack-output",
+        ResolutionConfig: map[string]string{
+            "stack_name": "vpc-stack",
+            "output_key": "VpcId",
+            "region":     "us-west-2",  // Different region
+        },
     },
-    Tags: map[string]string{
-        "Project": "stackaroo",
-    },
-}, eventCallback)
+}
+```
 
-// Handle no changes scenario
-if errors.As(err, &aws.NoChangesError{}) {
-    fmt.Println("Stack is already up to date - no changes to deploy")
-} else if err != nil {
-    return fmt.Errorf("deployment failed: %w", err)
+## Integration
+
+### Command Layer
+
+```go
+func getClientFactory() aws.ClientFactory {
+    if clientFactory != nil {
+        return clientFactory
+    }
+    
+    ctx := context.Background()
+    factory, err := aws.NewClientFactory(ctx)
+    if err != nil {
+        panic(fmt.Sprintf("failed to create AWS client factory: %v", err))
+    }
+    
+    clientFactory = factory
+    return clientFactory
+}
+```
+
+### Service Layer
+
+```go
+type StackDeployer struct {
+    clientFactory aws.ClientFactory
+    provider      config.ConfigProvider
+    resolver      resolve.Resolver
 }
 
-// Simple deployment without events
-err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
-    StackName:    "my-stack",
-    TemplateBody: templateContent,
+func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
+    // Get region-specific operations
+    cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
+    if err != nil {
+        return fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+    }
+    
+    // Deploy using region-specific client
+    return cfnOps.DeployStack(ctx, deployInput)
+}
+```
+
+## Testing
+
+### Mock Factory
+
+```go
+// Create mock factory with region-specific operations
+mockFactory := aws.NewMockClientFactory()
+mockOps := &aws.MockCloudFormationOperations{}
+mockFactory.SetOperations("us-east-1", mockOps)
+
+// Use in tests
+deployer := deploy.NewStackDeployer(mockFactory, provider, resolver)
+```
+
+### Test Utilities
+
+```go
+// Helper functions for testing
+factory, mockOps := aws.NewMockClientFactoryForRegion("us-east-1")
+multiRegionFactory := aws.SetupMockFactoryForMultiRegion(map[string]aws.CloudFormationOperations{
+    "us-east-1": mockOpsUS,
+    "eu-west-1": mockOpsEU,
 })
-
-// Check stack status
-stack, err := cfnOps.GetStack(ctx, "my-stack")
-fmt.Printf("Stack status: %s\n", stack.Status)
 ```
 
-### Direct SDK Access
+## Error Handling
 
-For advanced use cases, direct access to underlying SDK clients is available:
+### Wrapped Context
+
+All operations provide contextual error information:
 
 ```go
-// Direct CloudFormation client access
-cfnClient := client.CloudFormation()
-
-// Use SDK directly
-result, err := cfnClient.DescribeStackEvents(ctx, &cloudformation.DescribeStackEventsInput{
-    StackName: aws.String("my-stack"),
-})
+err = cfnOps.DeployStack(ctx, input)
+// Returns: "failed to create stack my-stack in region us-east-1: ValidationError: ..."
 ```
-
-## Advanced Deployment Features
-
-### Smart Create vs Update Detection
-
-The `DeployStack()` and `DeployStackWithCallback()` methods automatically detect whether a stack exists and perform the appropriate operation:
-
-- **New stacks**: Calls CloudFormation `CreateStack` operation
-- **Existing stacks**: Calls CloudFormation `UpdateStack` operation
-- **No changes needed**: Returns `NoChangesError` for graceful handling
-
-```go
-// This automatically determines create vs update
-err := cfnOps.DeployStack(ctx, aws.DeployStackInput{
-    StackName:    "my-stack",
-    TemplateBody: templateContent,
-})
-
-// Handle the no changes scenario
-var noChangesErr aws.NoChangesError
-if errors.As(err, &noChangesErr) {
-    fmt.Printf("Stack %s is already up to date\n", noChangesErr.StackName)
-    return nil
-}
-```
-
-### Real-time Event Streaming
-
-The `DeployStackWithCallback()` method provides real-time CloudFormation event streaming during deployment operations:
-
-```go
-// Define event callback for real-time feedback
-eventCallback := func(event aws.StackEvent) {
-    timestamp := event.Timestamp.Format("2006-01-02 15:04:05")
-    fmt.Printf("[%s] %-20s %-40s %s %s\n", 
-        timestamp,
-        event.ResourceStatus,
-        event.ResourceType, 
-        event.LogicalResourceId,
-        event.ResourceStatusReason,
-    )
-}
-
-// Deploy with event streaming
-err := cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
-```
-
-**Event Output Example:**
-```
-Starting create operation for stack my-app...
-[2025-01-09 15:30:45] CREATE_IN_PROGRESS   AWS::CloudFormation::Stack  my-app       User Initiated
-[2025-01-09 15:30:46] CREATE_IN_PROGRESS   AWS::S3::Bucket              AppBucket    
-[2025-01-09 15:30:48] CREATE_COMPLETE      AWS::S3::Bucket              AppBucket    
-[2025-01-09 15:30:50] CREATE_IN_PROGRESS   AWS::Lambda::Function        AppFunction  
-[2025-01-09 15:30:55] CREATE_COMPLETE      AWS::Lambda::Function        AppFunction  
-[2025-01-09 15:30:56] CREATE_COMPLETE      AWS::CloudFormation::Stack  my-app       
-Stack my-app create completed successfully
-```
-
-### Operation Waiting and Polling
-
-The deployment operations automatically wait for completion:
-
-- **Polling interval**: 5 seconds between status checks
-- **Event deduplication**: Only new events are reported via callback
-- **Completion detection**: Monitors stack status for terminal states
-- **Error handling**: Distinguishes between successful and failed operations
-
-```go
-// This will wait until the operation completes or fails
-err := cfnOps.WaitForStackOperation(ctx, "my-stack", eventCallback)
-if err != nil {
-    // Handle deployment failure
-    return fmt.Errorf("stack operation failed: %w", err)
-}
-```
-
-**Terminal Stack States:**
-- **Success**: `CREATE_COMPLETE`, `UPDATE_COMPLETE`, `DELETE_COMPLETE`
-- **Failure**: `CREATE_FAILED`, `UPDATE_FAILED`, `ROLLBACK_COMPLETE`, etc.
-
-## Changeset Operations
-
-The CloudFormation operations include high-level changeset methods for advanced deployment workflows with automatic cleanup and error handling.
-
-### Changeset Workflow Methods
-
-#### Preview Changes (Auto-Cleanup)
-
-Use `CreateChangeSetPreview()` to preview changes without deploying. The changeset is automatically deleted after analysis:
-
-```go
-// Preview changes (changeset auto-deleted)
-changeSetInfo, err := cfnOps.CreateChangeSetPreview(ctx, stackName, template, parameters)
-if err != nil {
-    return fmt.Errorf("failed to preview changes: %w", err)
-}
-
-// Analyze changes
-for _, change := range changeSetInfo.Changes {
-    fmt.Printf("%s: %s (%s)\n", change.Action, change.LogicalID, change.ResourceType)
-}
-```
-
-#### Deploy with Changeset
-
-Use `CreateChangeSetForDeployment()` to create a changeset for execution (persists until executed):
-
-```go
-// Create changeset for deployment
-changeSetInfo, err := cfnOps.CreateChangeSetForDeployment(ctx, 
-    stackName, template, parameters, capabilities, tags)
-if err != nil {
-    return fmt.Errorf("failed to create changeset: %w", err)
-}
-
-// Execute the changeset
-err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
-```
-
-### ChangeSetInfo Structure
-
-The high-level methods return a `ChangeSetInfo` struct with parsed change details:
-
-```go
-type ChangeSetInfo struct {
-    ChangeSetID string
-    Status      string
-    Changes     []ResourceChange
-}
-
-type ResourceChange struct {
-    Action       string   // CREATE, UPDATE, DELETE
-    ResourceType string   // AWS::S3::Bucket, etc.
-    LogicalID    string   // Resource name in template
-    PhysicalID   string   // AWS resource ID
-    Replacement  string   // True, False, or Conditional
-    Details      []string // Property change details
-}
-```
-
-## Configuration Hierarchy
-
-The client respects the standard AWS configuration hierarchy:
-
-1. **Explicit parameters** to `NewClient()`
-2. **Environment variables** (`AWS_REGION`, `AWS_PROFILE`, etc.)
-3. **Shared configuration files** (`~/.aws/config`, `~/.aws/credentials`)
-4. **IAM roles** for EC2/ECS/Lambda execution
-5. **AWS SDK defaults**
-
-## Error Handling Strategy
-
-### Wrapped Errors
-All operations wrap AWS SDK errors with contextual information:
-
-```go
-return fmt.Errorf("failed to create stack %s: %w", input.StackName, err)
-```
-
-### Error Classification
-Common error scenarios are identified and handled appropriately:
-
-- **Stack not found**: Differentiated from other validation errors
-- **Permission denied**: Clear indication of IAM policy issues
-- **Template validation**: Detailed error messages for template problems
-- **Rate limiting**: Retryable errors with appropriate backoff
-- **No changes needed**: Special `NoChangesError` type for update operations with no changes
 
 ### Special Error Types
-
-#### NoChangesError
-When updating a stack that requires no changes, a special `NoChangesError` is returned:
 
 ```go
 type NoChangesError struct {
@@ -378,302 +192,18 @@ type NoChangesError struct {
 }
 
 func (e NoChangesError) Error() string {
-    return fmt.Sprintf("stack %s is already up to date - no changes to deploy", e.StackName)
+    return fmt.Sprintf("no changes to deploy for stack %s", e.StackName)
 }
 ```
 
-This allows applications to distinguish between actual deployment failures and successful "no changes" scenarios.
+## Security
 
-### Error Examples
+- **Credential Chain**: Uses AWS SDK default credential chain (environment, profiles, IAM roles)
+- **Least Privilege**: Each operation uses minimal required permissions
+- **Region Isolation**: Client operations are scoped to specific regions
 
-```go
-// Check for specific error types
-stack, err := cfnOps.GetStack(ctx, "nonexistent-stack")
-if err != nil {
-    if isStackNotFoundError(err) {
-        // Handle stack not found
-    } else {
-        // Handle other errors
-    }
-}
+## Performance
 
-// Handle deployment with no changes
-err := cfnOps.DeployStack(ctx, deployInput)
-if err != nil {
-    var noChangesErr aws.NoChangesError
-    if errors.As(err, &noChangesErr) {
-        fmt.Printf("Stack %s is already up to date\n", noChangesErr.StackName)
-        return nil // This is success, not an error
-    }
-    return fmt.Errorf("deployment failed: %w", err)
-}
-```
-
-## Extension Points
-
-### Adding New AWS Services
-
-To add support for additional AWS services (S3, EC2, etc.):
-
-1. **Add service client to `DefaultClient` struct:**
-   ```go
-   type DefaultClient struct {
-       config aws.Config
-       cfn    *cloudformation.Client
-       s3     *s3.Client  // New service
-   }
-   ```
-
-2. **Initialize in `NewDefaultClient()`:**
-   ```go
-   s3Client := s3.NewFromConfig(awsCfg)
-   ```
-
-3. **Create operations wrapper:**
-   ```go
-   // internal/aws/s3.go
-   type DefaultS3Operations struct {
-       client *s3.Client
-   }
-   
-   func (c *DefaultClient) NewS3Operations() S3Operations {
-       return &DefaultS3Operations{client: c.s3}
-   }
-   ```
-
-4. **Implement high-level operations:**
-   ```go
-   func (s3ops *S3Operations) UploadTemplate(ctx context.Context, input UploadInput) error {
-       // Implementation
-   }
-   ```
-
-### Custom Authentication
-
-For special authentication requirements:
-
-```go
-// Custom credential provider
-client, err := aws.NewDefaultClient(ctx, aws.Config{
-    // Custom credentials via AWS SDK options
-})
-```
-
-## Testing Strategy
-
-### Interface-Based Testing
-The AWS client architecture uses a consolidated mock approach with all test utilities co-located in dedicated `testing.go` files:
-
-#### Consolidated Mock Architecture
-
-All AWS mocks are centrally managed in `internal/aws/testing.go`, providing three levels of mocking:
-
-1. **MockClient** - Top-level AWS client interface
-2. **MockCloudFormationOperations** - High-level CloudFormation business operations  
-3. **MockCloudFormationClient** - Low-level AWS SDK client interface
-
-```go
-import "github.com/orien/stackaroo/internal/aws"
-
-// Example: Testing high-level CloudFormation operations
-func TestCreateChangeSetPreview(t *testing.T) {
-    ctx := context.Background()
-    
-    // Use consolidated mocks from testing.go
-    mockCFOps := &aws.MockCloudFormationOperations{}
-    
-    // Mock the high-level business operation
-    expectedChangeSet := &aws.ChangeSetInfo{
-        ChangeSetID: "changeset-123",
-        Status:      "CREATE_COMPLETE",
-        Changes:     []aws.ResourceChange{},
-    }
-    
-    mockCFOps.On("CreateChangeSetPreview", ctx, "test-stack", template, parameters).
-        Return(expectedChangeSet, nil)
-    
-    // Test the operation
-    changeSetInfo, err := mockCFOps.CreateChangeSetPreview(ctx, "test-stack", template, parameters)
-    
-    require.NoError(t, err)
-    assert.Equal(t, "changeset-123", changeSetInfo.ChangeSetID)
-    mockCFOps.AssertExpectations(t)
-}
-```
-
-**Key Testing Benefits:**
-- **Zero Duplication**: Single source of truth for all AWS mocks across the entire codebase
-- **Perfect Co-location**: Every mock lives alongside its corresponding interface
-- **Cross-Package Reusability**: Shared mocks eliminate ~400 lines of duplicated code
-- **Complete Consistency**: Uniform mock organisation across all internal packages
-- **Professional Mocking**: Full testify/mock integration with expectations and assertions
-
-#### Integration with Business Logic
-All internal packages follow the same consolidated mock pattern for cross-package testing:
-
-```go
-import (
-    "github.com/orien/stackaroo/internal/aws"
-    "github.com/orien/stackaroo/internal/deploy"
-)
-
-// In production
-awsClient := aws.NewDefaultClient(ctx, config)
-deployer := deploy.NewAWSDeployer(awsClient)
-
-// In tests - use consolidated mocks
-mockClient := &aws.MockClient{}
-mockDeployer := &deploy.MockDeployer{}
-
-// Test with dependency injection
-deployer := deploy.NewAWSDeployer(mockClient)
-```
-
-### Unit Testing
-
-#### CloudFormation Operations Testing
-- **Consolidated Mock Usage**: Import shared mocks from `internal/aws/testing.go`
-- **Three-Tier Mock Architecture**: `MockClient`, `MockCloudFormationOperations`, `MockCloudFormationClient`
-- **Zero Duplication**: Single source of truth eliminates ~400 lines of duplicate mock code
-- **Cross-Package Sharing**: Same mocks used across all internal packages
-- Test business logic in isolation from AWS SDK with professional testify/mock integration
-
-#### Event Callback Testing
-Use consolidated mocks from `testing.go` for event callback operations:
-
-```go
-import "github.com/orien/stackaroo/internal/aws"
-
-// Test deployment with event streaming using shared mock
-mockCfnOps := &aws.MockCloudFormationOperations{}
-
-mockCfnOps.On("DeployStackWithCallback", 
-    ctx,
-    mock.MatchedBy(func(input aws.DeployStackInput) bool {
-        return input.StackName == "test-stack"
-    }),
-    mock.AnythingOfType("func(aws.StackEvent)"),  // Event callback matcher
-).Return(nil)
-
-// Test event callback invocation
-var capturedEvents []aws.StackEvent
-eventCallback := func(event aws.StackEvent) {
-    capturedEvents = append(capturedEvents, event)
-}
-
-err := mockCfnOps.DeployStackWithCallback(ctx, input, eventCallback)
-assert.NoError(t, err)
-assert.Len(t, capturedEvents, expectedEventCount)
-mockCfnOps.AssertExpectations(t)
-```
-
-#### Testing NoChangesError
-```go
-import "github.com/orien/stackaroo/internal/aws"
-
-// Test no changes scenario using consolidated mock
-mockCfnOps := &aws.MockCloudFormationOperations{}
-
-mockCfnOps.On("DeployStackWithCallback", ctx, input, mock.AnythingOfType("func(aws.StackEvent)")).
-    Return(aws.NoChangesError{StackName: "test-stack"})
-
-err := deployer.DeployStack(ctx, stack)
-assert.NoError(t, err)  // Should handle NoChangesError gracefully
-mockCfnOps.AssertExpectations(t)
-```
-
-### Integration Testing  
-- Use AWS localstack or moto for local AWS service simulation
-- Provide test configuration for different AWS environments
-- End-to-end testing with real AWS SDK behavior
-
-### Testing Best Practices
-
-#### Consolidated Mock Architecture
-- **Use Shared Mocks**: Always import mocks from `internal/aws/testing.go` instead of creating inline mocks
-- **Zero Duplication**: Single source of truth for all AWS mock implementations across the codebase
-- **Perfect Co-location**: Every mock lives alongside its corresponding interface in the same package
-- **Cross-Package Reusability**: Same mocks used across all internal packages (`deploy`, `diff`, `delete`, etc.)
-
-#### Implementation Guidelines
-- All external dependencies are abstracted behind interfaces with corresponding mocks in `testing.go`
-- Use dependency injection to substitute consolidated mocks in tests
-- Import pattern: `import "github.com/orien/stackaroo/internal/aws"` then use `&aws.MockClient{}`
-- Follow three-tier mock architecture: `MockClient` → `MockCloudFormationOperations` → `MockCloudFormationClient`
-- Always verify mock expectations with `AssertExpectations(t)`
-
-#### Benefits Achieved
-- **Eliminated ~400 lines** of duplicated mock code across the codebase
-- **Consistent patterns** across all internal packages (`aws`, `deploy`, `diff`, `delete`, `resolve`, `config`, `prompt`)
-- **Maintainable tests** with single point of change for mock evolution
-- **Professional testing** with full testify/mock integration
-
-## Performance Considerations
-
-### Connection Reuse
-- Single `DefaultClient` instance should be reused across operations
-- AWS SDK v2 handles connection pooling automatically
-- Service clients are cached within the `DefaultClient` instance
-
-### Context Handling
-- All operations accept `context.Context` for timeout and cancellation
-- Long-running operations (stack deployments) should use appropriate timeouts
-- Context cancellation properly terminates AWS SDK operations
-
-### Memory Management
-- Large template bodies should be streamed rather than loaded entirely into memory
-- Stack listings use pagination to handle large numbers of stacks
-- Proper cleanup of resources in error scenarios
-
-## Security Considerations
-
-### Credential Handling
-- Never log or expose AWS credentials in error messages
-- Use IAM roles and temporary credentials where possible
-- Support AWS credential rotation patterns
-
-### Template Security
-- Validate templates before deployment to prevent injection attacks
-- Support template parameter validation
-- Sanitise user inputs in template parameters
-
-### Least Privilege
-- Operations only request necessary permissions
-- Clear documentation of required IAM permissions for each operation
-- Support for cross-account deployment patterns
-
-## Integration with Stackaroo Components
-
-### Deployment Layer
-The AWS client integrates with the `internal/deploy` package:
-
-```go
-// AWSDeployer uses the Client interface
-type AWSDeployer struct {
-    awsClient aws.Client
-}
-
-func NewAWSDeployer(awsClient aws.Client) *AWSDeployer {
-    return &AWSDeployer{awsClient: awsClient}
-}
-```
-
-### CLI Integration
-CLI commands use the deployment layer through dependency injection:
-
-```go
-// CLI uses Deployer interface
-type Deployer interface {
-    DeployStack(ctx context.Context, resolvedStack *model.Stack) error
-    ValidateTemplate(ctx context.Context, templateFile string) error
-}
-
-// Production: AWS implementation
-deployer := deploy.NewDefaultDeployer(ctx)
-
-// Testing: Mock implementation  
-mockDeployer := &MockDeployer{}
-cmd.SetDeployer(mockDeployer)
-```
-
-This layered architecture ensures clean separation of concerns and comprehensive testability throughout the application.
+- **Connection Reuse**: Clients cached by region to avoid recreation
+- **Concurrent Safe**: Thread-safe factory operations
+- **Memory Efficient**: Only creates clients for regions actually used

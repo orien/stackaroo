@@ -30,16 +30,11 @@ type CloudFormationClient interface {
 // Ensure that the actual CloudFormation client implements our interface
 var _ CloudFormationClient = (*cloudformation.Client)(nil)
 
-// Ensure that our DefaultClient implements Client
-var _ Client = (*DefaultClient)(nil)
-
 // Ensure that DefaultCloudFormationOperations implements CloudFormationOperations
 var _ CloudFormationOperations = (*DefaultCloudFormationOperations)(nil)
 
-// Client defines the interface for AWS client operations
-type Client interface {
-	NewCloudFormationOperations() CloudFormationOperations
-}
+// Ensure that DefaultClientFactory implements ClientFactory
+var _ ClientFactory = (*DefaultClientFactory)(nil)
 
 // CloudFormationOperations defines the interface for CloudFormation operations
 type CloudFormationOperations interface {
@@ -57,8 +52,6 @@ type CloudFormationOperations interface {
 	DeleteChangeSet(ctx context.Context, changeSetID string) error
 	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
 	WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
-
-	// High-level changeset workflow methods
 	CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
 	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 }

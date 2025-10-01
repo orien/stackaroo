@@ -57,8 +57,8 @@ func getDiffer() diff.Differ {
 		return differ
 	}
 
-	cfOps := getCloudFormationOperations()
-	differ = diff.NewStackDiffer(cfOps)
+	clientFactory := getClientFactory()
+	differ = diff.NewStackDiffer(clientFactory)
 	return differ
 }
 

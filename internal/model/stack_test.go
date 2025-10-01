@@ -42,7 +42,7 @@ func TestStack_GetTemplateContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rs := &Stack{
 				Name:         "test-stack",
-				Context:      "dev",
+				Context:      NewTestContext("dev", "us-east-1", "123456789012"),
 				TemplateBody: tt.templateBody,
 				Parameters:   map[string]string{},
 				Tags:         map[string]string{},
@@ -66,7 +66,7 @@ func TestStack_Creation(t *testing.T) {
 	t.Run("create resolved stack with all fields", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "test-stack",
-			Context:      "production",
+			Context:      NewTestContext("production", "us-west-2", "123456789012"),
 			TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 			Parameters: map[string]string{
 				"Environment":  "prod",
@@ -81,7 +81,9 @@ func TestStack_Creation(t *testing.T) {
 		}
 
 		assert.Equal(t, "test-stack", rs.Name)
-		assert.Equal(t, "production", rs.Context)
+		assert.Equal(t, "production", rs.Context.Name)
+		assert.Equal(t, "us-west-2", rs.Context.Region)
+		assert.Equal(t, "123456789012", rs.Context.Account)
 		assert.Equal(t, `{"AWSTemplateFormatVersion": "2010-09-09"}`, rs.TemplateBody)
 		assert.Equal(t, 2, len(rs.Parameters))
 		assert.Equal(t, "prod", rs.Parameters["Environment"])
@@ -100,7 +102,7 @@ func TestStack_Creation(t *testing.T) {
 	t.Run("create resolved stack with minimal fields", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "minimal-stack",
-			Context:      "dev",
+			Context:      NewTestContext("dev", "us-east-1", "123456789012"),
 			TemplateBody: "",
 			Parameters:   map[string]string{},
 			Tags:         map[string]string{},
@@ -109,7 +111,9 @@ func TestStack_Creation(t *testing.T) {
 		}
 
 		assert.Equal(t, "minimal-stack", rs.Name)
-		assert.Equal(t, "dev", rs.Context)
+		assert.Equal(t, "dev", rs.Context.Name)
+		assert.Equal(t, "us-east-1", rs.Context.Region)
+		assert.Equal(t, "123456789012", rs.Context.Account)
 		assert.Equal(t, "", rs.TemplateBody)
 		assert.Empty(t, rs.Parameters)
 		assert.Empty(t, rs.Tags)
@@ -122,7 +126,7 @@ func TestStack_NilMaps(t *testing.T) {
 	t.Run("resolved stack with nil maps should work", func(t *testing.T) {
 		rs := &Stack{
 			Name:         "test-stack",
-			Context:      "dev",
+			Context:      NewTestContext("dev", "us-east-1", "123456789012"),
 			TemplateBody: "test template",
 			Parameters:   nil,
 			Tags:         nil,
@@ -132,7 +136,9 @@ func TestStack_NilMaps(t *testing.T) {
 
 		// These should all work without panicking
 		assert.Equal(t, "test-stack", rs.Name)
-		assert.Equal(t, "dev", rs.Context)
+		assert.Equal(t, "dev", rs.Context.Name)
+		assert.Equal(t, "us-east-1", rs.Context.Region)
+		assert.Equal(t, "123456789012", rs.Context.Account)
 		assert.Equal(t, "test template", rs.TemplateBody)
 		assert.Nil(t, rs.Parameters)
 		assert.Nil(t, rs.Tags)

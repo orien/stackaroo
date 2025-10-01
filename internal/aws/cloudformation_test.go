@@ -1226,3 +1226,122 @@ func TestCapabilityConversion_ToAWSTypes(t *testing.T) {
 	assert.Equal(t, types.Capability("CAPABILITY_NAMED_IAM"), awsCapabilities[1])
 	assert.Equal(t, types.Capability("CAPABILITY_AUTO_EXPAND"), awsCapabilities[2])
 }
+
+// Test utility functions used in CloudFormation error handling
+func TestContains(t *testing.T) {
+	tests := []struct {
+		name     string
+		s        string
+		substr   string
+		expected bool
+	}{
+		{
+			name:     "contains substring",
+			s:        "hello world",
+			substr:   "world",
+			expected: true,
+		},
+		{
+			name:     "does not contain substring",
+			s:        "hello world",
+			substr:   "foo",
+			expected: false,
+		},
+		{
+			name:     "empty substring",
+			s:        "hello world",
+			substr:   "",
+			expected: true,
+		},
+		{
+			name:     "exact match",
+			s:        "hello",
+			substr:   "hello",
+			expected: true,
+		},
+		{
+			name:     "substring at beginning",
+			s:        "hello world",
+			substr:   "hello",
+			expected: true,
+		},
+		{
+			name:     "substring at end",
+			s:        "hello world",
+			substr:   "world",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := contains(tt.s, tt.substr)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIndexString(t *testing.T) {
+	tests := []struct {
+		name     string
+		s        string
+		substr   string
+		expected int
+	}{
+		{
+			name:     "substring found",
+			s:        "hello world",
+			substr:   "world",
+			expected: 6,
+		},
+		{
+			name:     "substring not found",
+			s:        "hello world",
+			substr:   "foo",
+			expected: -1,
+		},
+		{
+			name:     "empty substring",
+			s:        "hello world",
+			substr:   "",
+			expected: 0,
+		},
+		{
+			name:     "substring at beginning",
+			s:        "hello world",
+			substr:   "hello",
+			expected: 0,
+		},
+		{
+			name:     "substring at end",
+			s:        "hello world",
+			substr:   "world",
+			expected: 6,
+		},
+		{
+			name:     "exact match",
+			s:        "hello",
+			substr:   "hello",
+			expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := indexString(tt.s, tt.substr)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNewCloudFormationOperationsWithClient(t *testing.T) {
+	// Test that we can create CloudFormation operations with a mock client
+	// This tests our dependency injection pattern without AWS dependencies
+
+	mockClient := &MockCloudFormationClient{}
+	ops := NewCloudFormationOperationsWithClient(mockClient)
+
+	assert.NotNil(t, ops)
+	// Client field is private, but successful creation indicates dependency injection worked
+	mockClient.AssertExpectations(t)
+}

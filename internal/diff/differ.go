@@ -14,16 +14,16 @@ import (
 
 // StackDiffer implements the Differ interface using AWS CloudFormation
 type StackDiffer struct {
-	cfClient            aws.CloudFormationOperations
+	clientFactory       aws.ClientFactory
 	templateComparator  TemplateComparator
 	parameterComparator ParameterComparator
 	tagComparator       TagComparator
 }
 
-// NewStackDiffer creates a new StackDiffer with provided CloudFormation operations
-func NewStackDiffer(cfClient aws.CloudFormationOperations) *StackDiffer {
+// NewStackDiffer creates a new StackDiffer with provided client factory
+func NewStackDiffer(clientFactory aws.ClientFactory) *StackDiffer {
 	return &StackDiffer{
-		cfClient:            cfClient,
+		clientFactory:       clientFactory,
 		templateComparator:  NewYAMLTemplateComparator(),
 		parameterComparator: NewParameterComparator(),
 		tagComparator:       NewTagComparator(),
@@ -32,34 +32,40 @@ func NewStackDiffer(cfClient aws.CloudFormationOperations) *StackDiffer {
 
 // DiffStack compares a resolved stack configuration with the deployed stack
 func (d *StackDiffer) DiffStack(ctx context.Context, stack *model.Stack, options Options) (*Result, error) {
+	// Get region-specific CloudFormation operations
+	cfClient, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+	}
+
 	result := &Result{
 		StackName: stack.Name,
-		Context:   stack.Context,
+		Context:   stack.Context.Name,
 		Options:   options,
 	}
 
 	// Check if stack exists in AWS
-	stackExists, err := d.cfClient.StackExists(ctx, stack.Name)
+	exists, err := cfClient.StackExists(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if stack exists: %w", err)
 	}
 
-	result.StackExists = stackExists
+	result.StackExists = exists
 
 	// If stack doesn't exist, this is a new stack scenario
-	if !stackExists {
+	if !exists {
 		return d.handleNewStack(ctx, stack, result)
 	}
 
 	// Get current stack state from AWS
-	currentStack, err := d.cfClient.DescribeStack(ctx, stack.Name)
+	currentStack, err := cfClient.DescribeStack(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe stack: %w", err)
 	}
 
 	// Compare templates (if not filtered out)
 	if !options.ParametersOnly && !options.TagsOnly {
-		templateChange, err := d.compareTemplates(ctx, stack, currentStack)
+		templateChange, err := d.compareTemplates(ctx, stack, currentStack, cfClient)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare templates: %w", err)
 		}
@@ -86,7 +92,7 @@ func (d *StackDiffer) DiffStack(ctx context.Context, stack *model.Stack, options
 
 	// Generate changeset if there are potential changes and we're doing a full diff
 	if result.HasChanges() && !options.TemplateOnly && !options.ParametersOnly && !options.TagsOnly {
-		changeSetInfo, err := d.generateChangeSet(ctx, stack, options)
+		changeSetInfo, err := d.generateChangeSet(ctx, stack, options, cfClient)
 		if err != nil {
 			// Don't fail the entire diff if changeset generation fails
 			// Just log and continue without changeset info
@@ -135,9 +141,9 @@ func (d *StackDiffer) handleNewStack(ctx context.Context, stack *model.Stack, re
 }
 
 // compareTemplates compares the current deployed template with the resolved template
-func (d *StackDiffer) compareTemplates(ctx context.Context, stack *model.Stack, currentStack *aws.StackInfo) (*TemplateChange, error) {
+func (d *StackDiffer) compareTemplates(ctx context.Context, stack *model.Stack, currentStack *aws.StackInfo, cfClient aws.CloudFormationOperations) (*TemplateChange, error) {
 	// Get current template from AWS
-	currentTemplate, err := d.cfClient.GetTemplate(ctx, stack.Name)
+	currentTemplate, err := cfClient.GetTemplate(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current template: %w", err)
 	}
@@ -168,7 +174,7 @@ func (d *StackDiffer) compareTags(currentStack *aws.StackInfo, stack *model.Stac
 }
 
 // generateChangeSet creates an AWS changeset to preview changes
-func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options) (*aws.ChangeSetInfo, error) {
+func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack, options Options, cfClient aws.CloudFormationOperations) (*aws.ChangeSetInfo, error) {
 	// Get proposed template content
 	templateContent, err := stack.GetTemplateContent()
 	if err != nil {
@@ -184,7 +190,7 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 			capabilities = []string{"CAPABILITY_IAM"} // Default capability
 		}
 
-		changeSetInfo, err = d.cfClient.CreateChangeSetForDeployment(
+		changeSetInfo, err = cfClient.CreateChangeSetForDeployment(
 			ctx,
 			stack.Name,
 			templateContent,
@@ -194,7 +200,7 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 		)
 	} else {
 		// Use standard changeset that auto-deletes for preview only
-		changeSetInfo, err = d.cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters)
+		changeSetInfo, err = cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters)
 	}
 
 	if err != nil {

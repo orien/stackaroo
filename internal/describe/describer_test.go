@@ -13,130 +13,32 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockCloudFormationOperations implements aws.CloudFormationOperations for testing
-type MockCloudFormationOperations struct {
-	mock.Mock
-}
-
-func (m *MockCloudFormationOperations) DeployStack(ctx context.Context, input aws.DeployStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeployStackWithCallback(ctx context.Context, input aws.DeployStackInput, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, input, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) UpdateStack(ctx context.Context, input aws.UpdateStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeleteStack(ctx context.Context, input aws.DeleteStackInput) error {
-	args := m.Called(ctx, input)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) GetStack(ctx context.Context, stackName string) (*aws.Stack, error) {
-	args := m.Called(ctx, stackName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ListStacks(ctx context.Context) ([]*aws.Stack, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*aws.Stack), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ValidateTemplate(ctx context.Context, templateBody string) error {
-	args := m.Called(ctx, templateBody)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) StackExists(ctx context.Context, stackName string) (bool, error) {
-	args := m.Called(ctx, stackName)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) GetTemplate(ctx context.Context, stackName string) (string, error) {
-	args := m.Called(ctx, stackName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) DescribeStack(ctx context.Context, stackName string) (*aws.StackInfo, error) {
-	args := m.Called(ctx, stackName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.StackInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) ExecuteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DeleteChangeSet(ctx context.Context, changeSetID string) error {
-	args := m.Called(ctx, changeSetID)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, stackName string) ([]aws.StackEvent, error) {
-	args := m.Called(ctx, stackName)
-	return args.Get(0).([]aws.StackEvent), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(aws.StackEvent)) error {
-	args := m.Called(ctx, stackName, eventCallback)
-	return args.Error(0)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
-func (m *MockCloudFormationOperations) CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*aws.ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*aws.ChangeSetInfo), args.Error(1)
-}
-
 func TestNewStackDescriber(t *testing.T) {
 	// Test that NewStackDescriber creates a proper describer instance
-	mockCFOps := &MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
-	describer := NewStackDescriber(mockCFOps)
+	describer := NewStackDescriber(mockFactory)
 
 	assert.NotNil(t, describer, "NewStackDescriber should return a non-nil describer")
 
 	// Verify that it's the correct type
 	stackDescriber, ok := describer.(*StackDescriber)
 	assert.True(t, ok, "NewStackDescriber should return a StackDescriber")
-	assert.Equal(t, mockCFOps, stackDescriber.cfOps, "StackDescriber should use the provided CloudFormation operations")
+	assert.Equal(t, mockFactory, stackDescriber.clientFactory, "StackDescriber should use the provided client factory")
 }
 
 func TestStackDescriber_DescribeStack_Success(t *testing.T) {
 	// Test successful stack description retrieval
-	mockCFOps := &MockCloudFormationOperations{}
-	describer := NewStackDescriber(mockCFOps)
+	mockFactory, mockCFOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	describer := NewStackDescriber(mockFactory)
 
 	ctx := context.Background()
 	stack := &model.Stack{
 		Name:    "test-stack",
-		Context: "production",
+		Context: model.NewTestContext("production", "us-east-1", "123456789012"),
 	}
 
 	createdTime := time.Date(2025, 1, 15, 10, 30, 45, 0, time.UTC)
@@ -177,7 +79,7 @@ func TestStackDescriber_DescribeStack_Success(t *testing.T) {
 	assert.Equal(t, createdTime, result.CreatedTime)
 	assert.Equal(t, &updatedTime, result.UpdatedTime)
 	assert.Equal(t, "Test stack description", result.Description)
-	assert.Equal(t, "production", result.Region)
+	assert.Equal(t, "us-east-1", result.Region)
 
 	// Verify parameters conversion
 	expectedParams := map[string]string{
@@ -205,13 +107,13 @@ func TestStackDescriber_DescribeStack_Success(t *testing.T) {
 
 func TestStackDescriber_DescribeStack_AWSError(t *testing.T) {
 	// Test error handling when AWS operations fail
-	mockCFOps := &MockCloudFormationOperations{}
-	describer := NewStackDescriber(mockCFOps)
+	mockFactory, mockCFOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	describer := NewStackDescriber(mockFactory)
 
 	ctx := context.Background()
 	stack := &model.Stack{
 		Name:    "failing-stack",
-		Context: "production",
+		Context: model.NewTestContext("production", "us-east-1", "123456789012"),
 	}
 
 	expectedError := errors.New("AWS CloudFormation error: stack not found")
@@ -233,13 +135,13 @@ func TestStackDescriber_DescribeStack_AWSError(t *testing.T) {
 
 func TestStackDescriber_DescribeStack_MinimalData(t *testing.T) {
 	// Test with minimal stack information
-	mockCFOps := &MockCloudFormationOperations{}
-	describer := NewStackDescriber(mockCFOps)
+	mockFactory, mockCFOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	describer := NewStackDescriber(mockFactory)
 
 	ctx := context.Background()
 	stack := &model.Stack{
 		Name:    "minimal-stack",
-		Context: "dev",
+		Context: model.NewTestContext("dev", "us-east-1", "123456789012"),
 	}
 
 	createdTime := time.Date(2025, 1, 15, 10, 30, 45, 0, time.UTC)
@@ -266,7 +168,7 @@ func TestStackDescriber_DescribeStack_MinimalData(t *testing.T) {
 	assert.Equal(t, createdTime, result.CreatedTime)
 	assert.Nil(t, result.UpdatedTime, "UpdatedTime should be nil when not provided")
 	assert.Equal(t, "", result.Description, "Description should be empty when not provided")
-	assert.Equal(t, "dev", result.Region)
+	assert.Equal(t, "us-east-1", result.Region)
 
 	// Verify empty maps
 	assert.Empty(t, result.Parameters, "Parameters should be empty")

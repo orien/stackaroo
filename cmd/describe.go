@@ -55,8 +55,8 @@ func getDescriber() describe.Describer {
 		return describer
 	}
 
-	cfOps := getCloudFormationOperations()
-	describer = describe.NewStackDescriber(cfOps)
+	clientFactory := getClientFactory()
+	describer = describe.NewStackDescriber(clientFactory)
 	return describer
 }
 

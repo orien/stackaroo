@@ -4,10 +4,17 @@ SPDX-License-Identifier: BSD-3-Clause
 */
 package model
 
+// Context holds context-specific information for stack operations
+type Context struct {
+	Name    string
+	Region  string
+	Account string
+}
+
 // Stack represents a fully resolved stack ready for deployment
 type Stack struct {
 	Name         string
-	Context      string
+	Context      *Context
 	TemplateBody string
 	Parameters   map[string]string
 	Tags         map[string]string

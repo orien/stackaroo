@@ -34,7 +34,7 @@ The resolver module is responsible for transforming high-level configuration int
 type StackResolver struct {
     configProvider     config.ConfigProvider
     fileSystemResolver FileSystemResolver
-    cfnOperations      aws.CloudFormationOperations
+    clientFactory      aws.ClientFactory
     templateProcessor  TemplateProcessor
 }
 
@@ -167,7 +167,7 @@ Transforms `ParameterValue` objects into final string values for CloudFormation.
 ### Resolution Types
 
 - **Literal** - Direct string values
-- **Stack Output** - References to CloudFormation stack outputs
+- **Stack Output** - References to CloudFormation stack outputs (supports cross-region resolution)
 - **List** - Arrays supporting mixed resolution types, joined with commas
 
 The resolution engine processes each type recursively and handles complex nested structures.
@@ -196,6 +196,31 @@ All errors are wrapped with context and fail fast. Categories include configurat
 ## Testing Strategy
 
 Uses mock-based testing with interface injection. Coverage includes happy path, error scenarios, dependency logic, and inheritance patterns.
+
+## Cross-Region Resolution
+
+The resolver supports cross-region stack output resolution via the ClientFactory pattern:
+
+### Multi-Region Stack Dependencies
+
+```go
+// Example: VPC stack in us-east-1, application stack in eu-west-1
+parameters:
+  VpcId:
+    type: stack-output
+    stack_name: vpc-foundation
+    output_key: VpcId
+    region: us-east-1  # Cross-region reference
+```
+
+### Resolution Process
+
+1. **Region Detection** - Extract region from parameter configuration or stack context
+2. **Client Selection** - ClientFactory creates region-specific CloudFormation client
+3. **Output Retrieval** - Query stack outputs from target region
+4. **Parameter Injection** - Resolved value used in target stack deployment
+
+This enables complex multi-region architectures where foundational resources (VPCs, DNS zones) in one region support applications deployed across multiple regions.
 
 ## Extension Points
 

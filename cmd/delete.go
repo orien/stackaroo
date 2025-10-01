@@ -59,9 +59,9 @@ func getDeleter(configFile string) delete.Deleter {
 		return deleter
 	}
 
-	cfOpts := getCloudFormationOperations()
+	clientFactory := getClientFactory()
 	provider, resolver := createResolver(configFile)
-	deleter = delete.NewStackDeleter(cfOpts, provider, resolver)
+	deleter = delete.NewStackDeleter(clientFactory, provider, resolver)
 	return deleter
 }
 

@@ -77,7 +77,7 @@ func TestDiffWithConfig_Success_NoChanges(t *testing.T) {
 	// Create test resolved stack
 	testStack := &model.Stack{
 		Name:       "test-stack",
-		Context:    "dev",
+		Context:    model.NewTestContext("dev", "us-east-1", "123456789012"),
 		Parameters: map[string]string{"Param1": "value1"},
 		Tags:       map[string]string{"Environment": "dev"},
 	}
@@ -119,7 +119,7 @@ func TestDiffWithConfig_Success_WithChanges(t *testing.T) {
 	// Create test resolved stack
 	testStack := &model.Stack{
 		Name:       "test-stack",
-		Context:    "dev",
+		Context:    model.NewTestContext("dev", "us-east-1", "123456789012"),
 		Parameters: map[string]string{"Param1": "newvalue"},
 		Tags:       map[string]string{"Environment": "dev"},
 	}
@@ -162,7 +162,7 @@ func TestDiffWithConfig_NewStack(t *testing.T) {
 	// Create test resolved stack
 	testStack := &model.Stack{
 		Name:         "test-stack",
-		Context:      "dev",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 		Parameters:   map[string]string{"Param1": "value1"},
 		Tags:         map[string]string{"Environment": "dev"},
@@ -209,7 +209,7 @@ func TestDiffWithConfig_DifferError(t *testing.T) {
 	// Create test resolved stack
 	testStack := &model.Stack{
 		Name:       "test-stack",
-		Context:    "dev",
+		Context:    model.NewTestContext("dev", "us-east-1", "123456789012"),
 		Parameters: map[string]string{},
 		Tags:       map[string]string{},
 	}
@@ -294,7 +294,7 @@ func TestDiffWithConfig_OptionsMapping(t *testing.T) {
 			// Create test resolved stack
 			testStack := &model.Stack{
 				Name:       "test-stack",
-				Context:    "dev",
+				Context:    model.NewTestContext("dev", "us-east-1", "123456789012"),
 				Parameters: map[string]string{},
 				Tags:       map[string]string{},
 			}

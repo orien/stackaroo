@@ -25,16 +25,16 @@ type Resolver interface {
 type StackResolver struct {
 	configProvider     config.ConfigProvider
 	fileSystemResolver FileSystemResolver
-	cfnOperations      aws.CloudFormationOperations
+	clientFactory      aws.ClientFactory
 	templateProcessor  TemplateProcessor
 }
 
-// NewStackResolver creates a new stack resolver instance with the given config provider and CloudFormation operations
-func NewStackResolver(configProvider config.ConfigProvider, cfnOperations aws.CloudFormationOperations) *StackResolver {
+// NewStackResolver creates a new stack resolver instance with the given config provider and client factory
+func NewStackResolver(configProvider config.ConfigProvider, clientFactory aws.ClientFactory) *StackResolver {
 	return &StackResolver{
 		configProvider:     configProvider,
 		fileSystemResolver: &DefaultFileSystemResolver{},
-		cfnOperations:      cfnOperations,
+		clientFactory:      clientFactory,
 		templateProcessor:  NewCfnTemplateProcessor(),
 	}
 }
@@ -76,8 +76,8 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 		return nil, fmt.Errorf("failed to process template: %w", err)
 	}
 
-	// Resolve parameters with new system
-	parameters, err := r.resolveParameters(ctx, stackConfig.Parameters, context)
+	// Resolve parameters with new system, passing region for cross-region stack outputs
+	parameters, err := r.resolveParameters(ctx, stackConfig.Parameters, cfg.Context.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve parameters for stack %s: %w", stackName, err)
 	}
@@ -85,9 +85,16 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	// Merge tags
 	tags := r.mergeTags(cfg.Tags, stackConfig.Tags)
 
+	// Create context info from resolved configuration
+	stackContext := &model.Context{
+		Name:    cfg.Context.Name,
+		Region:  cfg.Context.Region,
+		Account: cfg.Context.Account,
+	}
+
 	return &model.Stack{
 		Name:         stackConfig.Name,
-		Context:      context,
+		Context:      stackContext,
 		TemplateBody: templateBody,
 		Parameters:   parameters,
 		Tags:         tags,
@@ -178,7 +185,7 @@ func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) 
 }
 
 // resolveParameters resolves parameters from ParameterValue objects to final string values
-func (r *StackResolver) resolveParameters(ctx context.Context, params map[string]*config.ParameterValue, context string) (map[string]string, error) {
+func (r *StackResolver) resolveParameters(ctx context.Context, params map[string]*config.ParameterValue, contextRegion string) (map[string]string, error) {
 	if params == nil {
 		return nil, nil
 	}
@@ -190,7 +197,7 @@ func (r *StackResolver) resolveParameters(ctx context.Context, params map[string
 			continue
 		}
 
-		resolvedValue, err := r.resolveSingleParameter(ctx, paramValue, context)
+		resolvedValue, err := r.resolveSingleParameter(ctx, paramValue, contextRegion)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve parameter '%s': %w", key, err)
 		}
@@ -201,7 +208,7 @@ func (r *StackResolver) resolveParameters(ctx context.Context, params map[string
 }
 
 // resolveStackOutput resolves a stack output reference to its actual value
-func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map[string]string, defaultRegion string) (string, error) {
+func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map[string]string, contextRegion string) (string, error) {
 	stackName, exists := outputConfig["stack_name"]
 	if !exists {
 		return "", fmt.Errorf("stack output resolver missing required 'stack_name'")
@@ -212,13 +219,22 @@ func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map
 		return "", fmt.Errorf("stack output resolver missing required 'output_key'")
 	}
 
-	// TODO: Handle cross-region support using outputConfig["region"] if present
-	// For now, use the current region configured in CloudFormation operations
+	// Determine which region to use for the stack lookup
+	region := contextRegion
+	if configRegion, exists := outputConfig["region"]; exists && configRegion != "" {
+		region = configRegion
+	}
+
+	// Get region-specific CloudFormation operations
+	cfnOps, err := r.clientFactory.GetCloudFormationOperations(ctx, region)
+	if err != nil {
+		return "", fmt.Errorf("failed to get CloudFormation operations for region %s: %w", region, err)
+	}
 
 	// Fetch stack information from CloudFormation
-	stack, err := r.cfnOperations.GetStack(ctx, stackName)
+	stack, err := cfnOps.GetStack(ctx, stackName)
 	if err != nil {
-		return "", fmt.Errorf("failed to get stack '%s': %w", stackName, err)
+		return "", fmt.Errorf("failed to get stack '%s' in region %s: %w", stackName, region, err)
 	}
 
 	value, exists := stack.Outputs[outputKey]
@@ -230,7 +246,7 @@ func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map
 }
 
 // resolveSingleParameter resolves a single parameter value to a string
-func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *config.ParameterValue, context string) (string, error) {
+func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *config.ParameterValue, contextRegion string) (string, error) {
 	switch paramValue.ResolutionType {
 	case "literal":
 		if value, exists := paramValue.ResolutionConfig["value"]; exists {
@@ -240,10 +256,10 @@ func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *
 		}
 
 	case "stack-output":
-		return r.resolveStackOutput(ctx, paramValue.ResolutionConfig, context)
+		return r.resolveStackOutput(ctx, paramValue.ResolutionConfig, contextRegion)
 
 	case "list":
-		return r.resolveParameterList(ctx, paramValue.ListItems, context)
+		return r.resolveParameterList(ctx, paramValue.ListItems, contextRegion)
 
 	default:
 		return "", fmt.Errorf("unsupported resolution type '%s'", paramValue.ResolutionType)
@@ -251,7 +267,7 @@ func (r *StackResolver) resolveSingleParameter(ctx context.Context, paramValue *
 }
 
 // resolveParameterList resolves lists with mixed resolution types
-func (r *StackResolver) resolveParameterList(ctx context.Context, listItems []*config.ParameterValue, context string) (string, error) {
+func (r *StackResolver) resolveParameterList(ctx context.Context, listItems []*config.ParameterValue, contextRegion string) (string, error) {
 	if len(listItems) == 0 {
 		return "", nil // Empty list becomes empty string
 	}
@@ -266,7 +282,7 @@ func (r *StackResolver) resolveParameterList(ctx context.Context, listItems []*c
 		var resolvedValue string
 		var err error
 
-		resolvedValue, err = r.resolveSingleParameter(ctx, item, context)
+		resolvedValue, err = r.resolveSingleParameter(ctx, item, contextRegion)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve list item %d: %w", i, err)
 		}

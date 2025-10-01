@@ -16,9 +16,9 @@ import (
 )
 
 // Creates a test differ with provided dependencies
-func createTestDiffer(cfClient *aws.MockCloudFormationOperations, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *StackDiffer {
+func createTestDiffer(clientFactory aws.ClientFactory, templateComp *MockTemplateComparator, paramComp *MockParameterComparator, tagComp *MockTagComparator) *StackDiffer {
 	return &StackDiffer{
-		cfClient:            cfClient,
+		clientFactory:       clientFactory,
 		templateComparator:  templateComp,
 		parameterComparator: paramComp,
 		tagComparator:       tagComp,
@@ -28,7 +28,7 @@ func createTestDiffer(cfClient *aws.MockCloudFormationOperations, templateComp *
 func createTestResolvedStack() *model.Stack {
 	return &model.Stack{
 		Name:         "test-stack",
-		Context:      "dev",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
 		Parameters:   map[string]string{"Param1": "value1", "Param2": "value2"},
 		Tags:         map[string]string{"Environment": "dev", "Project": "test"},
@@ -53,11 +53,11 @@ func TestStackDiffer_DiffStack_ExistingStack_NoChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -108,11 +108,11 @@ func TestStackDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -179,11 +179,11 @@ func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -225,11 +225,11 @@ func TestStackDiffer_DiffStack_StackExistsError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -254,11 +254,11 @@ func TestStackDiffer_DiffStack_DescribeStackError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -323,11 +323,11 @@ func TestStackDiffer_DiffStack_FilterOptions(t *testing.T) {
 			ctx := context.Background()
 
 			// Create mocks
-			cfClient := &aws.MockCloudFormationOperations{}
+			mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 			templateComp := &MockTemplateComparator{}
 			paramComp := &MockParameterComparator{}
 			tagComp := &MockTagComparator{}
-			differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+			differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 			// Test data
 			stack := createTestResolvedStack()
@@ -368,11 +368,11 @@ func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -418,7 +418,7 @@ func TestStackDiffer_HandleNewStack(t *testing.T) {
 	stack := createTestResolvedStack()
 	result := &Result{
 		StackName: stack.Name,
-		Context:   stack.Context,
+		Context:   stack.Context.Name,
 		Options:   Options{},
 	}
 
@@ -456,12 +456,12 @@ func TestStackDiffer_CompareTemplates_Error(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mocks
-	cfClient := &aws.MockCloudFormationOperations{}
+	mockFactory, cfClient := aws.NewMockClientFactoryForRegion("us-east-1")
 	templateComp := &MockTemplateComparator{}
 	paramComp := &MockParameterComparator{}
 	tagComp := &MockTagComparator{}
 
-	differ := createTestDiffer(cfClient, templateComp, paramComp, tagComp)
+	differ := createTestDiffer(mockFactory, templateComp, paramComp, tagComp)
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -474,11 +474,11 @@ func TestStackDiffer_CompareTemplates_Error(t *testing.T) {
 	templateComp.On("Compare", ctx, currentStack.Template, stack.TemplateBody).Return((*TemplateChange)(nil), errors.New("template parse error"))
 
 	// Execute compareTemplates directly (this tests internal method)
-	result, err := differ.compareTemplates(ctx, stack, currentStack)
+	templateChange, err := differ.compareTemplates(ctx, stack, currentStack, cfClient)
 
 	// Verify
 	assert.Error(t, err)
-	assert.Nil(t, result)
+	assert.Nil(t, templateChange)
 	assert.Contains(t, err.Error(), "failed to compare templates")
 
 	templateComp.AssertExpectations(t)

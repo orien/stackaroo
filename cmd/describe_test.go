@@ -342,7 +342,7 @@ stacks:
 
 	// Set up expectations with specific stack name verification
 	mockDescriber.On("DescribeStack", mock.Anything, mock.MatchedBy(func(stack *model.Stack) bool {
-		return stack.Name == "my-stack" && stack.Context == "production"
+		return stack.Name == "my-stack" && stack.Context.Name == "production"
 	})).Return(&describe.StackDescription{
 		Name:   "my-stack",
 		Status: "CREATE_COMPLETE",

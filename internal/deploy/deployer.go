@@ -37,39 +37,45 @@ type Deployer interface {
 
 // StackDeployer implements Deployer using AWS CloudFormation
 type StackDeployer struct {
-	cfnOps   aws.CloudFormationOperations
-	provider config.ConfigProvider
-	resolver resolve.Resolver
+	clientFactory aws.ClientFactory
+	provider      config.ConfigProvider
+	resolver      resolve.Resolver
 }
 
 // NewStackDeployer creates a new StackDeployer
-func NewStackDeployer(cfnOps aws.CloudFormationOperations, provider config.ConfigProvider, resolver resolve.Resolver) *StackDeployer {
+func NewStackDeployer(clientFactory aws.ClientFactory, provider config.ConfigProvider, resolver resolve.Resolver) *StackDeployer {
 	return &StackDeployer{
-		cfnOps:   cfnOps,
-		provider: provider,
-		resolver: resolver,
+		clientFactory: clientFactory,
+		provider:      provider,
+		resolver:      resolver,
 	}
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
 func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) error {
+	// Get region-specific CloudFormation operations
+	cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
+	if err != nil {
+		return fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+	}
+
 	// Check if stack exists to determine deployment approach
-	exists, err := d.cfnOps.StackExists(ctx, stack.Name)
+	exists, err := cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
 
 	if !exists {
 		// For new stacks, use direct creation (changesets are less useful)
-		return d.deployNewStack(ctx, stack)
+		return d.deployNewStack(ctx, stack, cfnOps)
 	}
 
 	// For existing stacks, use changeset approach for preview + deployment
-	return d.deployWithChangeSet(ctx, stack)
+	return d.deployWithChangeSet(ctx, stack, cfnOps)
 }
 
 // deployNewStack handles deployment of new stacks using direct creation
-func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, cfnOps aws.CloudFormationOperations) error {
 	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
 
 	// Show what will be created
@@ -130,7 +136,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) 
 	}
 
 	// Deploy the stack with event streaming
-	err = d.cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
+	err = cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
 	if err != nil {
 		return fmt.Errorf("failed to create stack: %w", err)
 	}
@@ -140,11 +146,11 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack) 
 }
 
 // deployWithChangeSet handles deployment using changeset preview + execution
-func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack) error {
+func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack, cfnOps aws.CloudFormationOperations) error {
 	// Create differ for consistent change display
 	fmt.Printf("=== Calculating changes for stack %s ===\n", stack.Name)
 
-	differ := diff.NewStackDiffer(d.cfnOps)
+	differ := diff.NewStackDiffer(d.clientFactory)
 
 	// Generate diff result using the same system as 'stackaroo diff'
 	// Keep changeset alive for deployment use
@@ -166,7 +172,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
-				_ = d.cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			return fmt.Errorf("failed to get user confirmation: %w", err)
 		}
@@ -174,7 +180,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if !confirmed {
 			// Clean up changeset when user cancels
 			if diffResult.ChangeSet != nil {
-				_ = d.cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
 			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
 			return CancellationError{StackName: stack.Name}
@@ -193,10 +199,10 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
-	err = d.cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
+	err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
 	if err != nil {
 		// Clean up changeset on failure
-		_ = d.cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+		_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 		return fmt.Errorf("failed to execute changeset: %w", err)
 	}
 
@@ -212,19 +218,20 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		)
 	}
 
-	err = d.cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
+	err = cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
 	if err != nil {
 		return fmt.Errorf("stack deployment failed: %w", err)
 	}
 
 	// Clean up changeset after successful deployment
-	_ = d.cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
+	_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 
 	fmt.Printf("Stack %s update completed successfully\n", stack.Name)
 	return nil
 }
 
 // ValidateTemplate validates a CloudFormation template
+// Note: This method requires region information - consider updating interface to accept region
 func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile string) error {
 	// Read the template file
 	templateContent, err := d.readTemplateFile(templateFile)
@@ -232,8 +239,20 @@ func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile strin
 		return fmt.Errorf("failed to read template: %w", err)
 	}
 
+	// For template validation, we need a region. Use default from base config.
+	// TODO: Consider updating interface to accept region parameter
+	baseConfig := d.clientFactory.GetBaseConfig()
+	if baseConfig.Region == "" {
+		return fmt.Errorf("no default region configured for template validation")
+	}
+
+	cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, baseConfig.Region)
+	if err != nil {
+		return fmt.Errorf("failed to get CloudFormation operations for template validation: %w", err)
+	}
+
 	// Validate the template
-	err = d.cfnOps.ValidateTemplate(ctx, templateContent)
+	err = cfnOps.ValidateTemplate(ctx, templateContent)
 	if err != nil {
 		return fmt.Errorf("template validation failed: %w", err)
 	}

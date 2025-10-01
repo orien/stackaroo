@@ -22,21 +22,21 @@ import (
 )
 
 // createMockDeployer creates a StackDeployer with mock dependencies for testing DeployStack method
-func createMockDeployer(mockCfnOps aws.CloudFormationOperations) *StackDeployer {
+func createMockDeployer(mockFactory aws.ClientFactory) *StackDeployer {
 	// Create minimal mock provider and resolver (won't be called in DeployStack tests)
 	mockProvider := &config.MockConfigProvider{}
-	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
-	return NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
+	return NewStackDeployer(mockFactory, mockProvider, mockResolver)
 }
 
 func TestNewStackDeployer(t *testing.T) {
-	// Test that NewStackDeployer creates a deployer with the provided CloudFormation operations
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	// Test that NewStackDeployer creates a deployer with the provided client factory
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	assert.NotNil(t, deployer)
-	// We can't directly test the internal cfnOps field, but we can test behavior
+	// We can't directly test the internal clientFactory field, but we can test behavior
 }
 
 func TestStackDeployer_DeployStack_Success(t *testing.T) {
@@ -70,7 +70,7 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -89,11 +89,12 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{"Param1": "value1"},
 		Tags:         map[string]string{"Environment": "test"},
@@ -125,7 +126,7 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -134,15 +135,15 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack with empty template body
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: "",
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
-		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
@@ -160,12 +161,12 @@ func TestDeploySingleStack_ResolverError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock dependencies
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockProvider := &config.MockConfigProvider{}
-	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
 
 	// Create deployer
-	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+	deployer := NewStackDeployer(mockFactory, mockProvider, mockResolver)
 
 	// Mock provider to return error when resolver tries to load config
 	expectedError := errors.New("config load failed")
@@ -187,12 +188,12 @@ func TestDeployAllStacks_ConfigLoadError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock dependencies
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockProvider := &config.MockConfigProvider{}
-	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
 
 	// Create deployer
-	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+	deployer := NewStackDeployer(mockFactory, mockProvider, mockResolver)
 
 	// Mock provider to return stack list
 	stackNames := []string{"stack1", "stack2"}
@@ -224,12 +225,12 @@ func TestDeployAllStacks_EmptyContext(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock dependencies
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockProvider := &config.MockConfigProvider{}
-	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
 
 	// Create deployer
-	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+	deployer := NewStackDeployer(mockFactory, mockProvider, mockResolver)
 
 	// Mock provider to return empty stack list
 	mockProvider.On("ListStacks", "empty-context").Return([]string{}, nil)
@@ -246,12 +247,12 @@ func TestDeployAllStacks_ProviderError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock dependencies
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockProvider := &config.MockConfigProvider{}
-	mockResolver := resolve.NewStackResolver(mockProvider, mockCfnOps)
+	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
 
 	// Create deployer
-	deployer := NewStackDeployer(mockCfnOps, mockProvider, mockResolver)
+	deployer := NewStackDeployer(mockFactory, mockProvider, mockResolver)
 
 	// Mock provider to return error
 	expectedError := errors.New("failed to list stacks")
@@ -289,7 +290,7 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -299,15 +300,15 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack with template content
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
-		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
@@ -330,7 +331,7 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (existing stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
@@ -349,15 +350,15 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	// The deployer should return early when no changes are detected
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
-		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
@@ -387,7 +388,7 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (existing stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
@@ -429,15 +430,15 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
-		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
@@ -471,11 +472,11 @@ func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Execute
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -489,8 +490,8 @@ func TestStackDeployer_ValidateTemplate_FileNotFound(t *testing.T) {
 	// Test validate template with non-existent file
 	ctx := context.Background()
 
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	deployer := createMockDeployer(mockCfnOps)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	deployer := createMockDeployer(mockFactory)
 
 	// Execute with non-existent file
 	err := deployer.ValidateTemplate(ctx, "/nonexistent/template.json")
@@ -516,11 +517,11 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(errors.New("template validation failed"))
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Execute ValidateTemplate instead - this test is for template validation
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -554,7 +555,7 @@ Resources:
       BucketName: my-test-bucket`
 
 	// Set up mocks to capture the template content
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -566,15 +567,15 @@ Resources:
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: templateContent,
 		Parameters:   map[string]string{},
 		Tags:         map[string]string{},
-		Dependencies: []string{},
 		Capabilities: []string{"CAPABILITY_IAM"},
 	}
 
@@ -603,7 +604,7 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
@@ -617,11 +618,12 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack with parameters and tags
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: "",
 		Parameters:   map[string]string{"Environment": "test", "InstanceType": "t3.micro"},
 		Tags:         map[string]string{"Project": "stackaroo", "Environment": "test"},
@@ -653,17 +655,18 @@ func TestDeployStack_NewStack_UserCancels(t *testing.T) {
 	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: "template content",
 		Parameters:   map[string]string{"Environment": "test"},
 		Tags:         map[string]string{"Project": "stackaroo"},
@@ -698,15 +701,16 @@ func TestDeployStackWithFeedback_CancellationHandling(t *testing.T) {
 	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: "template content",
 		Parameters:   map[string]string{"Environment": "test"},
 		Tags:         map[string]string{"Project": "stackaroo"},
@@ -738,7 +742,7 @@ func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
 	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
-	mockCfnOps := &aws.MockCloudFormationOperations{}
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock StackExists call (existing stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
@@ -774,11 +778,12 @@ func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "changeset-123").Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockCfnOps)
+	deployer := createMockDeployer(mockFactory)
 
 	// Create resolved stack
 	stack := &model.Stack{
 		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
 		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`,
 		Parameters:   map[string]string{"Environment": "test"},
 		Tags:         map[string]string{"Project": "stackaroo"},

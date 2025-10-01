@@ -37,9 +37,9 @@ func TestNewStackResolver(t *testing.T) {
 	// Test that we can create a new stack resolver
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	assert.NotNil(t, stackResolver, "stack resolver should not be nil")
@@ -53,13 +53,18 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
 	mockTemplateProcessor := &MockTemplateProcessor{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Mock data
 	cfg := &config.Config{
 		Project: "test-project",
 		Tags: map[string]string{
 			"Project": "test-project",
+		},
+		Context: &config.ContextConfig{
+			Name:    "dev",
+			Account: "123456789012",
+			Region:  "us-east-1",
 		},
 	}
 
@@ -92,7 +97,7 @@ func TestStackResolver_ResolveStack_Success(t *testing.T) {
 	mockTemplateProcessor.On("Process", templateContent, mock.AnythingOfType("map[string]interface {}")).Return(templateContent, nil)
 
 	// Create stack resolver
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 	stackResolver.SetTemplateProcessor(mockTemplateProcessor)
 
@@ -121,8 +126,8 @@ func TestStackResolver_ResolveParameters_LiteralValues(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Test literal parameters only
 	params := map[string]*config.ParameterValue{
@@ -153,8 +158,8 @@ func TestStackResolver_ResolveParameters_StackOutputs(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Mock CloudFormation stack with outputs
 	mockStack := &aws.Stack{
@@ -165,7 +170,7 @@ func TestStackResolver_ResolveParameters_StackOutputs(t *testing.T) {
 		},
 	}
 
-	mockCfnOperations.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
+	mockCfnOps.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
 
 	// Test stack output parameters
 	params := map[string]*config.ParameterValue{
@@ -185,14 +190,14 @@ func TestStackResolver_ResolveParameters_StackOutputs(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.resolveParameters(ctx, params, "prod")
+	resolved, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 	require.NoError(t, err)
 	assert.Len(t, resolved, 2)
 	assert.Equal(t, "vpc-12345", resolved["VpcId"])
 	assert.Equal(t, "subnet-67890", resolved["SubnetId"])
 
-	mockCfnOperations.AssertExpectations(t)
+	mockCfnOps.AssertExpectations(t)
 }
 
 func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
@@ -200,8 +205,8 @@ func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Mock CloudFormation stack
 	mockStack := &aws.Stack{
@@ -211,7 +216,7 @@ func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
 		},
 	}
 
-	mockCfnOperations.On("GetStack", ctx, "networking").Return(mockStack, nil)
+	mockCfnOps.On("GetStack", ctx, "networking").Return(mockStack, nil)
 
 	// Test mixed parameter types
 	params := map[string]*config.ParameterValue{
@@ -230,14 +235,14 @@ func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
 		},
 	}
 
-	resolved, err := resolver.resolveParameters(ctx, params, "staging")
+	resolved, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 	require.NoError(t, err)
 	assert.Len(t, resolved, 2)
 	assert.Equal(t, "staging", resolved["Environment"])
 	assert.Equal(t, "vpc-abcdef", resolved["VpcId"])
 
-	mockCfnOperations.AssertExpectations(t)
+	mockCfnOps.AssertExpectations(t)
 }
 
 func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
@@ -245,8 +250,8 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 
 	t.Run("unsupported resolution type", func(t *testing.T) {
 		mockConfigProvider := &config.MockConfigProvider{}
-		mockCfnOperations := &aws.MockCloudFormationOperations{}
-		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+		mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+		resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 		params := map[string]*config.ParameterValue{
 			"BadParam": {
@@ -257,7 +262,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			},
 		}
 
-		_, err := resolver.resolveParameters(ctx, params, "dev")
+		_, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported resolution type 'unsupported'")
@@ -265,8 +270,8 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 
 	t.Run("literal missing value", func(t *testing.T) {
 		mockConfigProvider := &config.MockConfigProvider{}
-		mockCfnOperations := &aws.MockCloudFormationOperations{}
-		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+		mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+		resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 		params := map[string]*config.ParameterValue{
 			"BadLiteral": {
@@ -277,7 +282,7 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			},
 		}
 
-		_, err := resolver.resolveParameters(ctx, params, "dev")
+		_, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "literal parameter missing 'value' config")
@@ -285,10 +290,10 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 
 	t.Run("stack not found", func(t *testing.T) {
 		mockConfigProvider := &config.MockConfigProvider{}
-		mockCfnOperations := &aws.MockCloudFormationOperations{}
-		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+		mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+		resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
-		mockCfnOperations.On("GetStack", ctx, "missing-stack").Return(nil, fmt.Errorf("stack not found"))
+		mockCfnOps.On("GetStack", ctx, "missing-stack").Return(nil, fmt.Errorf("stack not found"))
 
 		params := map[string]*config.ParameterValue{
 			"VpcId": {
@@ -300,29 +305,27 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			},
 		}
 
-		_, err := resolver.resolveParameters(ctx, params, "dev")
+		_, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
 		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
 
-		mockCfnOperations.AssertExpectations(t)
+		mockCfnOps.AssertExpectations(t)
 	})
 
 	t.Run("output key not found", func(t *testing.T) {
 		mockConfigProvider := &config.MockConfigProvider{}
-		mockCfnOperations := &aws.MockCloudFormationOperations{}
-		resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+		mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+		resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 		mockStack := &aws.Stack{
 			Name: "vpc-stack",
 			Outputs: map[string]string{
 				"VpcId": "vpc-12345",
-				// Missing "MissingOutput"
 			},
 		}
-
-		mockCfnOperations.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
+		mockCfnOps.On("GetStack", ctx, "vpc-stack").Return(mockStack, nil)
 
 		params := map[string]*config.ParameterValue{
 			"BadOutput": {
@@ -334,13 +337,13 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			},
 		}
 
-		_, err := resolver.resolveParameters(ctx, params, "dev")
+		_, err := resolver.resolveParameters(ctx, params, "us-east-1")
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "stack 'vpc-stack' does not have output 'MissingOutput'")
 		assert.Contains(t, err.Error(), "stack 'vpc-stack' does not have output 'MissingOutput'")
 
-		mockCfnOperations.AssertExpectations(t)
+		mockCfnOps.AssertExpectations(t)
 	})
 }
 
@@ -348,8 +351,8 @@ func TestStackResolver_ResolveStackOutput_MissingConfig(t *testing.T) {
 	ctx := context.Background()
 
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	t.Run("missing stack_name", func(t *testing.T) {
 		outputConfig := map[string]string{
@@ -382,12 +385,12 @@ func TestStackResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 
 	mockConfigProvider := &config.MockConfigProvider{}
 	mockFileSystemResolver := &MockFileSystemResolver{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Set expectation for config load failure
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(nil, assert.AnError)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
@@ -412,8 +415,8 @@ func TestStackResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 	mockConfigProvider.On("LoadConfig", ctx, "dev").Return(cfg, nil)
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "nonexistent")
@@ -443,8 +446,8 @@ func TestStackResolver_ResolveStack_TemplateReadError(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/missing.yaml").Return("", assert.AnError)
 
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "dev", "vpc")
@@ -470,6 +473,11 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 			"Project":     "test-project",
 			"Environment": "staging",
 		},
+		Context: &config.ContextConfig{
+			Name:    "staging",
+			Account: "123456789012",
+			Region:  "us-east-1",
+		},
 	}
 
 	stackConfig := &config.StackConfig{
@@ -488,8 +496,8 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockConfigProvider.On("GetStack", "web", "staging").Return(stackConfig, nil)
 	mockFileSystemResolver.On("Resolve", "templates/web.yaml").Return("{}", nil)
 
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
 
 	resolved, err := stackResolver.ResolveStack(ctx, "staging", "web")
@@ -512,7 +520,7 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_Success(t *testing.T) {
 	// Test successful dependency order calculation without full resolution
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	vpcConfig := &config.StackConfig{
 		Name:         "vpc",
@@ -527,7 +535,7 @@ func TestStackResolver_GetDependencyOrder_Success(t *testing.T) {
 	mockConfigProvider.On("GetStack", "vpc", "dev").Return(vpcConfig, nil)
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"app", "vpc"})
 
@@ -540,9 +548,9 @@ func TestStackResolver_GetDependencyOrder_Success(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_EmptyList(t *testing.T) {
 	// Test empty stack list
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{})
 
@@ -555,7 +563,7 @@ func TestStackResolver_GetDependencyOrder_EmptyList(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_NoDependencies(t *testing.T) {
 	// Test stacks with no dependencies
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	vpcConfig := &config.StackConfig{
 		Name:         "vpc",
@@ -576,7 +584,7 @@ func TestStackResolver_GetDependencyOrder_NoDependencies(t *testing.T) {
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 	mockConfigProvider.On("GetStack", "database", "dev").Return(dbConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"database", "app", "vpc"})
 
@@ -590,7 +598,7 @@ func TestStackResolver_GetDependencyOrder_NoDependencies(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_ComplexChain(t *testing.T) {
 	// Test complex dependency chain: vpc -> security -> database -> app
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	vpcConfig := &config.StackConfig{
 		Name:         "vpc",
@@ -617,7 +625,7 @@ func TestStackResolver_GetDependencyOrder_ComplexChain(t *testing.T) {
 	mockConfigProvider.On("GetStack", "database", "prod").Return(databaseConfig, nil)
 	mockConfigProvider.On("GetStack", "app", "prod").Return(appConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Request stacks in random order
 	order, err := stackResolver.GetDependencyOrder("prod", []string{"app", "vpc", "database", "security"})
@@ -632,7 +640,7 @@ func TestStackResolver_GetDependencyOrder_ComplexChain(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_CircularDependency(t *testing.T) {
 	// Test detection of circular dependencies
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// Create circular dependency: stack-a depends on stack-b, stack-b depends on stack-a
 	stackAConfig := &config.StackConfig{
@@ -648,7 +656,7 @@ func TestStackResolver_GetDependencyOrder_CircularDependency(t *testing.T) {
 	mockConfigProvider.On("GetStack", "stack-a", "dev").Return(stackAConfig, nil)
 	mockConfigProvider.On("GetStack", "stack-b", "dev").Return(stackBConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"stack-a", "stack-b"})
 
@@ -662,11 +670,11 @@ func TestStackResolver_GetDependencyOrder_CircularDependency(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_StackNotFound(t *testing.T) {
 	// Test error handling when stack config is not found
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	mockConfigProvider.On("GetStack", "nonexistent", "dev").Return(nil, assert.AnError)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"nonexistent"})
 
@@ -680,7 +688,7 @@ func TestStackResolver_GetDependencyOrder_StackNotFound(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_MissingDependency(t *testing.T) {
 	// Test handling of missing dependency (dependency not in resolution list)
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	// App depends on database, but we're only calculating order for app
 	appConfig := &config.StackConfig{
@@ -690,7 +698,7 @@ func TestStackResolver_GetDependencyOrder_MissingDependency(t *testing.T) {
 
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Only calculate order for app, not its dependency
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"app"})
@@ -706,7 +714,7 @@ func TestStackResolver_GetDependencyOrder_MissingDependency(t *testing.T) {
 func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testing.T) {
 	// Test stack with multiple dependencies
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOperations := &aws.MockCloudFormationOperations{}
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 
 	vpcConfig := &config.StackConfig{
 		Name:         "vpc",
@@ -727,7 +735,7 @@ func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testin
 	mockConfigProvider.On("GetStack", "security", "dev").Return(securityConfig, nil)
 	mockConfigProvider.On("GetStack", "app", "dev").Return(appConfig, nil)
 
-	stackResolver := NewStackResolver(mockConfigProvider, mockCfnOperations)
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	order, err := stackResolver.GetDependencyOrder("dev", []string{"app", "vpc", "security"})
 
@@ -747,8 +755,8 @@ func TestStackResolver_GetDependencyOrder_MultipleDependenciesPerStack(t *testin
 func TestStackResolver_ResolveParameters_LiteralList(t *testing.T) {
 	// Test resolution of simple literal lists
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	parameters := map[string]*config.ParameterValue{
 		"Ports": {
@@ -779,8 +787,8 @@ func TestStackResolver_ResolveParameters_LiteralList(t *testing.T) {
 func TestStackResolver_ResolveParameters_MixedList(t *testing.T) {
 	// Test resolution of mixed literal + stack output lists
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	// Mock stack outputs
 	mockCfnOps.On("GetStack", mock.Anything, "security-stack").Return(&aws.Stack{
@@ -825,7 +833,7 @@ func TestStackResolver_ResolveParameters_MixedList(t *testing.T) {
 		},
 	}
 
-	result, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+	result, err := resolver.resolveParameters(context.Background(), parameters, "us-east-1")
 	require.NoError(t, err)
 
 	assert.Equal(t, "sg-baseline123,sg-web123,sg-db456,sg-additional789", result["SecurityGroupIds"])
@@ -835,8 +843,8 @@ func TestStackResolver_ResolveParameters_MixedList(t *testing.T) {
 func TestStackResolver_ResolveParameters_EmptyList(t *testing.T) {
 	// Test resolution of empty lists
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	parameters := map[string]*config.ParameterValue{
 		"EmptyList": {
@@ -854,8 +862,8 @@ func TestStackResolver_ResolveParameters_EmptyList(t *testing.T) {
 func TestStackResolver_ResolveParameters_ListWithEmptyValues(t *testing.T) {
 	// Test handling of empty values in lists (should be filtered out)
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	parameters := map[string]*config.ParameterValue{
 		"FilteredList": {
@@ -887,8 +895,8 @@ func TestStackResolver_ResolveParameters_ListWithEmptyValues(t *testing.T) {
 func TestStackResolver_ResolveParameters_NestedList(t *testing.T) {
 	// Test resolution of nested lists (lists within lists)
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	parameters := map[string]*config.ParameterValue{
 		"NestedList": {
@@ -927,8 +935,8 @@ func TestStackResolver_ResolveParameters_NestedList(t *testing.T) {
 
 func TestStackResolver_ResolveParameters_ListErrorCases(t *testing.T) {
 	mockConfigProvider := &config.MockConfigProvider{}
-	mockCfnOps := &aws.MockCloudFormationOperations{}
-	resolver := NewStackResolver(mockConfigProvider, mockCfnOps)
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
 	t.Run("nil list item", func(t *testing.T) {
 		parameters := map[string]*config.ParameterValue{
@@ -1005,7 +1013,7 @@ func TestStackResolver_ResolveParameters_ListErrorCases(t *testing.T) {
 			},
 		}
 
-		_, err := resolver.resolveParameters(context.Background(), parameters, "dev")
+		_, err := resolver.resolveParameters(context.Background(), parameters, "us-east-1")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get stack 'missing-stack'")
 		assert.Contains(t, err.Error(), "stack not found")

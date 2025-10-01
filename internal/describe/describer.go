@@ -15,20 +15,26 @@ import (
 
 // StackDescriber implements the Describer interface using AWS CloudFormation operations
 type StackDescriber struct {
-	cfOps aws.CloudFormationOperations
+	clientFactory aws.ClientFactory
 }
 
-// NewStackDescriber creates a new describer with the provided CloudFormation operations
-func NewStackDescriber(cfOps aws.CloudFormationOperations) Describer {
+// NewStackDescriber creates a new describer with the provided client factory
+func NewStackDescriber(clientFactory aws.ClientFactory) Describer {
 	return &StackDescriber{
-		cfOps: cfOps,
+		clientFactory: clientFactory,
 	}
 }
 
 // DescribeStack retrieves comprehensive information about a CloudFormation stack
 func (d *StackDescriber) DescribeStack(ctx context.Context, stack *model.Stack) (*StackDescription, error) {
+	// Get region-specific CloudFormation operations
+	cfOps, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+	}
+
 	// Use existing AWS operations to get stack information
-	stackInfo, err := d.cfOps.DescribeStack(ctx, stack.Name)
+	stackInfo, err := cfOps.DescribeStack(ctx, stack.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe stack %s: %w", stack.Name, err)
 	}
@@ -43,7 +49,7 @@ func (d *StackDescriber) DescribeStack(ctx context.Context, stack *model.Stack) 
 		Parameters:  convertOutputs(stackInfo.Parameters),
 		Outputs:     convertOutputs(stackInfo.Outputs),
 		Tags:        convertTags(stackInfo.Tags),
-		Region:      stack.Context, // Use context as region indicator for now
+		Region:      stack.Context.Region, // Use context region
 	}
 
 	// Extract stack ID from the stack information if available

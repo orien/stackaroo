@@ -121,13 +121,6 @@ type DefaultCloudFormationOperations struct {
 	client CloudFormationClient
 }
 
-// NewCloudFormationOperations creates a new CloudFormation operations wrapper
-func (c *DefaultClient) NewCloudFormationOperations() CloudFormationOperations {
-	return &DefaultCloudFormationOperations{
-		client: c.cfn,
-	}
-}
-
 // NewCloudFormationOperationsWithClient creates operations with a custom client (for testing)
 func NewCloudFormationOperationsWithClient(client CloudFormationClient) *DefaultCloudFormationOperations {
 	return &DefaultCloudFormationOperations{

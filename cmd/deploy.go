@@ -68,8 +68,8 @@ func getDeployer(configFile string) deploy.Deployer {
 	}
 
 	provider, resolver := createResolver(configFile)
-	cfOpts := getCloudFormationOperations()
-	deployer = deploy.NewStackDeployer(cfOpts, provider, resolver)
+	clientFactory := getClientFactory()
+	deployer = deploy.NewStackDeployer(clientFactory, provider, resolver)
 	return deployer
 }
 

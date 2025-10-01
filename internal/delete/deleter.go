@@ -24,15 +24,15 @@ type Deleter interface {
 
 // StackDeleter implements Deleter using AWS CloudFormation
 type StackDeleter struct {
-	cfnOps         aws.CloudFormationOperations
+	clientFactory  aws.ClientFactory
 	configProvider config.ConfigProvider
 	resolver       resolve.Resolver
 }
 
 // NewStackDeleter creates a new StackDeleter
-func NewStackDeleter(cfnOps aws.CloudFormationOperations, configProvider config.ConfigProvider, resolver resolve.Resolver) *StackDeleter {
+func NewStackDeleter(clientFactory aws.ClientFactory, configProvider config.ConfigProvider, resolver resolve.Resolver) *StackDeleter {
 	return &StackDeleter{
-		cfnOps:         cfnOps,
+		clientFactory:  clientFactory,
 		configProvider: configProvider,
 		resolver:       resolver,
 	}
@@ -40,8 +40,14 @@ func NewStackDeleter(cfnOps aws.CloudFormationOperations, configProvider config.
 
 // DeleteStack deletes a CloudFormation stack with confirmation
 func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) error {
+	// Get region-specific CloudFormation operations
+	cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
+	if err != nil {
+		return fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+	}
+
 	// Check if stack exists
-	exists, err := d.cfnOps.StackExists(ctx, stack.Name)
+	exists, err := cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
@@ -52,7 +58,7 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 	}
 
 	// Get stack information to show what will be deleted
-	stackInfo, err := d.cfnOps.DescribeStack(ctx, stack.Name)
+	stackInfo, err := cfnOps.DescribeStack(ctx, stack.Name)
 	if err != nil {
 		return fmt.Errorf("failed to describe stack %s: %w", stack.Name, err)
 	}
@@ -60,7 +66,7 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 	// Show what will be deleted
 	fmt.Printf("\n=== Stack Deletion Preview ===\n")
 	fmt.Printf("Stack Name: %s\n", stack.Name)
-	fmt.Printf("Context: %s\n", stack.Context)
+	fmt.Printf("Context: %s\n", stack.Context.Name)
 	fmt.Printf("Status: %s\n", stackInfo.Status)
 	if stackInfo.Description != "" {
 		fmt.Printf("Description: %s\n", stackInfo.Description)
@@ -88,22 +94,21 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 		StackName: stack.Name,
 	}
 
-	err = d.cfnOps.DeleteStack(ctx, deleteInput)
+	err = cfnOps.DeleteStack(ctx, deleteInput)
 	if err != nil {
 		return fmt.Errorf("failed to delete stack %s: %w", stack.Name, err)
 	}
 
 	// Wait for deletion to complete
 	fmt.Printf("Waiting for stack deletion to complete...\n")
-	err = d.cfnOps.WaitForStackOperation(ctx, stack.Name, func(event aws.StackEvent) {
+	err = cfnOps.WaitForStackOperation(ctx, stack.Name, func(event aws.StackEvent) {
 		fmt.Printf("  %s: %s - %s\n", event.Timestamp.Format("15:04:05"), event.ResourceType, event.ResourceStatus)
 		if event.ResourceStatusReason != "" {
 			fmt.Printf("    Reason: %s\n", event.ResourceStatusReason)
 		}
 	})
-
 	if err != nil {
-		return fmt.Errorf("stack deletion failed or timed out: %w", err)
+		return fmt.Errorf("failed to wait for stack deletion: %w", err)
 	}
 
 	return nil

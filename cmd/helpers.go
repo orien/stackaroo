@@ -16,25 +16,27 @@ import (
 // createResolver creates a configuration provider and resolver
 func createResolver(configFile string) (*file.FileConfigProvider, *resolve.StackResolver) {
 	provider := file.NewFileConfigProvider(configFile)
-	cfnOps := getCloudFormationOperations()
-	resolver := resolve.NewStackResolver(provider, cfnOps)
+	clientFactory := getClientFactory()
+	resolver := resolve.NewStackResolver(provider, clientFactory)
 	return provider, resolver
 }
 
-// getAWSClient creates a default AWS client with panic on error
-func getAWSClient() aws.Client {
-	ctx := context.Background()
-	client, err := aws.NewDefaultClient(ctx, aws.Config{})
-	if err != nil {
-		// This shouldn't happen in normal operation, but if it does,
-		// we'll handle it in the command execution
-		panic(fmt.Sprintf("failed to create AWS client: %v", err))
-	}
-	return client
-}
+// Global factory instance (created once per command execution)
+var clientFactory aws.ClientFactory
 
-// getCloudFormationOperations creates CloudFormation operations with panic on error
-func getCloudFormationOperations() aws.CloudFormationOperations {
-	client := getAWSClient()
-	return client.NewCloudFormationOperations()
+// getClientFactory creates or returns the shared AWS client factory
+func getClientFactory() aws.ClientFactory {
+	if clientFactory != nil {
+		return clientFactory
+	}
+
+	ctx := context.Background()
+
+	factory, err := aws.NewClientFactory(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create AWS client factory: %v", err))
+	}
+
+	clientFactory = factory
+	return clientFactory
 }
