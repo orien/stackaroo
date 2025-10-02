@@ -82,8 +82,9 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 		return nil, fmt.Errorf("failed to resolve parameters for stack %s: %w", stackName, err)
 	}
 
-	// Merge tags
-	tags := r.mergeTags(cfg.Tags, stackConfig.Tags)
+	// Merge tags: global + context + stack (stack takes precedence)
+	globalAndContextTags := r.mergeTags(cfg.Tags, cfg.Context.Tags)
+	tags := r.mergeTags(globalAndContextTags, stackConfig.Tags)
 
 	// Create context info from resolved configuration
 	stackContext := &model.Context{

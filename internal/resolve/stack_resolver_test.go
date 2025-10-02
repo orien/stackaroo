@@ -517,6 +517,67 @@ func TestStackResolver_ResolveStack_ParameterInheritance(t *testing.T) {
 	mockFileSystemResolver.AssertExpectations(t)
 }
 
+func TestStackResolver_ResolveStack_ContextTagInheritance(t *testing.T) {
+	// Test that context tags are properly merged with global and stack tags
+	ctx := context.Background()
+
+	mockConfigProvider := &config.MockConfigProvider{}
+	mockFileSystemResolver := &MockFileSystemResolver{}
+
+	cfg := &config.Config{
+		Project: "test-project",
+		Tags: map[string]string{
+			"Project": "global-project",
+			"Owner":   "platform-team",
+		},
+		Context: &config.ContextConfig{
+			Name:    "production",
+			Account: "123456789012",
+			Region:  "us-east-1",
+			Tags: map[string]string{
+				"Environment": "production",
+				"CostCenter":  "engineering",
+				"Project":     "context-project", // Should override global
+			},
+		},
+	}
+
+	stackConfig := &config.StackConfig{
+		Name:     "web",
+		Template: "templates/web.yaml",
+		Parameters: convertStringMapToParameterValues(map[string]string{
+			"InstanceType": "t3.large",
+		}),
+		Tags: map[string]string{
+			"Component":  "web-server",
+			"CostCenter": "stack-cost-center", // Should override context
+		},
+	}
+
+	mockConfigProvider.On("LoadConfig", ctx, "production").Return(cfg, nil)
+	mockConfigProvider.On("GetStack", "web", "production").Return(stackConfig, nil)
+	mockFileSystemResolver.On("Resolve", "templates/web.yaml").Return("{}", nil)
+
+	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
+	stackResolver := NewStackResolver(mockConfigProvider, mockFactory)
+	stackResolver.SetFileSystemResolver(mockFileSystemResolver)
+
+	resolved, err := stackResolver.ResolveStack(ctx, "production", "web")
+
+	require.NoError(t, err)
+	assert.NotNil(t, resolved)
+
+	// Verify complete tag hierarchy: global < context < stack
+	assert.Equal(t, "context-project", resolved.Tags["Project"])      // Context overrides global
+	assert.Equal(t, "platform-team", resolved.Tags["Owner"])          // From global (not overridden)
+	assert.Equal(t, "production", resolved.Tags["Environment"])       // From context
+	assert.Equal(t, "stack-cost-center", resolved.Tags["CostCenter"]) // Stack overrides context
+	assert.Equal(t, "web-server", resolved.Tags["Component"])         // From stack only
+
+	mockConfigProvider.AssertExpectations(t)
+	mockFileSystemResolver.AssertExpectations(t)
+}
+
 func TestStackResolver_GetDependencyOrder_Success(t *testing.T) {
 	// Test successful dependency order calculation without full resolution
 	mockConfigProvider := &config.MockConfigProvider{}
