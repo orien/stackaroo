@@ -6,12 +6,16 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/orien/stackaroo/internal/deploy"
 	"github.com/spf13/cobra"
 )
 
 var (
+	deployPlain bool
+
 	// deployer can be injected for testing
 	deployer deploy.Deployer
 )
@@ -50,6 +54,13 @@ waits for your confirmation before applying the changes.`,
 		contextName := args[0]
 		ctx := context.Background()
 
+		// Set STACKAROO_PLAIN environment variable if --plain flag is set
+		if deployPlain {
+			if err := os.Setenv("STACKAROO_PLAIN", "1"); err != nil {
+				return fmt.Errorf("failed to set STACKAROO_PLAIN environment variable: %w", err)
+			}
+		}
+
 		configFile, _ := cmd.Flags().GetString("config")
 		d := getDeployer(configFile)
 
@@ -80,4 +91,6 @@ func SetDeployer(d deploy.Deployer) {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
+
+	deployCmd.Flags().BoolVar(&deployPlain, "plain", false, "use plain text output instead of interactive viewer")
 }
