@@ -17,7 +17,7 @@ var (
 	diffTemplateOnly   bool
 	diffParametersOnly bool
 	diffTagsOnly       bool
-	diffPlain          bool
+	diffInteractive    bool
 
 	// differ can be injected for testing
 	differ diff.Differ
@@ -95,16 +95,16 @@ func diffSingleStack(ctx context.Context, stackName, contextName, configFile str
 		return fmt.Errorf("failed to diff stack %s: %w", stackName, err)
 	}
 
-	// Output the results - use interactive viewer unless --plain is specified
-	if diffPlain {
-		// Plain text output
-		fmt.Print(result.String())
-	} else {
+	// Output the results - use plain text unless --interactive is specified
+	if diffInteractive {
 		// Interactive viewer
 		if err := ui.ShowDiff(result); err != nil {
 			// Fall back to plain text if interactive fails
 			fmt.Print(result.String())
 		}
+	} else {
+		// Plain text output
+		fmt.Print(result.String())
 	}
 
 	// Set exit code based on whether changes were found
@@ -125,6 +125,6 @@ func init() {
 	diffCmd.Flags().BoolVar(&diffTemplateOnly, "template", false, "show only template differences")
 	diffCmd.Flags().BoolVar(&diffParametersOnly, "parameters", false, "show only parameter differences")
 	diffCmd.Flags().BoolVar(&diffTagsOnly, "tags", false, "show only tag differences")
-	diffCmd.Flags().BoolVar(&diffPlain, "plain", false, "use plain text output instead of interactive viewer")
+	diffCmd.Flags().BoolVar(&diffInteractive, "interactive", false, "use interactive viewer instead of plain text output")
 
 }
