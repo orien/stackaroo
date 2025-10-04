@@ -398,11 +398,19 @@ Resource Changes:
 The template comparator generates **unified diff output** showing line-by-line changes between the deployed and local templates:
 
 **Unified Diff Format:**
-- `@@` - Hunk header showing line ranges
-- ` ` (space) - Context line (unchanged)
-- `+` - Added line
-- `-` - Removed line
+- `@@` - Hunk header showing line ranges (cyan - Fang argument color)
+- ` ` (space) - Context line (unchanged - Fang base text color)
+- `+` - Added line (ANSI green - traditional diff color)
+- `-` - Removed line (ANSI red - traditional diff color)
+- `~` - Modified items (ANSI yellow)
 - 3 lines of context shown around changes
+
+**Color Support:**
+- **Hybrid Color Scheme**: Uses ANSI colors for diff elements (red/green/yellow) for universal recognition
+- Other UI elements use Fang's adaptive color scheme for light/dark terminal backgrounds
+- Colors are automatically enabled when outputting to a terminal (TTY detection)
+- Respects `NO_COLOR` environment variable (disables colors if set)
+- Consistent coloring across both plain text and interactive UI viewer
 
 **Algorithm:**
 1. Parse both templates to YAML structure

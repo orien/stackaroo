@@ -55,21 +55,21 @@ type Model struct {
 	confirmed     bool // User confirmed (for Confirmation mode)
 	cancelled     bool // User cancelled (for Confirmation mode)
 	useColour     bool
-	styles        *StyleSet
+	styles        *diff.Styles
 	keys          keyMap
 	viewportKeys  viewport.KeyMap
 }
 
 // NewModel creates a new interactive diff viewer model
 func NewModel(result *diff.Result, mode ViewMode) Model {
-	useColour := shouldUseColour()
+	useColour := diff.ShouldUseColour()
 
 	m := Model{
 		result:       result,
 		sections:     buildSections(result),
 		mode:         mode,
 		useColour:    useColour,
-		styles:       NewStyleSet(useColour),
+		styles:       diff.NewStyles(useColour),
 		keys:         defaultKeyMap(mode == Confirmation),
 		viewportKeys: viewport.DefaultKeyMap(),
 		help:         help.New(),

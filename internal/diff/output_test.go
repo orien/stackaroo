@@ -196,7 +196,7 @@ func TestResult_FormatNewStackText(t *testing.T) {
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
 	var output strings.Builder
-	styles := newOutputStyles(false) // Use plain styles for testing
+	styles := NewStyles(false) // Use plain styles for testing
 	result.formatNewStackText(&output, styles)
 	text := output.String()
 
@@ -265,7 +265,7 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 
 			result := &Result{TemplateChange: tt.templateChange}
 			var output strings.Builder
-			styles := newOutputStyles(false) // Use plain styles for testing
+			styles := NewStyles(false) // Use plain styles for testing
 			result.formatTemplateChangesText(&output, styles)
 			text := output.String()
 
@@ -290,7 +290,7 @@ func TestResult_FormatParameterChangesText(t *testing.T) {
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
 	var output strings.Builder
-	styles := newOutputStyles(false) // Use plain styles for testing
+	styles := NewStyles(false) // Use plain styles for testing
 	result.formatParameterChangesText(&output, styles)
 	text := output.String()
 
@@ -314,7 +314,7 @@ func TestResult_FormatTagChangesText(t *testing.T) {
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
 	var output strings.Builder
-	styles := newOutputStyles(false) // Use plain styles for testing
+	styles := NewStyles(false) // Use plain styles for testing
 	result.formatTagChangesText(&output, styles)
 	text := output.String()
 
@@ -363,7 +363,7 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
 	var output strings.Builder
-	styles := newOutputStyles(false) // Use plain styles for testing
+	styles := NewStyles(false) // Use plain styles for testing
 	result.formatChangeSetText(&output, styles)
 	text := output.String()
 
@@ -386,7 +386,7 @@ func TestResult_GetChangeSymbol(t *testing.T) {
 	_ = os.Setenv("NO_COLOR", "1")
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
-	styles := newOutputStyles(false) // Use plain styles for testing
+	styles := NewStyles(false) // Use plain styles for testing
 
 	tests := []struct {
 		action   string
@@ -401,7 +401,7 @@ func TestResult_GetChangeSymbol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.action, func(t *testing.T) {
-			symbol := styles.getChangeSetSymbol(tt.action)
+			symbol := styles.GetChangeSetSymbol(tt.action)
 			assert.Equal(t, tt.expected, symbol)
 		})
 	}
@@ -472,4 +472,82 @@ func TestResult_HasChanges(t *testing.T) {
 			assert.Equal(t, tt.expected, hasChanges)
 		})
 	}
+}
+
+func TestColorizeUnifiedDiff(t *testing.T) {
+	t.Run("with colors enabled", func(t *testing.T) {
+		diff := `@@ -1,3 +1,4 @@
+ context line
+-removed line
++added line
+ another context`
+
+		styles := NewStyles(true)
+		result := ColorizeUnifiedDiff(diff, styles)
+
+		// Verify result is not empty and has correct structure
+		assert.NotEmpty(t, result, "Result should not be empty")
+
+		lines := strings.Split(result, "\n")
+		assert.Len(t, lines, 5, "Should have 5 lines")
+
+		// Verify content is preserved (even if colors aren't applied in test env)
+		assert.Contains(t, lines[0], "@@", "Should contain hunk header")
+		assert.Contains(t, lines[1], "context line", "Should contain context text")
+		assert.Contains(t, lines[2], "removed line", "Should contain removed text")
+		assert.Contains(t, lines[3], "added line", "Should contain added text")
+		assert.Contains(t, lines[4], "another context", "Should contain second context text")
+
+		// Verify line prefixes are preserved
+		assert.True(t, strings.Contains(lines[0], "@@"), "Hunk header should contain @@")
+		assert.True(t, strings.HasPrefix(lines[1], " ") || strings.Contains(lines[1], " context"), "Context line should have space prefix")
+		assert.True(t, strings.HasPrefix(lines[2], "-") || strings.Contains(lines[2], "-removed"), "Removed line should have - prefix")
+		assert.True(t, strings.HasPrefix(lines[3], "+") || strings.Contains(lines[3], "+added"), "Added line should have + prefix")
+	})
+
+	t.Run("with colors disabled", func(t *testing.T) {
+		diff := `@@ -1,3 +1,4 @@
+ context line
+-removed line
++added line`
+
+		styles := NewStyles(false)
+		result := ColorizeUnifiedDiff(diff, styles)
+
+		// Should not contain ANSI color codes
+		assert.NotContains(t, result, "\x1b[", "Should not contain ANSI escape sequences")
+
+		// Result should match input exactly (no color codes added)
+		assert.Equal(t, diff, result, "Output should match input when colors disabled")
+	})
+
+	t.Run("empty diff", func(t *testing.T) {
+		styles := NewStyles(true)
+		result := ColorizeUnifiedDiff("", styles)
+		assert.Equal(t, "", result, "Empty diff should return empty string")
+	})
+
+	t.Run("each line type colored correctly", func(t *testing.T) {
+		styles := NewStyles(true)
+
+		// Test hunk header
+		hunkResult := ColorizeUnifiedDiff("@@ -1,2 +1,3 @@", styles)
+		expectedHunk := styles.Key.Render("@@ -1,2 +1,3 @@")
+		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use key style")
+
+		// Test added line
+		addedResult := ColorizeUnifiedDiff("+added content", styles)
+		expectedAdded := styles.Added.Render("+added content")
+		assert.Equal(t, expectedAdded, addedResult, "Added line should use added style")
+
+		// Test removed line
+		removedResult := ColorizeUnifiedDiff("-removed content", styles)
+		expectedRemoved := styles.Removed.Render("-removed content")
+		assert.Equal(t, expectedRemoved, removedResult, "Removed line should use removed style")
+
+		// Test context line
+		contextResult := ColorizeUnifiedDiff(" context content", styles)
+		expectedContext := styles.Value.Render(" context content")
+		assert.Equal(t, expectedContext, contextResult, "Context line should use value style")
+	})
 }

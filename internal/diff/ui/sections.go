@@ -6,7 +6,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/orien/stackaroo/internal/aws"
@@ -94,8 +93,8 @@ func buildSections(result *diff.Result) []Section {
 // formatTemplateSection formats template changes
 func formatTemplateSection(tc *diff.TemplateChange) string {
 	var s strings.Builder
-	useColour := shouldUseColour()
-	styles := NewStyleSet(useColour)
+	useColour := diff.ShouldUseColour()
+	styles := diff.NewStyles(useColour)
 
 	if tc.HasChanges {
 		s.WriteString(styles.Success.Render("✓ Template has been modified"))
@@ -122,7 +121,7 @@ func formatTemplateSection(tc *diff.TemplateChange) string {
 
 		if tc.Diff != "" {
 			s.WriteString("\nTemplate diff:\n")
-			s.WriteString(tc.Diff)
+			s.WriteString(diff.ColorizeUnifiedDiff(tc.Diff, styles))
 		}
 	} else {
 		s.WriteString(styles.Subtle.Render("✗ No template changes"))
@@ -134,8 +133,8 @@ func formatTemplateSection(tc *diff.TemplateChange) string {
 // formatParameterSection formats parameter changes
 func formatParameterSection(params []diff.ParameterDiff, isNewStack bool) string {
 	var s strings.Builder
-	useColour := shouldUseColour()
-	styles := NewStyleSet(useColour)
+	useColour := diff.ShouldUseColour()
+	styles := diff.NewStyles(useColour)
 
 	if isNewStack {
 		s.WriteString("Parameters to be set:\n\n")
@@ -166,8 +165,8 @@ func formatParameterSection(params []diff.ParameterDiff, isNewStack bool) string
 // formatTagSection formats tag changes
 func formatTagSection(tags []diff.TagDiff, isNewStack bool) string {
 	var s strings.Builder
-	useColour := shouldUseColour()
-	styles := NewStyleSet(useColour)
+	useColour := diff.ShouldUseColour()
+	styles := diff.NewStyles(useColour)
 
 	if isNewStack {
 		s.WriteString("Tags to be set:\n\n")
@@ -198,8 +197,8 @@ func formatTagSection(tags []diff.TagDiff, isNewStack bool) string {
 // formatChangeSetSection formats AWS changeset information
 func formatChangeSetSection(cs *aws.ChangeSetInfo) string {
 	var s strings.Builder
-	useColour := shouldUseColour()
-	styles := NewStyleSet(useColour)
+	useColour := diff.ShouldUseColour()
+	styles := diff.NewStyles(useColour)
 
 	s.WriteString("Resource Changes:\n\n")
 
@@ -234,7 +233,7 @@ func formatChangeSetSection(cs *aws.ChangeSetInfo) string {
 }
 
 // getChangeSymbol returns the styled symbol for a change type
-func getChangeSymbol(changeType diff.ChangeType, styles *StyleSet) string {
+func getChangeSymbol(changeType diff.ChangeType, styles *diff.Styles) string {
 	switch changeType {
 	case diff.ChangeTypeAdd:
 		return styles.Added.Render("+")
@@ -248,7 +247,7 @@ func getChangeSymbol(changeType diff.ChangeType, styles *StyleSet) string {
 }
 
 // getChangeSetSymbol returns the styled symbol for a changeset action
-func getChangeSetSymbol(action string, styles *StyleSet) string {
+func getChangeSetSymbol(action string, styles *diff.Styles) string {
 	switch action {
 	case "Add":
 		return styles.Added.Render("+")
@@ -267,28 +266,4 @@ func countLines(s string) int {
 		return 0
 	}
 	return strings.Count(s, "\n")
-}
-
-// shouldUseColour determines if colour output should be used
-func shouldUseColour() bool {
-	// Check NO_COLOR environment variable (https://no-color.org/)
-	if os.Getenv("NO_COLOR") != "" {
-		return false
-	}
-
-	// Check TERM environment variable
-	term := os.Getenv("TERM")
-	if term == "dumb" || term == "" {
-		return false
-	}
-
-	// Check if stdout is a terminal
-	fileInfo, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-
-	// In TUI mode, we're always in a terminal, so default to true
-	// The lipgloss renderer will handle the actual colour profile detection
-	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

@@ -264,7 +264,7 @@ func TestGetChangeSymbol(t *testing.T) {
 	_ = os.Setenv("NO_COLOR", "1")
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
-	styles := NewStyleSet(false)
+	styles := diff.NewStyles(false)
 
 	tests := []struct {
 		changeType diff.ChangeType
@@ -288,7 +288,7 @@ func TestGetChangeSetSymbol(t *testing.T) {
 	_ = os.Setenv("NO_COLOR", "1")
 	defer func() { _ = os.Unsetenv("NO_COLOR") }()
 
-	styles := NewStyleSet(false)
+	styles := diff.NewStyles(false)
 
 	tests := []struct {
 		action   string
@@ -397,7 +397,7 @@ func TestShouldUseColour(t *testing.T) {
 				defer tt.teardown()
 			}
 
-			result := shouldUseColour()
+			result := diff.ShouldUseColour()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
