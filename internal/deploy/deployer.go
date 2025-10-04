@@ -28,6 +28,15 @@ func (e CancellationError) Error() string {
 	return fmt.Sprintf("deployment of stack %s was cancelled by user", e.StackName)
 }
 
+// NoChangesError indicates that no changes were detected for a stack
+type NoChangesError struct {
+	StackName string
+}
+
+func (e NoChangesError) Error() string {
+	return fmt.Sprintf("no changes detected for stack %s", e.StackName)
+}
+
 // Deployer defines the interface for stack deployment operations
 type Deployer interface {
 	DeployStack(ctx context.Context, stack *model.Stack) error
@@ -188,7 +197,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		}
 	} else {
 		fmt.Printf("No changes detected for stack %s\n", stack.Name)
-		return nil
+		return NoChangesError{StackName: stack.Name}
 	}
 
 	// Get changeset from diff result (kept alive for deployment)
@@ -277,6 +286,11 @@ func (d *StackDeployer) readTemplateFile(filename string) (string, error) {
 func (d *StackDeployer) deployStackWithFeedback(ctx context.Context, stack *model.Stack, contextName string) error {
 	err := d.DeployStack(ctx, stack)
 	if err != nil {
+		// Handle no changes - don't treat it as an error for the caller
+		var noChangesErr NoChangesError
+		if errors.As(err, &noChangesErr) {
+			return nil
+		}
 		// Handle cancellation - don't treat it as an error for the caller
 		var cancellationErr CancellationError
 		if errors.As(err, &cancellationErr) {

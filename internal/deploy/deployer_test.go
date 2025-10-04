@@ -365,8 +365,11 @@ func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
 	// Execute
 	err := deployer.DeployStack(ctx, stack)
 
-	// Verify - should succeed with no error when no changes detected
-	assert.NoError(t, err)
+	// Verify - should return NoChangesError when no changes detected
+	require.Error(t, err)
+	var noChangesErr NoChangesError
+	assert.True(t, errors.As(err, &noChangesErr))
+	assert.Equal(t, "test-stack", noChangesErr.StackName)
 
 	mockCfnOps.AssertExpectations(t)
 }
