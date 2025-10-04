@@ -20,8 +20,6 @@ func (r *Result) toText() string {
 	// Header
 	header := fmt.Sprintf("Stack: %s (Context: %s)", r.StackName, r.Context)
 	output.WriteString(styles.HeaderTitle.Render(header))
-	output.WriteString("\n")
-	output.WriteString(styles.Separator.Render(strings.Repeat("═", 60)))
 	output.WriteString("\n\n")
 
 	// Handle new stack case
@@ -101,8 +99,6 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styles) {
 	output.WriteString(styles.SectionHeader.Render("Template Changes:"))
 	output.WriteString("\n")
-	output.WriteString(styles.Separator.Render(strings.Repeat("─", 17)))
-	output.WriteString("\n")
 
 	if r.TemplateChange.HasChanges {
 		checkmark := styles.Modified.Render("✓")
@@ -146,8 +142,6 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Styles) {
 	output.WriteString(styles.SectionHeader.Render("Parameter Changes:"))
 	output.WriteString("\n")
-	output.WriteString(styles.Separator.Render(strings.Repeat("─", 18)))
-	output.WriteString("\n")
 
 	for _, diff := range r.ParameterDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
@@ -174,8 +168,6 @@ func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Sty
 func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 	output.WriteString(styles.SectionHeader.Render("Tag Changes:"))
 	output.WriteString("\n")
-	output.WriteString(styles.Separator.Render(strings.Repeat("─", 12)))
-	output.WriteString("\n")
 
 	for _, diff := range r.TagDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
@@ -201,8 +193,6 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 // formatChangeSetText formats AWS changeset information
 func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 	output.WriteString(styles.SectionHeader.Render("AWS CloudFormation Preview:"))
-	output.WriteString("\n")
-	output.WriteString(styles.Separator.Render(strings.Repeat("─", 27)))
 	output.WriteString("\n")
 
 	if len(r.ChangeSet.Changes) > 0 {
