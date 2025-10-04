@@ -64,7 +64,7 @@ func (c *YAMLTemplateComparator) Compare(ctx context.Context, currentTemplate, p
 	change.ResourceCount = resourceCounts
 
 	// Generate diff text
-	diff, err := c.generateDiff(currentData, proposedData)
+	diff, err := c.generateDiff(currentTemplate, proposedTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate diff: %w", err)
 	}
@@ -130,22 +130,12 @@ func (c *YAMLTemplateComparator) getResourcesSection(templateData map[string]int
 }
 
 // generateDiff creates a human-readable diff of the templates with line-by-line comparison
-func (c *YAMLTemplateComparator) generateDiff(currentData, proposedData map[string]interface{}) (string, error) {
+// Uses original template strings to preserve formatting and key order
+func (c *YAMLTemplateComparator) generateDiff(currentTemplate, proposedTemplate string) (string, error) {
 	var diff strings.Builder
 
-	// Convert templates back to YAML for line-by-line comparison
-	currentYAML, err := yaml.Marshal(currentData)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal current template: %w", err)
-	}
-
-	proposedYAML, err := yaml.Marshal(proposedData)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal proposed template: %w", err)
-	}
-
-	// Generate unified diff
-	unifiedDiff := c.generateUnifiedDiff(string(currentYAML), string(proposedYAML))
+	// Generate unified diff using original templates to preserve formatting
+	unifiedDiff := c.generateUnifiedDiff(currentTemplate, proposedTemplate)
 	if unifiedDiff != "" {
 		diff.WriteString(unifiedDiff)
 	}

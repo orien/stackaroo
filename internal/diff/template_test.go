@@ -480,41 +480,31 @@ func TestYAMLTemplateComparator_HasSectionChanged(t *testing.T) {
 func TestYAMLTemplateComparator_GenerateDiff_TemplateStructure(t *testing.T) {
 	comparator := &YAMLTemplateComparator{}
 
-	currentData := map[string]interface{}{
-		"AWSTemplateFormatVersion": "2010-09-09",
-		"Resources": map[string]interface{}{
-			"MyBucket": map[string]interface{}{
-				"Type": "AWS::S3::Bucket",
-			},
-		},
-	}
+	currentTemplate := `AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket`
 
-	proposedData := map[string]interface{}{
-		"AWSTemplateFormatVersion": "2010-09-09",
-		"Description":              "Test template",
-		"Resources": map[string]interface{}{
-			"MyBucket": map[string]interface{}{
-				"Type": "AWS::S3::Bucket",
-				"Properties": map[string]interface{}{
-					"BucketName": "test-bucket",
-				},
-			},
-			"MyQueue": map[string]interface{}{
-				"Type": "AWS::SQS::Queue",
-			},
-		},
-	}
+	proposedTemplate := `AWSTemplateFormatVersion: "2010-09-09"
+Description: Test template
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: test-bucket
+  MyQueue:
+    Type: AWS::SQS::Queue`
 
-	result, err := comparator.generateDiff(currentData, proposedData)
+	result, err := comparator.generateDiff(currentTemplate, proposedTemplate)
 
 	require.NoError(t, err)
 	// Check for unified diff format
 	assert.Contains(t, result, "@@") // Unified diff hunk header
 	assert.Contains(t, result, "+Description: Test template")
-	assert.Contains(t, result, "+        Properties:")
-	assert.Contains(t, result, "+            BucketName: test-bucket")
-	assert.Contains(t, result, "+    MyQueue:")
-	assert.Contains(t, result, "+        Type: AWS::SQS::Queue")
+	assert.Contains(t, result, "+    Properties:")
+	assert.Contains(t, result, "+      BucketName: test-bucket")
+	assert.Contains(t, result, "+  MyQueue:")
+	assert.Contains(t, result, "+    Type: AWS::SQS::Queue")
 	assert.Contains(t, result, " AWSTemplateFormatVersion:") // Context line
 }
 
@@ -704,20 +694,20 @@ Resources:
 	assert.Contains(t, result.Diff, "@@", "Should contain unified diff hunk header")
 
 	// Verify additions are marked with +
-	assert.Contains(t, result.Diff, "+        Default: prod", "Should show parameter change")
-	assert.Contains(t, result.Diff, "+    InstanceType:", "Should show new parameter")
-	assert.Contains(t, result.Diff, "+                - CidrIp: 0.0.0.0/0", "Should show added security group rule")
-	assert.Contains(t, result.Diff, "+                  FromPort: 443", "Should show HTTPS port addition")
-	assert.Contains(t, result.Diff, "+    Database:", "Should show new resource")
+	assert.Contains(t, result.Diff, "+    Default: prod", "Should show parameter change")
+	assert.Contains(t, result.Diff, "+  InstanceType:", "Should show new parameter")
+	assert.Contains(t, result.Diff, "+        - IpProtocol: tcp", "Should show added security group rule")
+	assert.Contains(t, result.Diff, "+          FromPort: 443", "Should show HTTPS port addition")
+	assert.Contains(t, result.Diff, "+  Database:", "Should show new resource")
 
 	// Verify deletions are marked with -
-	assert.Contains(t, result.Diff, "-        Default: dev", "Should show old parameter value")
-	assert.Contains(t, result.Diff, "-            InstanceType: t2.micro", "Should show old instance type")
-	assert.Contains(t, result.Diff, "-            ImageId: ami-12345678", "Should show old AMI")
+	assert.Contains(t, result.Diff, "-    Default: dev", "Should show old parameter value")
+	assert.Contains(t, result.Diff, "-      InstanceType: t2.micro", "Should show old instance type")
+	assert.Contains(t, result.Diff, "-      ImageId: ami-12345678", "Should show old AMI")
 
 	// Verify context lines (unchanged) are marked with space
-	assert.Contains(t, result.Diff, " Description: Web application infrastructure", "Should show context line")
-	assert.Contains(t, result.Diff, " Resources:", "Should show context line")
+	// Note: Context lines only appear within the hunk context window
+	assert.Contains(t, result.Diff, " Parameters:", "Should show context line within hunk")
 
 	// Verify resource counts
 	assert.Equal(t, 1, result.ResourceCount.Added)    // Database
@@ -795,11 +785,11 @@ Resources:
 	assert.Equal(t, 2, hunkCount, "Should have 2 hunks when changes are far apart")
 
 	// Verify first hunk contains Resource1 change
-	assert.Contains(t, result.Diff, "+        Properties:")
-	assert.Contains(t, result.Diff, "+            BucketName: bucket1")
+	assert.Contains(t, result.Diff, "+    Properties:")
+	assert.Contains(t, result.Diff, "+      BucketName: bucket1")
 
 	// Verify second hunk contains Resource10 change
-	assert.Contains(t, result.Diff, "+            BucketName: bucket10")
+	assert.Contains(t, result.Diff, "+      BucketName: bucket10")
 }
 
 func TestYAMLTemplateComparator_NewStack_AllAdditions(t *testing.T) {
@@ -858,6 +848,6 @@ Resources:
 	assert.Contains(t, result.Diff, "+AWSTemplateFormatVersion:")
 	assert.Contains(t, result.Diff, "+Description: New stack template")
 	assert.Contains(t, result.Diff, "+Resources:")
-	assert.Contains(t, result.Diff, "+    VPC:")
-	assert.Contains(t, result.Diff, "+    Subnet:")
+	assert.Contains(t, result.Diff, "+  VPC:")
+	assert.Contains(t, result.Diff, "+  Subnet:")
 }
