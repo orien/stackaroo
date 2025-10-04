@@ -32,6 +32,7 @@ Stackaroo simplifies CloudFormation stack management by providing:
 ### Change Preview
 
 - **Comprehensive Change Analysis**: Shows template, parameter, tag, and resource changes
+- **Unified Template Diff**: Line-by-line template comparison in unified diff format (similar to `git diff`)
 - **CloudFormation ChangeSet Integration**: Uses AWS ChangeSet API for accurate previews
 - **Rich Diff Output**: Detailed comparison of current vs proposed infrastructure
 - **Resource Impact Assessment**: Identifies which resources will be created, modified, or deleted

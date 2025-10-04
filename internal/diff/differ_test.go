@@ -12,6 +12,7 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -192,6 +193,19 @@ func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 	// Set up expectations
 	cfClient.On("StackExists", ctx, "test-stack").Return(false, nil)
 
+	// Mock template comparison for new stack (empty current template vs proposed)
+	templateComp.On("Compare", ctx, "{}", mock.Anything).Return(&TemplateChange{
+		HasChanges:   true,
+		CurrentHash:  "",
+		ProposedHash: "abc123",
+		Diff:         "New stack diff output",
+		ResourceCount: struct{ Added, Modified, Removed int }{
+			Added:    1,
+			Modified: 0,
+			Removed:  0,
+		},
+	}, nil)
+
 	// Execute
 	result, err := differ.DiffStack(ctx, stack, options)
 
@@ -218,6 +232,7 @@ func TestStackDiffer_DiffStack_NewStack(t *testing.T) {
 	assert.True(t, result.TemplateChange.HasChanges)
 
 	cfClient.AssertExpectations(t)
+	templateComp.AssertExpectations(t)
 }
 
 func TestStackDiffer_DiffStack_StackExistsError(t *testing.T) {
@@ -411,8 +426,13 @@ func TestStackDiffer_HandleNewStack(t *testing.T) {
 	// Test the handleNewStack method directly
 	ctx := context.Background()
 
-	// Create differ (mocks not needed for this test)
-	differ := &StackDiffer{}
+	// Create mocks
+	templateComp := &MockTemplateComparator{}
+
+	// Create differ with mocked comparator
+	differ := &StackDiffer{
+		templateComparator: templateComp,
+	}
 
 	// Test data
 	stack := createTestResolvedStack()
@@ -421,6 +441,19 @@ func TestStackDiffer_HandleNewStack(t *testing.T) {
 		Context:   stack.Context.Name,
 		Options:   Options{},
 	}
+
+	// Set up expectations for template comparison
+	templateComp.On("Compare", ctx, "{}", mock.Anything).Return(&TemplateChange{
+		HasChanges:   true,
+		CurrentHash:  "",
+		ProposedHash: "abc123",
+		Diff:         "@@ -1,1 +1,3 @@\n-{}\n+New template content",
+		ResourceCount: struct{ Added, Modified, Removed int }{
+			Added:    1,
+			Modified: 0,
+			Removed:  0,
+		},
+	}, nil)
 
 	// Execute
 	result, err := differ.handleNewStack(ctx, stack, result)
@@ -433,6 +466,8 @@ func TestStackDiffer_HandleNewStack(t *testing.T) {
 	// Template should be marked as new
 	assert.NotNil(t, result.TemplateChange)
 	assert.True(t, result.TemplateChange.HasChanges)
+
+	templateComp.AssertExpectations(t)
 
 	// All parameters should be ADD
 	assert.Len(t, result.ParameterDiffs, 2)

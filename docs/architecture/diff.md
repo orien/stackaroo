@@ -359,6 +359,18 @@ Resource changes:
   + 2 resources to be added
   ~ 1 resources to be modified
 
+Template diff:
+@@ -5,10 +5,15 @@
+ Resources:
+     MyBucket:
+         Type: AWS::S3::Bucket
++        Properties:
++            BucketName: my-bucket
+     MyRole:
+         Type: AWS::IAM::Role
++    MyQueue:
++        Type: AWS::SQS::Queue
+
 Parameter Changes:
 ------------------
   + NewParam: value123
@@ -380,6 +392,39 @@ Resource Changes:
   ~ MyRole (AWS::IAM::Role) - Replacement: False
     Property: PolicyDocument
 ```
+
+### Template Diff Format
+
+The template comparator generates **unified diff output** showing line-by-line changes between the deployed and local templates:
+
+**Unified Diff Format:**
+- `@@` - Hunk header showing line ranges
+- ` ` (space) - Context line (unchanged)
+- `+` - Added line
+- `-` - Removed line
+- 3 lines of context shown around changes
+
+**Algorithm:**
+1. Parse both templates to YAML structure
+2. Re-marshal to normalised YAML for consistent formatting
+3. Calculate Longest Common Subsequence (LCS) between line arrays
+4. Group changes into hunks with context lines
+5. Format as unified diff with proper line prefixes
+
+**Example Output:**
+```
+@@ -10,5 +10,8 @@
+ Resources:
+     WebServer:
+         Properties:
+-            InstanceType: t2.micro
++            InstanceType: t3.small
++            Tags:
++                - Key: Environment
++                  Value: production
+```
+
+This provides developers with precise, line-level visibility into template modifications, similar to git diff output.
 
 
 

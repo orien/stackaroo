@@ -109,13 +109,20 @@ func (d *StackDiffer) DiffStack(ctx context.Context, stack *model.Stack, options
 func (d *StackDiffer) handleNewStack(ctx context.Context, stack *model.Stack, result *Result) (*Result, error) {
 	// For a new stack, everything is "added"
 
-	// Template is new
-	result.TemplateChange = &TemplateChange{
-		HasChanges:   true,
-		CurrentHash:  "",
-		ProposedHash: "", // We'll calculate this when we implement the template comparator
-		Diff:         "New stack - entire template will be created",
+	// Get the proposed template content
+	proposedTemplate, err := stack.GetTemplateContent()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template content: %w", err)
 	}
+
+	// Compare empty template with proposed template to show unified diff
+	emptyTemplate := "{}" // Empty JSON object represents no existing stack
+	templateChange, err := d.templateComparator.Compare(ctx, emptyTemplate, proposedTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compare templates: %w", err)
+	}
+
+	result.TemplateChange = templateChange
 
 	// All parameters are new
 	for key, value := range stack.Parameters {

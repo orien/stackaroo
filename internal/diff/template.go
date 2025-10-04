@@ -15,6 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	contextLines = 3 // Number of context lines to show around changes
+)
+
 // YAMLTemplateComparator implements TemplateComparator for YAML CloudFormation templates
 type YAMLTemplateComparator struct{}
 
@@ -125,61 +129,267 @@ func (c *YAMLTemplateComparator) getResourcesSection(templateData map[string]int
 	return make(map[string]interface{})
 }
 
-// generateDiff creates a human-readable diff of the templates
+// generateDiff creates a human-readable diff of the templates with line-by-line comparison
 func (c *YAMLTemplateComparator) generateDiff(currentData, proposedData map[string]interface{}) (string, error) {
 	var diff strings.Builder
 
-	// For now, provide a high-level summary
-	// In a more sophisticated implementation, we could do line-by-line YAML diffing
-
-	diff.WriteString("Template sections changed:\n")
-
-	// Compare top-level sections
-	allSections := make(map[string]bool)
-	for section := range currentData {
-		allSections[section] = true
-	}
-	for section := range proposedData {
-		allSections[section] = true
+	// Convert templates back to YAML for line-by-line comparison
+	currentYAML, err := yaml.Marshal(currentData)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal current template: %w", err)
 	}
 
-	var sectionChanges []string
-	for section := range allSections {
-		currentSection, currentExists := currentData[section]
-		proposedSection, proposedExists := proposedData[section]
+	proposedYAML, err := yaml.Marshal(proposedData)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal proposed template: %w", err)
+	}
 
-		if !currentExists && proposedExists {
-			sectionChanges = append(sectionChanges, fmt.Sprintf("  + %s (added)", section))
-		} else if currentExists && !proposedExists {
-			sectionChanges = append(sectionChanges, fmt.Sprintf("  - %s (removed)", section))
-		} else if currentExists && proposedExists {
-			if !reflect.DeepEqual(currentSection, proposedSection) {
-				sectionChanges = append(sectionChanges, fmt.Sprintf("  ~ %s (modified)", section))
+	// Generate unified diff
+	unifiedDiff := c.generateUnifiedDiff(string(currentYAML), string(proposedYAML))
+	if unifiedDiff != "" {
+		diff.WriteString(unifiedDiff)
+	}
+
+	return diff.String(), nil
+}
+
+// generateUnifiedDiff creates a unified diff between two text strings
+func (c *YAMLTemplateComparator) generateUnifiedDiff(current, proposed string) string {
+	currentLines := strings.Split(strings.TrimSpace(current), "\n")
+	proposedLines := strings.Split(strings.TrimSpace(proposed), "\n")
+
+	// Calculate line differences using simple LCS-based algorithm
+	changes := c.calculateLineDiff(currentLines, proposedLines)
+
+	if len(changes) == 0 {
+		return ""
+	}
+
+	var diff strings.Builder
+
+	// Group changes into hunks
+	hunks := c.groupChangesIntoHunks(changes, len(currentLines), len(proposedLines))
+
+	for _, hunk := range hunks {
+		// Write hunk header
+		diff.WriteString(fmt.Sprintf("@@ -%d,%d +%d,%d @@\n",
+			hunk.currentStart+1, hunk.currentCount,
+			hunk.proposedStart+1, hunk.proposedCount))
+
+		// Write hunk lines
+		for _, line := range hunk.lines {
+			diff.WriteString(line)
+			diff.WriteString("\n")
+		}
+	}
+
+	return diff.String()
+}
+
+// diffChange represents a single change in the diff
+type diffChange struct {
+	changeType   string // "context", "delete", "add"
+	currentLine  int
+	proposedLine int
+	content      string
+}
+
+// diffHunk represents a group of related changes
+type diffHunk struct {
+	currentStart  int
+	currentCount  int
+	proposedStart int
+	proposedCount int
+	lines         []string
+}
+
+// calculateLineDiff computes line-by-line differences
+func (c *YAMLTemplateComparator) calculateLineDiff(currentLines, proposedLines []string) []diffChange {
+	var changes []diffChange
+
+	// Use a simple diff algorithm (Myers' diff or similar would be better, but this works)
+	lcs := c.longestCommonSubsequence(currentLines, proposedLines)
+
+	currentIdx := 0
+	proposedIdx := 0
+	lcsIdx := 0
+
+	for currentIdx < len(currentLines) || proposedIdx < len(proposedLines) {
+		if lcsIdx < len(lcs) &&
+			currentIdx < len(currentLines) &&
+			proposedIdx < len(proposedLines) &&
+			currentLines[currentIdx] == lcs[lcsIdx] &&
+			proposedLines[proposedIdx] == lcs[lcsIdx] {
+			// Common line
+			changes = append(changes, diffChange{
+				changeType:   "context",
+				currentLine:  currentIdx,
+				proposedLine: proposedIdx,
+				content:      currentLines[currentIdx],
+			})
+			currentIdx++
+			proposedIdx++
+			lcsIdx++
+		} else if currentIdx < len(currentLines) &&
+			(lcsIdx >= len(lcs) || currentLines[currentIdx] != lcs[lcsIdx]) {
+			// Deleted line
+			changes = append(changes, diffChange{
+				changeType:   "delete",
+				currentLine:  currentIdx,
+				proposedLine: -1,
+				content:      currentLines[currentIdx],
+			})
+			currentIdx++
+		} else if proposedIdx < len(proposedLines) {
+			// Added line
+			changes = append(changes, diffChange{
+				changeType:   "add",
+				currentLine:  -1,
+				proposedLine: proposedIdx,
+				content:      proposedLines[proposedIdx],
+			})
+			proposedIdx++
+		}
+	}
+
+	return changes
+}
+
+// longestCommonSubsequence finds the LCS of two string slices
+func (c *YAMLTemplateComparator) longestCommonSubsequence(a, b []string) []string {
+	m := len(a)
+	n := len(b)
+
+	// Create DP table
+	dp := make([][]int, m+1)
+	for i := range dp {
+		dp[i] = make([]int, n+1)
+	}
+
+	// Fill DP table
+	for i := 1; i <= m; i++ {
+		for j := 1; j <= n; j++ {
+			if a[i-1] == b[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else {
+				dp[i][j] = max(dp[i-1][j], dp[i][j-1])
 			}
 		}
 	}
 
-	// Sort changes for consistent output
-	sort.Strings(sectionChanges)
-
-	if len(sectionChanges) == 0 {
-		diff.WriteString("  (No section-level changes detected)\n")
-	} else {
-		for _, change := range sectionChanges {
-			diff.WriteString(change + "\n")
+	// Backtrack to build LCS
+	var lcs []string
+	i, j := m, n
+	for i > 0 && j > 0 {
+		if a[i-1] == b[j-1] {
+			lcs = append([]string{a[i-1]}, lcs...)
+			i--
+			j--
+		} else if dp[i-1][j] > dp[i][j-1] {
+			i--
+		} else {
+			j--
 		}
 	}
 
-	// Add resource-specific details if Resources section changed
-	if c.hasSectionChanged(currentData, proposedData, "Resources") {
-		resourceDiff := c.generateResourceDiff(currentData, proposedData)
-		if resourceDiff != "" {
-			diff.WriteString("\nResource changes:\n")
-			diff.WriteString(resourceDiff)
+	return lcs
+}
+
+// groupChangesIntoHunks groups related changes into diff hunks
+func (c *YAMLTemplateComparator) groupChangesIntoHunks(changes []diffChange, currentTotal, proposedTotal int) []diffHunk {
+	if len(changes) == 0 {
+		return nil
+	}
+
+	// First, find all actual changes (non-context)
+	changeIndices := make([]int, 0)
+	for i, change := range changes {
+		if change.changeType != "context" {
+			changeIndices = append(changeIndices, i)
 		}
 	}
 
-	return diff.String(), nil
+	if len(changeIndices) == 0 {
+		return nil
+	}
+
+	var hunks []diffHunk
+
+	// Group changes that are within contextLines*2 of each other
+	i := 0
+	for i < len(changeIndices) {
+		// Start a new hunk
+		startIdx := changeIndices[i]
+		endIdx := startIdx
+
+		// Find all changes that should be in this hunk
+		j := i + 1
+		for j < len(changeIndices) {
+			nextChangeIdx := changeIndices[j]
+			// If the next change is more than contextLines*2 away, start a new hunk
+			if nextChangeIdx-endIdx > contextLines*2+1 {
+				break
+			}
+			endIdx = nextChangeIdx
+			j++
+		}
+
+		// Calculate hunk boundaries with context
+		hunkStart := max(0, startIdx-contextLines)
+		hunkEnd := min(len(changes)-1, endIdx+contextLines)
+
+		// Build the hunk
+		hunk := diffHunk{
+			currentStart:  changes[hunkStart].currentLine,
+			proposedStart: changes[hunkStart].proposedLine,
+		}
+		if hunk.currentStart < 0 {
+			hunk.currentStart = 0
+		}
+		if hunk.proposedStart < 0 {
+			hunk.proposedStart = 0
+		}
+
+		// Add all lines in the hunk range
+		for k := hunkStart; k <= hunkEnd; k++ {
+			change := changes[k]
+			var prefix string
+			switch change.changeType {
+			case "context":
+				prefix = " "
+				hunk.currentCount++
+				hunk.proposedCount++
+			case "delete":
+				prefix = "-"
+				hunk.currentCount++
+			case "add":
+				prefix = "+"
+				hunk.proposedCount++
+			}
+			hunk.lines = append(hunk.lines, prefix+change.content)
+		}
+
+		hunks = append(hunks, hunk)
+		i = j
+	}
+
+	return hunks
+}
+
+// max returns the maximum of two integers
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // hasSectionChanged checks if a specific section has changed between templates

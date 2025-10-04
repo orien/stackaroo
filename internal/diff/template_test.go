@@ -6,6 +6,7 @@ package diff
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -507,12 +508,14 @@ func TestYAMLTemplateComparator_GenerateDiff_TemplateStructure(t *testing.T) {
 	result, err := comparator.generateDiff(currentData, proposedData)
 
 	require.NoError(t, err)
-	assert.Contains(t, result, "Template sections changed:")
-	assert.Contains(t, result, "+ Description (added)")
-	assert.Contains(t, result, "~ Resources (modified)")
-	assert.Contains(t, result, "Resource changes:")
-	assert.Contains(t, result, "~ MyBucket (AWS::S3::Bucket)")
-	assert.Contains(t, result, "+ MyQueue (AWS::SQS::Queue)")
+	// Check for unified diff format
+	assert.Contains(t, result, "@@") // Unified diff hunk header
+	assert.Contains(t, result, "+Description: Test template")
+	assert.Contains(t, result, "+        Properties:")
+	assert.Contains(t, result, "+            BucketName: test-bucket")
+	assert.Contains(t, result, "+    MyQueue:")
+	assert.Contains(t, result, "+        Type: AWS::SQS::Queue")
+	assert.Contains(t, result, " AWSTemplateFormatVersion:") // Context line
 }
 
 func TestYAMLTemplateComparator_GenerateResourceDiff(t *testing.T) {
@@ -627,4 +630,234 @@ Resources:
 	assert.Equal(t, 2, result.ResourceCount.Added)    // NewResource, AnotherNewResource
 	assert.Equal(t, 1, result.ResourceCount.Modified) // VPC (added EnableDnsHostnames)
 	assert.Equal(t, 1, result.ResourceCount.Removed)  // OldResource
+}
+
+func TestYAMLTemplateComparator_UnifiedDiff_RealisticExample(t *testing.T) {
+	comparator := NewYAMLTemplateComparator()
+	ctx := context.Background()
+
+	// Realistic "before" template
+	currentTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Description: Web application infrastructure
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web servers
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-12345678`
+
+	// Realistic "after" template with multiple changes
+	proposedTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Description: Web application infrastructure
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+  InstanceType:
+    Type: String
+    Default: t3.small
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web servers
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.small
+      ImageId: ami-87654321
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      DBInstanceClass: db.t3.micro`
+
+	result, err := comparator.Compare(ctx, currentTemplate, proposedTemplate)
+
+	require.NoError(t, err)
+	assert.True(t, result.HasChanges)
+
+	// Verify unified diff format is present
+	assert.NotEmpty(t, result.Diff)
+	assert.Contains(t, result.Diff, "@@", "Should contain unified diff hunk header")
+
+	// Verify additions are marked with +
+	assert.Contains(t, result.Diff, "+        Default: prod", "Should show parameter change")
+	assert.Contains(t, result.Diff, "+    InstanceType:", "Should show new parameter")
+	assert.Contains(t, result.Diff, "+                - CidrIp: 0.0.0.0/0", "Should show added security group rule")
+	assert.Contains(t, result.Diff, "+                  FromPort: 443", "Should show HTTPS port addition")
+	assert.Contains(t, result.Diff, "+    Database:", "Should show new resource")
+
+	// Verify deletions are marked with -
+	assert.Contains(t, result.Diff, "-        Default: dev", "Should show old parameter value")
+	assert.Contains(t, result.Diff, "-            InstanceType: t2.micro", "Should show old instance type")
+	assert.Contains(t, result.Diff, "-            ImageId: ami-12345678", "Should show old AMI")
+
+	// Verify context lines (unchanged) are marked with space
+	assert.Contains(t, result.Diff, " Description: Web application infrastructure", "Should show context line")
+	assert.Contains(t, result.Diff, " Resources:", "Should show context line")
+
+	// Verify resource counts
+	assert.Equal(t, 1, result.ResourceCount.Added)    // Database
+	assert.Equal(t, 2, result.ResourceCount.Modified) // WebServerSecurityGroup, WebServer
+	assert.Equal(t, 0, result.ResourceCount.Removed)
+}
+
+func TestYAMLTemplateComparator_MultipleHunks_WhenChangesFarApart(t *testing.T) {
+	comparator := NewYAMLTemplateComparator()
+	ctx := context.Background()
+
+	// Template with changes far apart (more than 6 lines = contextLines*2)
+	currentTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  Resource1:
+    Type: AWS::S3::Bucket
+  Resource2:
+    Type: AWS::S3::Bucket
+  Resource3:
+    Type: AWS::S3::Bucket
+  Resource4:
+    Type: AWS::S3::Bucket
+  Resource5:
+    Type: AWS::S3::Bucket
+  Resource6:
+    Type: AWS::S3::Bucket
+  Resource7:
+    Type: AWS::S3::Bucket
+  Resource8:
+    Type: AWS::S3::Bucket
+  Resource9:
+    Type: AWS::S3::Bucket
+  Resource10:
+    Type: AWS::S3::Bucket`
+
+	proposedTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  Resource1:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: bucket1
+  Resource2:
+    Type: AWS::S3::Bucket
+  Resource3:
+    Type: AWS::S3::Bucket
+  Resource4:
+    Type: AWS::S3::Bucket
+  Resource5:
+    Type: AWS::S3::Bucket
+  Resource6:
+    Type: AWS::S3::Bucket
+  Resource7:
+    Type: AWS::S3::Bucket
+  Resource8:
+    Type: AWS::S3::Bucket
+  Resource9:
+    Type: AWS::S3::Bucket
+  Resource10:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: bucket10`
+
+	result, err := comparator.Compare(ctx, currentTemplate, proposedTemplate)
+
+	require.NoError(t, err)
+	assert.True(t, result.HasChanges)
+
+	// Count hunk headers - should have 2 hunks because changes are far apart
+	hunkCount := 0
+	for _, line := range strings.Split(result.Diff, "\n") {
+		if strings.HasPrefix(line, "@@") {
+			hunkCount++
+		}
+	}
+	assert.Equal(t, 2, hunkCount, "Should have 2 hunks when changes are far apart")
+
+	// Verify first hunk contains Resource1 change
+	assert.Contains(t, result.Diff, "+        Properties:")
+	assert.Contains(t, result.Diff, "+            BucketName: bucket1")
+
+	// Verify second hunk contains Resource10 change
+	assert.Contains(t, result.Diff, "+            BucketName: bucket10")
+}
+
+func TestYAMLTemplateComparator_NewStack_AllAdditions(t *testing.T) {
+	comparator := NewYAMLTemplateComparator()
+	ctx := context.Background()
+
+	// Simulate new stack: empty current template
+	currentTemplate := `{}`
+
+	// Proposed template for new stack
+	proposedTemplate := `AWSTemplateFormatVersion: '2010-09-09'
+Description: New stack template
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24`
+
+	result, err := comparator.Compare(ctx, currentTemplate, proposedTemplate)
+
+	require.NoError(t, err)
+	assert.True(t, result.HasChanges)
+	assert.Equal(t, 2, result.ResourceCount.Added) // VPC and Subnet
+
+	// Verify diff is generated
+	assert.NotEmpty(t, result.Diff)
+
+	// Count lines starting with + (additions)
+	additionCount := 0
+	deletionCount := 0
+	for _, line := range strings.Split(result.Diff, "\n") {
+		if len(line) > 0 {
+			switch line[0] {
+			case '+':
+				additionCount++
+			case '-':
+				deletionCount++
+			}
+		}
+	}
+
+	// Should have many additions and one deletion (the empty {} object)
+	assert.Greater(t, additionCount, 5, "Should have many addition lines for new stack")
+	assert.Equal(t, 1, deletionCount, "Should have one deletion line for empty current template")
+
+	// Verify key content is marked as additions
+	assert.Contains(t, result.Diff, "+AWSTemplateFormatVersion:")
+	assert.Contains(t, result.Diff, "+Description: New stack template")
+	assert.Contains(t, result.Diff, "+Resources:")
+	assert.Contains(t, result.Diff, "+    VPC:")
+	assert.Contains(t, result.Diff, "+    Subnet:")
 }
