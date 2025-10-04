@@ -5,9 +5,10 @@ SPDX-License-Identifier: BSD-3-Clause
 package cmd
 
 import (
-	"fmt"
+	"context"
 	"os"
 
+	"github.com/charmbracelet/fang"
 	"github.com/orien/stackaroo/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -33,9 +34,7 @@ across multiple contexts with consistent, repeatable configurations.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
 	}
 }
