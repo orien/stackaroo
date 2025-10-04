@@ -80,7 +80,7 @@ func buildSections(result *diff.Result) []Section {
 	if result.ChangeSet != nil && len(result.ChangeSet.Changes) > 0 {
 		content := formatChangeSetSection(result.ChangeSet)
 		sections = append(sections, Section{
-			Name:       "AWS Resources",
+			Name:       "CloudFormation Plan",
 			Content:    content,
 			HasChanges: true,
 			StartLine:  currentLine,
@@ -97,30 +97,7 @@ func formatTemplateSection(tc *diff.TemplateChange) string {
 	styles := diff.NewStyles(useColour)
 
 	if tc.HasChanges {
-		s.WriteString(styles.Success.Render("✓ Template has been modified"))
-		s.WriteString("\n\n")
-
-		if tc.ResourceCount.Added > 0 || tc.ResourceCount.Modified > 0 || tc.ResourceCount.Removed > 0 {
-			s.WriteString("Resource changes:\n")
-			if tc.ResourceCount.Added > 0 {
-				s.WriteString(fmt.Sprintf("  %s %d resources to be added\n",
-					styles.Added.Render("+"),
-					tc.ResourceCount.Added))
-			}
-			if tc.ResourceCount.Modified > 0 {
-				s.WriteString(fmt.Sprintf("  %s %d resources to be modified\n",
-					styles.Modified.Render("~"),
-					tc.ResourceCount.Modified))
-			}
-			if tc.ResourceCount.Removed > 0 {
-				s.WriteString(fmt.Sprintf("  %s %d resources to be removed\n",
-					styles.Removed.Render("-"),
-					tc.ResourceCount.Removed))
-			}
-		}
-
 		if tc.Diff != "" {
-			s.WriteString("\nTemplate diff:\n")
 			s.WriteString(diff.ColorizeUnifiedDiff(tc.Diff, styles))
 		}
 	} else {
@@ -135,10 +112,6 @@ func formatParameterSection(params []diff.ParameterDiff, isNewStack bool) string
 	var s strings.Builder
 	useColour := diff.ShouldUseColour()
 	styles := diff.NewStyles(useColour)
-
-	if isNewStack {
-		s.WriteString("Parameters to be set:\n\n")
-	}
 
 	for _, p := range params {
 		symbol := getChangeSymbol(p.ChangeType, styles)
@@ -199,8 +172,6 @@ func formatChangeSetSection(cs *aws.ChangeSetInfo) string {
 	var s strings.Builder
 	useColour := diff.ShouldUseColour()
 	styles := diff.NewStyles(useColour)
-
-	s.WriteString("Resource Changes:\n\n")
 
 	for _, change := range cs.Changes {
 		symbol := getChangeSetSymbol(change.Action, styles)

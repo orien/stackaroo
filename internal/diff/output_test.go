@@ -122,7 +122,7 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 	assert.Contains(t, output, "~ Environment: staging → dev")
 
 	// Changeset info
-	assert.Contains(t, output, "AWS CloudFormation Preview:")
+	assert.Contains(t, output, "CloudFormation Plan")
 	assert.Contains(t, output, "~ WebServer (AWS::EC2::Instance)")
 	assert.Contains(t, output, "[i-1234567890abcdef0]")
 	assert.Contains(t, output, "Property: InstanceType")
@@ -367,7 +367,7 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 	result.formatChangeSetText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "AWS CloudFormation Preview:")
+	assert.Contains(t, text, "CloudFormation Plan")
 	assert.Contains(t, text, "Resource Changes:")
 
 	// Check resource change formatting

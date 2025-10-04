@@ -192,7 +192,7 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 
 // formatChangeSetText formats AWS changeset information
 func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("AWS CloudFormation Preview:"))
+	output.WriteString(styles.SectionHeader.Render("CloudFormation Plan"))
 	output.WriteString("\n")
 
 	if len(r.ChangeSet.Changes) > 0 {

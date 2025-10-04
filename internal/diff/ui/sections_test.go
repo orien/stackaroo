@@ -69,7 +69,7 @@ func TestBuildSections_ExistingStackWithAllChanges(t *testing.T) {
 	assert.Equal(t, "Template", sections[0].Name)
 	assert.Equal(t, "Parameters", sections[1].Name)
 	assert.Equal(t, "Tags", sections[2].Name)
-	assert.Equal(t, "AWS Resources", sections[3].Name)
+	assert.Equal(t, "CloudFormation Plan", sections[3].Name)
 
 	// All should have changes
 	for _, section := range sections {
@@ -143,10 +143,6 @@ func TestFormatTemplateSection_WithChanges(t *testing.T) {
 
 	content := formatTemplateSection(tc)
 
-	assert.Contains(t, content, "Template has been modified")
-	assert.Contains(t, content, "2 resources to be added")
-	assert.Contains(t, content, "1 resources to be modified")
-	assert.Contains(t, content, "1 resources to be removed")
 	assert.Contains(t, content, "Template diff content")
 }
 
@@ -185,7 +181,7 @@ func TestFormatParameterSection_NewStack(t *testing.T) {
 
 	content := formatParameterSection(params, true)
 
-	assert.Contains(t, content, "Parameters to be set:")
+	assert.Contains(t, content, "Param1")
 }
 
 func TestFormatTagSection_AllChangeTypes(t *testing.T) {
@@ -246,7 +242,6 @@ func TestFormatChangeSetSection(t *testing.T) {
 
 	content := formatChangeSetSection(cs)
 
-	assert.Contains(t, content, "Resource Changes:")
 	assert.Contains(t, content, "NewBucket")
 	assert.Contains(t, content, "AWS::S3::Bucket")
 	assert.Contains(t, content, "WebServer")
@@ -454,8 +449,8 @@ func TestFormatTemplateSection_OnlyResourceCounts(t *testing.T) {
 
 	content := formatTemplateSection(tc)
 
-	assert.Contains(t, content, "1 resources to be added")
-	assert.NotContains(t, content, "Template diff:")
+	// With no diff text, content should be empty
+	assert.Empty(t, content)
 }
 
 func TestFormatChangeSetSection_WithoutPhysicalID(t *testing.T) {
@@ -503,8 +498,6 @@ func TestFormatChangeSetSection_EmptyChangeSet(t *testing.T) {
 
 	content := formatChangeSetSection(cs)
 
-	assert.Contains(t, content, "Resource Changes:")
-	// Should have minimal content
-	lines := strings.Split(strings.TrimSpace(content), "\n")
-	assert.LessOrEqual(t, len(lines), 3)
+	// Empty changeset should produce empty content
+	assert.Empty(t, strings.TrimSpace(content))
 }

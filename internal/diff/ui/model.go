@@ -349,12 +349,6 @@ func (m Model) renderContent() string {
 
 	// Show all sections
 	for i, section := range m.sections {
-		// Add visual separator between sections
-		if i > 0 {
-			s.WriteString("\n")
-			s.WriteString(m.styles.Separator.Render(strings.Repeat("─", m.viewport.Width())))
-			s.WriteString("\n\n")
-		}
 
 		// Highlight active section
 		if i == m.activeSection {
@@ -362,8 +356,6 @@ func (m Model) renderContent() string {
 		} else {
 			s.WriteString(m.styles.SectionHeaderInactive.Render("  " + section.Name))
 		}
-		s.WriteString("\n")
-		s.WriteString(m.styles.Separator.Render(strings.Repeat("─", len(section.Name)+2)))
 		s.WriteString("\n\n")
 
 		// Section content
