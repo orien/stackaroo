@@ -190,13 +190,15 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 
 	// Create changeset - use deployment version if we need to keep it alive
 	var changeSetInfo *aws.ChangeSetInfo
+
+	// Get capabilities from stack configuration
+	capabilities := stack.Capabilities
+	if len(capabilities) == 0 {
+		capabilities = []string{"CAPABILITY_IAM"} // Default capability
+	}
+
 	if options.KeepChangeSet {
 		// Use deployment-style changeset that doesn't auto-delete
-		capabilities := stack.Capabilities
-		if len(capabilities) == 0 {
-			capabilities = []string{"CAPABILITY_IAM"} // Default capability
-		}
-
 		changeSetInfo, err = cfClient.CreateChangeSetForDeployment(
 			ctx,
 			stack.Name,
@@ -207,7 +209,7 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 		)
 	} else {
 		// Use standard changeset that auto-deletes for preview only
-		changeSetInfo, err = cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters)
+		changeSetInfo, err = cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters, capabilities)
 	}
 
 	if err != nil {

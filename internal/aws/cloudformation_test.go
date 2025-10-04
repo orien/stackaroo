@@ -509,6 +509,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_Success(t *testi
 	stackName := "test-stack"
 	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 	parameters := map[string]string{"Param1": "value1"}
+	capabilities := []string{"CAPABILITY_IAM"}
 	changeSetId := "test-changeset-123"
 
 	// Mock CreateChangeSet
@@ -518,6 +519,8 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_Success(t *testi
 			len(input.Parameters) == 1 &&
 			aws.ToString(input.Parameters[0].ParameterKey) == "Param1" &&
 			aws.ToString(input.Parameters[0].ParameterValue) == "value1" &&
+			len(input.Capabilities) == 1 &&
+			string(input.Capabilities[0]) == "CAPABILITY_IAM" &&
 			input.ChangeSetType == types.ChangeSetTypeUpdate
 	})).Return(createTestChangeSetOutput(changeSetId), nil)
 
@@ -537,7 +540,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_Success(t *testi
 	})).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
 
 	// Verify
 	require.NoError(t, err)
@@ -567,12 +570,13 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_CreateError(t *t
 	stackName := "test-stack"
 	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 	parameters := map[string]string{}
+	capabilities := []string{}
 
 	// Mock CreateChangeSet failure
 	mockClient.On("CreateChangeSet", ctx, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return((*cloudformation.CreateChangeSetOutput)(nil), errors.New("access denied"))
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
 
 	// Verify
 	assert.Error(t, err)
@@ -591,6 +595,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_WaitError(t *tes
 	stackName := "test-stack"
 	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
 	parameters := map[string]string{}
+	capabilities := []string{}
 	changeSetId := "test-changeset-123"
 
 	// Mock CreateChangeSet success
@@ -606,7 +611,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_WaitError(t *tes
 	mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
 
 	// Verify
 	assert.Error(t, err)

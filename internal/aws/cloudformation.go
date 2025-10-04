@@ -593,7 +593,7 @@ func indexString(s, substr string) int {
 }
 
 // CreateChangeSetPreview creates a CloudFormation changeset for preview, describes it, then deletes it
-func (cf *DefaultCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error) {
+func (cf *DefaultCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string) (*ChangeSetInfo, error) {
 	// Generate a unique changeset name
 	changeSetName := fmt.Sprintf("stackaroo-diff-%d", time.Now().Unix())
 
@@ -606,12 +606,19 @@ func (cf *DefaultCloudFormationOperations) CreateChangeSetPreview(ctx context.Co
 		})
 	}
 
+	// Convert capabilities to AWS format
+	awsCapabilities := make([]types.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		awsCapabilities = append(awsCapabilities, types.Capability(capability))
+	}
+
 	// Create the changeset
 	createInput := &cloudformation.CreateChangeSetInput{
 		StackName:     aws.String(stackName),
 		ChangeSetName: aws.String(changeSetName),
 		TemplateBody:  aws.String(template),
 		Parameters:    awsParameters,
+		Capabilities:  awsCapabilities,
 		ChangeSetType: types.ChangeSetTypeUpdate, // Assume it's an update for existing stacks
 	}
 
