@@ -170,8 +170,8 @@ func (m *MockCloudFormationOperations) DescribeStackEvents(ctx context.Context, 
 	return args.Get(0).([]StackEvent), args.Error(1)
 }
 
-func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error {
-	args := m.Called(ctx, stackName, eventCallback)
+func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, startTime time.Time, eventCallback func(StackEvent)) error {
+	args := m.Called(ctx, stackName, startTime, eventCallback)
 	// Call the callback with a sample event for testing
 	if eventCallback != nil {
 		eventCallback(StackEvent{

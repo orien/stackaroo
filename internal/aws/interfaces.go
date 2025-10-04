@@ -6,6 +6,7 @@ package aws
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 )
@@ -51,7 +52,7 @@ type CloudFormationOperations interface {
 	ExecuteChangeSet(ctx context.Context, changeSetID string) error
 	DeleteChangeSet(ctx context.Context, changeSetID string) error
 	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
-	WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error
+	WaitForStackOperation(ctx context.Context, stackName string, startTime time.Time, eventCallback func(StackEvent)) error
 	CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string) (*ChangeSetInfo, error)
 	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 }

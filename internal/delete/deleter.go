@@ -7,6 +7,7 @@ package delete
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
@@ -90,6 +91,9 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 	// Perform the deletion
 	fmt.Printf("Deleting stack %s...\n", stack.Name)
 
+	// Capture start time to filter events to only this deletion
+	startTime := time.Now()
+
 	deleteInput := aws.DeleteStackInput{
 		StackName: stack.Name,
 	}
@@ -101,7 +105,7 @@ func (d *StackDeleter) DeleteStack(ctx context.Context, stack *model.Stack) erro
 
 	// Wait for deletion to complete
 	fmt.Printf("Waiting for stack deletion to complete...\n")
-	err = cfnOps.WaitForStackOperation(ctx, stack.Name, func(event aws.StackEvent) {
+	err = cfnOps.WaitForStackOperation(ctx, stack.Name, startTime, func(event aws.StackEvent) {
 		fmt.Printf("  %s: %s - %s\n", event.Timestamp.Format("15:04:05"), event.ResourceType, event.ResourceStatus)
 		if event.ResourceStatusReason != "" {
 			fmt.Printf("    Reason: %s\n", event.ResourceStatusReason)

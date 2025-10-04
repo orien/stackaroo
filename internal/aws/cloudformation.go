@@ -164,6 +164,9 @@ func (cf *DefaultCloudFormationOperations) DeployStackWithCallback(ctx context.C
 		return fmt.Errorf("failed to check if stack exists: %w", err)
 	}
 
+	// Capture start time to filter events to only this deployment
+	startTime := time.Now()
+
 	var operationType string
 	if exists {
 		// Update existing stack
@@ -200,7 +203,7 @@ func (cf *DefaultCloudFormationOperations) DeployStackWithCallback(ctx context.C
 	}
 
 	// Wait for operation to complete
-	err = cf.WaitForStackOperation(ctx, input.StackName, eventCallback)
+	err = cf.WaitForStackOperation(ctx, input.StackName, startTime, eventCallback)
 	if err != nil {
 		return fmt.Errorf("stack %s operation failed: %w", operationType, err)
 	}
@@ -484,7 +487,7 @@ func (cf *DefaultCloudFormationOperations) DescribeStackEvents(ctx context.Conte
 
 // WaitForStackOperation waits for a CloudFormation stack operation to complete,
 // calling the provided callback for each new event
-func (cf *DefaultCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, eventCallback func(StackEvent)) error {
+func (cf *DefaultCloudFormationOperations) WaitForStackOperation(ctx context.Context, stackName string, startTime time.Time, eventCallback func(StackEvent)) error {
 	const pollInterval = 5 * time.Second
 	seenEvents := make(map[string]bool)
 
@@ -502,8 +505,13 @@ func (cf *DefaultCloudFormationOperations) WaitForStackOperation(ctx context.Con
 		}
 
 		// Process new events (events are returned in reverse chronological order)
+		// Only show events from the current deployment (after startTime)
 		for i := len(events) - 1; i >= 0; i-- {
 			event := events[i]
+			// Filter events to only those from current deployment
+			if event.Timestamp.Before(startTime) {
+				continue
+			}
 			if !seenEvents[event.EventId] {
 				seenEvents[event.EventId] = true
 				if eventCallback != nil {

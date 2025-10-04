@@ -424,7 +424,7 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	mockCfnOps.On("ExecuteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
 	// Mock wait for stack operation
-	mockCfnOps.On("WaitForStackOperation", mock.Anything, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
+	mockCfnOps.On("WaitForStackOperation", mock.Anything, "test-stack", mock.AnythingOfType("time.Time"), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Mock delete changeset (cleanup after successful deployment - both differ and deployer delete changesets)
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)

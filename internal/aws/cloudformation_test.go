@@ -402,7 +402,7 @@ func TestDeployStackWithCallback_Success(t *testing.T) {
 				StackName:         aws.String("callback-stack"),
 				LogicalResourceId: aws.String("callback-stack"),
 				ResourceType:      aws.String("AWS::CloudFormation::Stack"),
-				Timestamp:         aws.Time(time.Now()),
+				Timestamp:         aws.Time(time.Now().Add(time.Second)),
 				ResourceStatus:    types.ResourceStatusCreateComplete,
 			},
 		},
@@ -416,6 +416,103 @@ func TestDeployStackWithCallback_Success(t *testing.T) {
 	assert.Len(t, capturedEvents, 1)
 	assert.Equal(t, "event-1", capturedEvents[0].EventId)
 	assert.Equal(t, "callback-stack", capturedEvents[0].StackName)
+	mockClient.AssertExpectations(t)
+}
+
+func TestWaitForStackOperation_FiltersEventsByStartTime(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockCloudFormationClient{}
+	cfOps := NewCloudFormationOperationsWithClient(mockClient)
+
+	stackName := "filter-test-stack"
+	startTime := time.Now()
+
+	// Create events: some before startTime, some after
+	oldEvent1 := types.StackEvent{
+		EventId:           aws.String("old-event-1"),
+		StackName:         aws.String(stackName),
+		LogicalResourceId: aws.String("VPC"),
+		ResourceType:      aws.String("AWS::EC2::VPC"),
+		Timestamp:         aws.Time(startTime.Add(-2 * time.Hour)), // 2 hours before
+		ResourceStatus:    types.ResourceStatusCreateComplete,
+	}
+
+	oldEvent2 := types.StackEvent{
+		EventId:           aws.String("old-event-2"),
+		StackName:         aws.String(stackName),
+		LogicalResourceId: aws.String("Subnet"),
+		ResourceType:      aws.String("AWS::EC2::Subnet"),
+		Timestamp:         aws.Time(startTime.Add(-1 * time.Minute)), // 1 minute before
+		ResourceStatus:    types.ResourceStatusCreateComplete,
+	}
+
+	newEvent1 := types.StackEvent{
+		EventId:           aws.String("new-event-1"),
+		StackName:         aws.String(stackName),
+		LogicalResourceId: aws.String("SecurityGroup"),
+		ResourceType:      aws.String("AWS::EC2::SecurityGroup"),
+		Timestamp:         aws.Time(startTime.Add(1 * time.Second)), // 1 second after
+		ResourceStatus:    types.ResourceStatusCreateInProgress,
+	}
+
+	newEvent2 := types.StackEvent{
+		EventId:           aws.String("new-event-2"),
+		StackName:         aws.String(stackName),
+		LogicalResourceId: aws.String(stackName),
+		ResourceType:      aws.String("AWS::CloudFormation::Stack"),
+		Timestamp:         aws.Time(startTime.Add(10 * time.Second)), // 10 seconds after
+		ResourceStatus:    types.ResourceStatusCreateComplete,
+	}
+
+	// Mock GetStack to return completed status
+	completedStack := &cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{
+			{
+				StackName:    aws.String(stackName),
+				StackStatus:  types.StackStatusCreateComplete,
+				CreationTime: aws.Time(startTime),
+			},
+		},
+	}
+	mockClient.On("DescribeStacks", ctx, mock.MatchedBy(func(input *cloudformation.DescribeStacksInput) bool {
+		return aws.ToString(input.StackName) == stackName
+	})).Return(completedStack, nil)
+
+	// Mock DescribeStackEvents to return all events (old and new)
+	eventsOutput := &cloudformation.DescribeStackEventsOutput{
+		StackEvents: []types.StackEvent{
+			newEvent2, // Most recent first (reverse chronological)
+			newEvent1,
+			oldEvent2,
+			oldEvent1,
+		},
+	}
+	mockClient.On("DescribeStackEvents", ctx, mock.AnythingOfType("*cloudformation.DescribeStackEventsInput")).
+		Return(eventsOutput, nil)
+
+	// Capture events passed to callback
+	var capturedEvents []StackEvent
+	eventCallback := func(event StackEvent) {
+		capturedEvents = append(capturedEvents, event)
+	}
+
+	err := cfOps.WaitForStackOperation(ctx, stackName, startTime, eventCallback)
+
+	require.NoError(t, err)
+
+	// Should only capture the 2 new events, not the 2 old events
+	assert.Len(t, capturedEvents, 2, "Should only capture events after startTime")
+
+	// Verify the captured events are the new ones (in chronological order)
+	assert.Equal(t, "new-event-1", capturedEvents[0].EventId)
+	assert.Equal(t, "new-event-2", capturedEvents[1].EventId)
+
+	// Verify old events were NOT captured
+	for _, event := range capturedEvents {
+		assert.NotEqual(t, "old-event-1", event.EventId)
+		assert.NotEqual(t, "old-event-2", event.EventId)
+	}
+
 	mockClient.AssertExpectations(t)
 }
 

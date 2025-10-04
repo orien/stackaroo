@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
@@ -199,6 +200,9 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	// Execute the changeset
 	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
 
+	// Capture start time to filter events to only this deployment
+	startTime := time.Now()
+
 	err = cfnOps.ExecuteChangeSet(ctx, changeSetInfo.ChangeSetID)
 	if err != nil {
 		// Clean up changeset on failure
@@ -218,7 +222,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		)
 	}
 
-	err = cfnOps.WaitForStackOperation(ctx, stack.Name, eventCallback)
+	err = cfnOps.WaitForStackOperation(ctx, stack.Name, startTime, eventCallback)
 	if err != nil {
 		return fmt.Errorf("stack deployment failed: %w", err)
 	}

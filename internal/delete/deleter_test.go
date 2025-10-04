@@ -53,7 +53,7 @@ func TestDeleteStack_StackExists_UserConfirms_Success(t *testing.T) {
 	mockCfnOps.On("DeleteStack", ctx, deleteInput).Return(nil)
 
 	// Set up mock for waiting for deletion
-	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
+	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("time.Time"), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Set the mock prompter
 	prompt.SetPrompter(mockPrompter)
@@ -198,7 +198,7 @@ func TestDeleteSingleStack_Success(t *testing.T) {
 		Description: "Test stack",
 	}, nil)
 	mockCfnOps.On("DeleteStack", ctx, aws.DeleteStackInput{StackName: "test-stack"}).Return(nil)
-	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
+	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("time.Time"), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Mock prompt for confirmation
 	mockPrompter := &prompt.MockPrompter{}
@@ -352,7 +352,7 @@ func TestDeleteAllStacks_Success(t *testing.T) {
 			Description: "Test stack",
 		}, nil)
 		mockCfnOps.On("DeleteStack", ctx, aws.DeleteStackInput{StackName: stackName}).Return(nil)
-		mockCfnOps.On("WaitForStackOperation", ctx, stackName, mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
+		mockCfnOps.On("WaitForStackOperation", ctx, stackName, mock.AnythingOfType("time.Time"), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 	}
 
 	// Mock prompt for confirmation
@@ -624,7 +624,7 @@ func TestDeleteStack_WaitForOperationFails(t *testing.T) {
 	mockCfnOps.On("DeleteStack", ctx, deleteInput).Return(nil)
 
 	// Set up mock for waiting for deletion failure
-	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("timeout error"))
+	mockCfnOps.On("WaitForStackOperation", ctx, "test-stack", mock.AnythingOfType("time.Time"), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("timeout error"))
 
 	// Set the mock prompter
 	originalPrompter := prompt.GetDefaultPrompter()
