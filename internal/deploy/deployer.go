@@ -93,8 +93,6 @@ func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) err
 
 // deployNewStack handles deployment of new stacks using direct creation
 func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, cfnOps aws.CloudFormationOperations) error {
-	fmt.Printf("=== Creating new stack %s ===\n\n", stack.Name)
-
 	// Build diff result for new stack preview
 	diffResult := &diff.Result{
 		StackName:   stack.Name,
@@ -181,8 +179,6 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 // deployWithChangeSet handles deployment using changeset preview + execution
 func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.Stack, cfnOps aws.CloudFormationOperations) error {
 	// Create differ for consistent change display
-	fmt.Printf("=== Calculating changes for stack %s ===\n", stack.Name)
-
 	differ := diff.NewStackDiffer(d.clientFactory)
 
 	// Generate diff result using the same system as 'stackaroo diff'
@@ -195,8 +191,6 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 
 	// Show preview using interactive viewer with confirmation
 	if diffResult.HasChanges() {
-		fmt.Printf("=== Preview changes for stack %s ===\n\n", stack.Name)
-
 		message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
 		confirmed, err := d.confirmFunc(diffResult, message)
 		if err != nil {
@@ -229,8 +223,6 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	changeSetInfo := diffResult.ChangeSet
 
 	// Execute the changeset
-	fmt.Printf("=== Deploying stack %s ===\n", stack.Name)
-
 	// Capture start time to filter events to only this deployment
 	startTime := time.Now()
 
