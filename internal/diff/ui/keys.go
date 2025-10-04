@@ -44,16 +44,16 @@ func defaultKeyMap(confirmMode bool) keyMap {
 	// Mode-specific keybindings
 	if confirmMode {
 		km.Quit = key.NewBinding(
-			key.WithKeys("q", "esc"),
+			key.WithKeys("q", "esc", "ctrl+c"),
 			key.WithHelp("q/esc", "cancel"),
 		)
 		km.Confirm = key.NewBinding(
-			key.WithKeys("enter", "y"),
-			key.WithHelp("enter/y", "confirm & deploy"),
+			key.WithKeys("y"),
+			key.WithHelp("y", "confirm & deploy"),
 		)
 		km.Cancel = key.NewBinding(
-			key.WithKeys("n"),
-			key.WithHelp("n", "cancel"),
+			key.WithKeys("n", "enter"),
+			key.WithHelp("n/enter", "cancel"),
 		)
 	} else {
 		km.Quit = key.NewBinding(

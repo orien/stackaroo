@@ -247,69 +247,65 @@ func (m Model) renderShortHelp() string {
 	return m.help.View(combinedKeyMap{app: m.keys, viewport: m.viewportKeys})
 }
 
-// renderConfirmationPrompt renders a prominent confirmation prompt
+// renderConfirmationPrompt renders a minimal inline confirmation prompt
 func (m Model) renderConfirmationPrompt() string {
-	var s strings.Builder
-
-	// Build change summary
+	// Build compact change summary
 	summary := m.buildChangeSummary()
 
-	// Render prominent confirmation box
-	promptStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("11")). // Yellow
-		Padding(1, 2).
-		Bold(true)
+	// Create inline prompt with safe default (Enter = cancel)
+	questionMark := m.styles.Modified.Render("?")
+	promptText := lipgloss.NewStyle().Bold(true).Render("Deploy these changes?")
+	acceptKeys := m.styles.Success.Render("y")
+	cancelKeys := m.styles.Subtle.Render("n/enter/esc")
 
-	prompt := lipgloss.JoinVertical(
+	promptLine := fmt.Sprintf("%s %s %s to deploy, %s to cancel", questionMark, promptText, acceptKeys, cancelKeys)
+
+	// Navigation hints on second line
+	hints := m.styles.Subtle.Render("↑↓/jk: scroll  •  tab: sections  •  ?: help")
+
+	footer := lipgloss.JoinVertical(
 		lipgloss.Left,
-		"⚠  DEPLOYMENT CONFIRMATION",
-		"",
 		summary,
-		"",
-		"Press [Enter] or [Y] to deploy  •  Press [N] to cancel",
+		promptLine,
+		hints,
 	)
 
-	s.WriteString(promptStyle.Render(prompt))
-	s.WriteString("\n\n")
-
-	// Add navigation hints below
-	hints := "↑↓/jk: scroll  •  tab: sections  •  ?: help"
-	s.WriteString(m.styles.Subtle.Render(hints))
-
-	return s.String()
+	return m.styles.Footer.Render(footer)
 }
 
-// buildChangeSummary creates a summary of changes
+// buildChangeSummary creates a compact summary of changes for inline display
 func (m Model) buildChangeSummary() string {
 	if !m.result.StackExists {
-		return "Creating new stack: " + m.result.StackName
+		return m.styles.StatusNew.Render("New stack")
 	}
 
 	var parts []string
 
+	// Resource changes (compact format)
 	if m.result.TemplateChange != nil && m.result.TemplateChange.HasChanges {
 		rc := m.result.TemplateChange.ResourceCount
 		if rc.Added > 0 || rc.Modified > 0 || rc.Removed > 0 {
-			parts = append(parts, m.styles.Added.Render("+"+fmt.Sprintf("%d", rc.Added)))
-			parts = append(parts, m.styles.Modified.Render("~"+fmt.Sprintf("%d", rc.Modified)))
-			parts = append(parts, m.styles.Removed.Render("-"+fmt.Sprintf("%d", rc.Removed)))
+			parts = append(parts,
+				m.styles.Added.Render(fmt.Sprintf("+%d", rc.Added)),
+				m.styles.Modified.Render(fmt.Sprintf("~%d", rc.Modified)),
+				m.styles.Removed.Render(fmt.Sprintf("-%d", rc.Removed)),
+			)
 		}
 	}
 
+	// Parameters and tags (compact)
 	if len(m.result.ParameterDiffs) > 0 {
-		parts = append(parts, fmt.Sprintf("%d parameter changes", len(m.result.ParameterDiffs)))
+		parts = append(parts, fmt.Sprintf("%dp", len(m.result.ParameterDiffs)))
 	}
-
 	if len(m.result.TagDiffs) > 0 {
-		parts = append(parts, fmt.Sprintf("%d tag changes", len(m.result.TagDiffs)))
+		parts = append(parts, fmt.Sprintf("%dt", len(m.result.TagDiffs)))
 	}
 
 	if len(parts) == 0 {
-		return "Updating stack: " + m.result.StackName
+		return m.styles.Subtle.Render("No changes")
 	}
 
-	return "Changes: " + strings.Join(parts, " ")
+	return strings.Join(parts, " ")
 }
 
 // renderFullHelp renders the full help view using bubbles help component
@@ -419,7 +415,7 @@ func (m Model) getFooterHeight() int {
 		return 12 // Approximate height of full help
 	}
 	if m.mode == Confirmation {
-		return 8 // Confirmation box height
+		return 3 // Minimal inline confirmation prompt (summary + prompt + hints)
 	}
 	return 3 // Section nav + help hints + spacing
 }
