@@ -30,6 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect
+	github.com/charmbracelet/bubbles/v2 v2.0.0-beta.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.2 // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.14-0.20250505150409-97991a1f17d1 // indirect

@@ -7,6 +7,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/orien/stackaroo/internal/diff"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -79,41 +80,32 @@ func TestSection_Structure(t *testing.T) {
 	assert.Equal(t, 42, section.StartLine)
 }
 
-func TestModel_ScrollLogic(t *testing.T) {
-	// Test scroll methods without creating full Model
-	t.Run("scrollUp from middle", func(t *testing.T) {
-		m := Model{yOffset: 10}
-		m.scrollUp(3)
-		assert.Equal(t, 7, m.yOffset)
-	})
-
-	t.Run("scrollUp past zero", func(t *testing.T) {
-		m := Model{yOffset: 5}
-		m.scrollUp(10)
-		assert.Equal(t, 0, m.yOffset, "should not scroll past 0")
-	})
-
-	t.Run("scrollDown from zero", func(t *testing.T) {
-		m := Model{
-			yOffset:        0,
-			contentLines:   make([]string, 100),
-			viewportHeight: 20,
+// TestModel_ViewportIntegration verifies that viewport component is properly integrated
+func TestModel_ViewportIntegration(t *testing.T) {
+	t.Run("viewport is initialized with model", func(t *testing.T) {
+		// Create a model with a minimal diff result
+		result := &diff.Result{
+			StackName:   "test-stack",
+			Context:     "dev",
+			StackExists: true,
 		}
-		m.scrollDown(5)
-		assert.Equal(t, 5, m.yOffset)
-	})
 
-	t.Run("scrollDown past max", func(t *testing.T) {
-		m := Model{
-			yOffset:        0,
-			contentLines:   make([]string, 100),
-			viewportHeight: 20,
-		}
-		m.scrollDown(200)
-		maxOffset := 100 - 20
-		assert.Equal(t, maxOffset, m.yOffset, "should not scroll past max")
+		m := NewModel(result, ViewOnly)
+
+		// Verify viewport keys are initialized
+		assert.NotEmpty(t, m.viewportKeys.Up.Keys(), "viewport should have up key bindings")
+		assert.NotEmpty(t, m.viewportKeys.Down.Keys(), "viewport should have down key bindings")
+		assert.NotEmpty(t, m.viewportKeys.PageUp.Keys(), "viewport should have page up key bindings")
+		assert.NotEmpty(t, m.viewportKeys.PageDown.Keys(), "viewport should have page down key bindings")
+
+		// Verify model is properly initialized
+		assert.False(t, m.ready, "model should not be ready before window size")
+		assert.Equal(t, ViewOnly, m.mode)
+		assert.NotNil(t, m.help, "help component should be initialized")
 	})
 }
+
+// TestModel_ScrollLogic removed - scrolling is now handled by the viewport component
 
 func TestModel_SectionNavigation(t *testing.T) {
 	t.Run("nextSection wraps around", func(t *testing.T) {
@@ -201,10 +193,5 @@ func TestModel_HeightCalculations(t *testing.T) {
 	})
 }
 
-// TestModel_RenderHelpers removed - causes hangs due to terminal detection in lipgloss
-
-// TestModel_ViewportRendering removed - causes hangs due to terminal detection in lipgloss
-
-// TestModel_ScrollToSection removed - causes hangs due to terminal detection in lipgloss
-
-// TestModel_UpdateContent removed - causes hangs due to terminal detection in lipgloss
+// Additional rendering tests removed - terminal detection in lipgloss can cause hangs in tests
+// Viewport scrolling is now handled by the bubbles/viewport component

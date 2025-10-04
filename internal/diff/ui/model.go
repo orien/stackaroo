@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/v2/help"
+	"github.com/charmbracelet/bubbles/v2/key"
+	"github.com/charmbracelet/bubbles/v2/viewport"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/orien/stackaroo/internal/diff"
@@ -37,12 +40,9 @@ type Model struct {
 	result   *diff.Result
 	sections []Section
 
-	// Viewport state
-	content        string   // Full rendered content
-	contentLines   []string // Content split into lines
-	yOffset        int      // Current scroll position
-	viewportWidth  int
-	viewportHeight int
+	// Bubbles components
+	viewport viewport.Model
+	help     help.Model
 
 	// State
 	mode          ViewMode
@@ -56,21 +56,26 @@ type Model struct {
 	cancelled     bool // User cancelled (for Confirmation mode)
 	useColour     bool
 	styles        *StyleSet
-	keys          KeyMap
+	keys          keyMap
+	viewportKeys  viewport.KeyMap
 }
 
 // NewModel creates a new interactive diff viewer model
 func NewModel(result *diff.Result, mode ViewMode) Model {
 	useColour := shouldUseColour()
 
-	return Model{
-		result:    result,
-		sections:  buildSections(result),
-		mode:      mode,
-		useColour: useColour,
-		styles:    NewStyleSet(useColour),
-		keys:      DefaultKeyMap(mode == Confirmation),
+	m := Model{
+		result:       result,
+		sections:     buildSections(result),
+		mode:         mode,
+		useColour:    useColour,
+		styles:       NewStyleSet(useColour),
+		keys:         defaultKeyMap(mode == Confirmation),
+		viewportKeys: viewport.DefaultKeyMap(),
+		help:         help.New(),
 	}
+
+	return m
 }
 
 // Init initialises the model
@@ -82,82 +87,77 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle global keys first
-		switch msg.String() {
-		case "q", "esc", "ctrl+c":
+		// Handle quit/cancel
+		if key.Matches(msg, m.keys.Quit) {
 			m.quitting = true
 			if m.mode == Confirmation {
 				m.cancelled = true
 			}
 			return m, tea.Quit
+		}
 
-		case "?":
+		// Handle help toggle
+		if key.Matches(msg, m.keys.Help) {
 			m.showHelp = !m.showHelp
+			m.help.ShowAll = m.showHelp
 			return m, nil
+		}
 
-		case "enter", "y":
-			if m.mode == Confirmation {
+		// Handle confirmation mode actions
+		if m.mode == Confirmation {
+			if key.Matches(msg, m.keys.Confirm) {
 				m.confirmed = true
 				m.quitting = true
 				return m, tea.Quit
 			}
-
-		case "n":
-			if m.mode == Confirmation {
+			if key.Matches(msg, m.keys.Cancel) {
 				m.cancelled = true
 				m.quitting = true
 				return m, tea.Quit
 			}
+		}
 
 		// Section navigation
-		case "tab", "right", "l":
+		if key.Matches(msg, m.keys.NextSection) {
 			m.nextSection()
 			return m, nil
-
-		case "shift+tab", "left", "h":
+		}
+		if key.Matches(msg, m.keys.PrevSection) {
 			m.prevSection()
 			return m, nil
-
-		// Viewport scrolling
-		case "up", "k":
-			m.scrollUp(1)
-
-		case "down", "j":
-			m.scrollDown(1)
-
-		case "pgup", "b":
-			m.scrollUp(m.viewportHeight)
-
-		case "pgdown", "f", " ":
-			m.scrollDown(m.viewportHeight)
-
-		case "u", "ctrl+u":
-			m.scrollUp(m.viewportHeight / 2)
-
-		case "d", "ctrl+d":
-			m.scrollDown(m.viewportHeight / 2)
-
-		case "home", "g":
-			m.yOffset = 0
-
-		case "end", "G":
-			m.yOffset = max(0, len(m.contentLines)-m.viewportHeight)
 		}
+
+		// Delegate all other key handling to viewport (scrolling, etc.)
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 
+		headerHeight := m.getHeaderHeight()
+		footerHeight := m.getFooterHeight()
+		verticalMarginHeight := headerHeight + footerHeight
+
 		if !m.ready {
-			m.viewportHeight = msg.Height - m.getHeaderHeight() - m.getFooterHeight()
-			m.viewportWidth = msg.Width
+			m.viewport = viewport.New()
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - verticalMarginHeight)
+			m.viewport.YPosition = headerHeight
 			m.ready = true
 			m.updateContent()
 		} else {
-			m.viewportHeight = msg.Height - m.getHeaderHeight() - m.getFooterHeight()
-			m.viewportWidth = msg.Width
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - verticalMarginHeight)
+			m.viewport.YPosition = headerHeight
 			m.updateContent()
 		}
+
+		// Let viewport handle the size message for its internal state
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -176,7 +176,7 @@ func (m Model) View() string {
 	s.WriteString("\n")
 
 	// Content (viewport)
-	s.WriteString(m.renderViewport())
+	s.WriteString(m.viewport.View())
 	s.WriteString("\n")
 
 	// Footer
@@ -214,24 +214,6 @@ func (m Model) renderHeader() string {
 	return m.styles.Header.Render(header)
 }
 
-// renderViewport renders the visible portion of the content
-func (m Model) renderViewport() string {
-	if len(m.contentLines) == 0 {
-		return ""
-	}
-
-	start := m.yOffset
-	end := min(start+m.viewportHeight, len(m.contentLines))
-
-	if start >= len(m.contentLines) {
-		start = max(0, len(m.contentLines)-m.viewportHeight)
-		end = len(m.contentLines)
-	}
-
-	visibleLines := m.contentLines[start:end]
-	return strings.Join(visibleLines, "\n")
-}
-
 // renderFooter renders the footer section
 func (m Model) renderFooter() string {
 	if m.showHelp {
@@ -258,16 +240,11 @@ func (m Model) renderFooter() string {
 	return m.styles.Footer.Render(footer)
 }
 
-// renderShortHelp renders short help hints
+// renderShortHelp renders short help hints using bubbles help component
 func (m Model) renderShortHelp() string {
-	var hints []string
-
-	hints = append(hints, "↑↓/jk: scroll")
-	hints = append(hints, "tab/shift+tab: sections")
-	hints = append(hints, "?: help")
-	hints = append(hints, "q/esc: quit")
-
-	return strings.Join(hints, "  •  ")
+	m.help.ShowAll = false
+	// Combine our keys with viewport keys for help display
+	return m.help.View(combinedKeyMap{app: m.keys, viewport: m.viewportKeys})
 }
 
 // renderConfirmationPrompt renders a prominent confirmation prompt
@@ -335,32 +312,9 @@ func (m Model) buildChangeSummary() string {
 	return "Changes: " + strings.Join(parts, " ")
 }
 
-// renderFullHelp renders the full help view
+// renderFullHelp renders the full help view using bubbles help component
 func (m Model) renderFullHelp() string {
-	var s strings.Builder
-
-	s.WriteString(m.styles.SectionHeader.Render("Keyboard Shortcuts"))
-	s.WriteString("\n\n")
-
-	s.WriteString("Navigation:\n")
-	s.WriteString("  ↑/k       scroll up         ↓/j       scroll down\n")
-	s.WriteString("  pgup/b    page up           pgdn/f    page down\n")
-	s.WriteString("  u         half page up      d         half page down\n")
-	s.WriteString("  g/home    go to top         G/end     go to bottom\n\n")
-
-	s.WriteString("Sections:\n")
-	s.WriteString("  tab/→/l   next section      shift+tab/←/h   previous section\n\n")
-
-	if m.mode == Confirmation {
-		s.WriteString("Actions:\n")
-		s.WriteString("  enter/y   confirm & deploy  n         cancel\n")
-		s.WriteString("  q/esc     cancel\n\n")
-	} else {
-		s.WriteString("Actions:\n")
-		s.WriteString("  q/esc     quit              ?         toggle help\n\n")
-	}
-
-	return s.String()
+	return m.help.View(combinedKeyMap{app: m.keys, viewport: m.viewportKeys})
 }
 
 // renderSectionNav renders the section navigation indicator
@@ -389,8 +343,8 @@ func (m Model) renderSectionNav() string {
 
 // updateContent updates the viewport content
 func (m *Model) updateContent() {
-	m.content = m.renderContent()
-	m.contentLines = strings.Split(m.content, "\n")
+	content := m.renderContent()
+	m.viewport.SetContent(content)
 }
 
 // renderContent renders the main diff content
@@ -402,7 +356,7 @@ func (m Model) renderContent() string {
 		// Add visual separator between sections
 		if i > 0 {
 			s.WriteString("\n")
-			s.WriteString(m.styles.Separator.Render(strings.Repeat("─", m.viewportWidth)))
+			s.WriteString(m.styles.Separator.Render(strings.Repeat("─", m.viewport.Width())))
 			s.WriteString("\n\n")
 		}
 
@@ -422,17 +376,6 @@ func (m Model) renderContent() string {
 	}
 
 	return s.String()
-}
-
-// scrollUp scrolls the viewport up by n lines
-func (m *Model) scrollUp(n int) {
-	m.yOffset = max(0, m.yOffset-n)
-}
-
-// scrollDown scrolls the viewport down by n lines
-func (m *Model) scrollDown(n int) {
-	maxOffset := max(0, len(m.contentLines)-m.viewportHeight)
-	m.yOffset = min(maxOffset, m.yOffset+n)
 }
 
 // nextSection moves to the next section
@@ -460,8 +403,8 @@ func (m *Model) prevSection() {
 func (m *Model) scrollToSection() {
 	if m.activeSection >= 0 && m.activeSection < len(m.sections) {
 		section := m.sections[m.activeSection]
-		// Scroll to section start, but ensure we don't scroll past the end
-		m.yOffset = min(section.StartLine, max(0, len(m.contentLines)-m.viewportHeight))
+		// Scroll to section start line
+		m.viewport.SetYOffset(section.StartLine)
 	}
 }
 
@@ -505,4 +448,41 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// combinedKeyMap combines our application keys with viewport keys for help display
+type combinedKeyMap struct {
+	app      keyMap
+	viewport viewport.KeyMap
+}
+
+// ShortHelp returns keybindings for short help
+func (c combinedKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		c.viewport.Up,
+		c.viewport.Down,
+		c.app.NextSection,
+		c.app.Help,
+		c.app.Quit,
+	}
+}
+
+// FullHelp returns keybindings for full help
+func (c combinedKeyMap) FullHelp() [][]key.Binding {
+	viewportKeys := []key.Binding{
+		c.viewport.Up,
+		c.viewport.Down,
+		c.viewport.PageUp,
+		c.viewport.PageDown,
+		c.viewport.HalfPageUp,
+		c.viewport.HalfPageDown,
+	}
+
+	appKeys := c.app.FullHelp()
+
+	// Combine viewport keys with app keys
+	result := [][]key.Binding{viewportKeys}
+	result = append(result, appKeys...)
+
+	return result
 }
