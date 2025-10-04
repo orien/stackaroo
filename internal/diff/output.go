@@ -97,40 +97,11 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 
 // formatTemplateChangesText formats template change information
 func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Template Changes:"))
-	output.WriteString("\n")
+	output.WriteString(styles.SectionHeader.Render("Template"))
+	output.WriteString("\n\n")
 
-	if r.TemplateChange.HasChanges {
-		checkmark := styles.Modified.Render("✓")
-		fmt.Fprintf(output, "%s Template has been modified\n", checkmark)
-
-		if r.TemplateChange.ResourceCount.Added > 0 ||
-			r.TemplateChange.ResourceCount.Modified > 0 ||
-			r.TemplateChange.ResourceCount.Removed > 0 {
-			output.WriteString("\nResource changes:\n")
-			if r.TemplateChange.ResourceCount.Added > 0 {
-				symbol := styles.Added.Render("+")
-				count := styles.Value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Added))
-				fmt.Fprintf(output, "  %s %s resources to be added\n", symbol, count)
-			}
-			if r.TemplateChange.ResourceCount.Modified > 0 {
-				symbol := styles.Modified.Render("~")
-				count := styles.Value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Modified))
-				fmt.Fprintf(output, "  %s %s resources to be modified\n", symbol, count)
-			}
-			if r.TemplateChange.ResourceCount.Removed > 0 {
-				symbol := styles.Removed.Render("-")
-				count := styles.Value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Removed))
-				fmt.Fprintf(output, "  %s %s resources to be removed\n", symbol, count)
-			}
-		}
-
-		if r.TemplateChange.Diff != "" {
-			output.WriteString("\n")
-			output.WriteString(styles.SubSection.Render("Template diff:"))
-			output.WriteString("\n")
-			output.WriteString(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles))
-		}
+	if r.TemplateChange.HasChanges && r.TemplateChange.Diff != "" {
+		output.WriteString(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles))
 	} else {
 		crossmark := styles.StatusNoChange.Render("✗")
 		fmt.Fprintf(output, "%s No template changes\n", crossmark)
@@ -197,7 +168,7 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 
 	if len(r.ChangeSet.Changes) > 0 {
 		output.WriteString("\n")
-		output.WriteString(styles.SubSection.Render("Resource Changes:"))
+		output.WriteString(styles.SubSection.Render("Resource changes:"))
 		output.WriteString("\n")
 		for _, change := range r.ChangeSet.Changes {
 			symbol := styles.GetChangeSetSymbol(change.Action)

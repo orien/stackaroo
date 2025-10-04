@@ -96,10 +96,8 @@ func formatTemplateSection(tc *diff.TemplateChange) string {
 	useColour := diff.ShouldUseColour()
 	styles := diff.NewStyles(useColour)
 
-	if tc.HasChanges {
-		if tc.Diff != "" {
-			s.WriteString(diff.ColorizeUnifiedDiff(tc.Diff, styles))
-		}
+	if tc.HasChanges && tc.Diff != "" {
+		s.WriteString(diff.ColorizeUnifiedDiff(tc.Diff, styles))
 	} else {
 		s.WriteString(styles.Subtle.Render("✗ No template changes"))
 	}

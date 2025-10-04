@@ -104,11 +104,7 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 	assert.Contains(t, output, "Status: CHANGES DETECTED")
 
 	// Template changes
-	assert.Contains(t, output, "Template Changes:")
-	assert.Contains(t, output, "✓ Template has been modified")
-	assert.Contains(t, output, "+ 2 resources to be added")
-	assert.Contains(t, output, "~ 1 resources to be modified")
-	assert.Contains(t, output, "- 1 resources to be removed")
+	assert.Contains(t, output, "Template")
 	assert.Contains(t, output, "Template has modifications")
 
 	// Parameter changes
@@ -138,20 +134,20 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 		{
 			name:        "template only",
 			options:     Options{TemplateOnly: true},
-			expected:    []string{"Template Changes:"},
+			expected:    []string{"Template"},
 			notExpected: []string{"Parameter Changes:", "Tag Changes:"},
 		},
 		{
 			name:        "parameters only",
 			options:     Options{ParametersOnly: true},
 			expected:    []string{"Parameter Changes:"},
-			notExpected: []string{"Template Changes:", "Tag Changes:"},
+			notExpected: []string{"Template", "Tag Changes:"},
 		},
 		{
 			name:        "tags only",
 			options:     Options{TagsOnly: true},
 			expected:    []string{"Tag Changes:"},
-			notExpected: []string{"Template Changes:", "Parameter Changes:"},
+			notExpected: []string{"Template", "Parameter Changes:"},
 		},
 	}
 
@@ -220,12 +216,12 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 				HasChanges: false,
 			},
 			expectedOutput: []string{
-				"Template Changes:",
+				"Template",
 				"✗ No template changes",
 			},
 		},
 		{
-			name: "with changes and resource counts",
+			name: "with changes and diff",
 			templateChange: &TemplateChange{
 				HasChanges: true,
 				ResourceCount: struct{ Added, Modified, Removed int }{
@@ -234,25 +230,22 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 				Diff: "Template diff content here",
 			},
 			expectedOutput: []string{
-				"Template Changes:",
-				"✓ Template has been modified",
-				"+ 2 resources to be added",
-				"~ 1 resources to be modified",
-				"- 1 resources to be removed",
-				"Template diff:",
+				"Template",
 				"Template diff content here",
 			},
 		},
 		{
-			name: "with changes but no resource counts",
+			name: "with changes but no diff",
 			templateChange: &TemplateChange{
 				HasChanges: true,
 				ResourceCount: struct{ Added, Modified, Removed int }{
 					Added: 0, Modified: 0, Removed: 0,
 				},
+				Diff: "",
 			},
 			expectedOutput: []string{
-				"✓ Template has been modified",
+				"Template",
+				"✗ No template changes",
 			},
 		},
 	}
@@ -368,7 +361,7 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 	text := output.String()
 
 	assert.Contains(t, text, "CloudFormation Plan")
-	assert.Contains(t, text, "Resource Changes:")
+	assert.Contains(t, text, "Resource changes:")
 
 	// Check resource change formatting
 	assert.Contains(t, text, "  + NewBucket (AWS::S3::Bucket)")

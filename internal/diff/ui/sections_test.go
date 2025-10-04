@@ -449,8 +449,8 @@ func TestFormatTemplateSection_OnlyResourceCounts(t *testing.T) {
 
 	content := formatTemplateSection(tc)
 
-	// With no diff text, content should be empty
-	assert.Empty(t, content)
+	// With no diff text, shows no changes message even if HasChanges is true
+	assert.Contains(t, content, "No template changes")
 }
 
 func TestFormatChangeSetSection_WithoutPhysicalID(t *testing.T) {
