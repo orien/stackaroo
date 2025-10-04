@@ -149,8 +149,6 @@ func (r *Result) formatTagChangesText(output *strings.Builder) {
 func (r *Result) formatChangeSetText(output *strings.Builder) {
 	output.WriteString("AWS CloudFormation Preview:\n")
 	output.WriteString("---------------------------\n")
-	fmt.Fprintf(output, "ChangeSet ID: %s\n", r.ChangeSet.ChangeSetID)
-	fmt.Fprintf(output, "Status: %s\n", r.ChangeSet.Status)
 
 	if len(r.ChangeSet.Changes) > 0 {
 		output.WriteString("\nResource Changes:\n")
