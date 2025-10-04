@@ -14,8 +14,8 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/diff"
+	"github.com/orien/stackaroo/internal/diff/ui"
 	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/orien/stackaroo/internal/resolve"
 )
 
@@ -50,6 +50,7 @@ type StackDeployer struct {
 	clientFactory aws.ClientFactory
 	provider      config.ConfigProvider
 	resolver      resolve.Resolver
+	confirmFunc   func(*diff.Result, string) (bool, error) // Injectable confirmation function for testing
 }
 
 // NewStackDeployer creates a new StackDeployer
@@ -58,7 +59,13 @@ func NewStackDeployer(clientFactory aws.ClientFactory, provider config.ConfigPro
 		clientFactory: clientFactory,
 		provider:      provider,
 		resolver:      resolver,
+		confirmFunc:   ui.ShowDiffWithConfirmation, // Default to interactive UI confirmation
 	}
+}
+
+// SetConfirmFunc allows injection of a custom confirmation function for testing
+func (d *StackDeployer) SetConfirmFunc(fn func(*diff.Result, string) (bool, error)) {
+	d.confirmFunc = fn
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
@@ -86,29 +93,45 @@ func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) err
 
 // deployNewStack handles deployment of new stacks using direct creation
 func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, cfnOps aws.CloudFormationOperations) error {
-	fmt.Printf("=== Creating new stack %s ===\n", stack.Name)
+	fmt.Printf("=== Creating new stack %s ===\n\n", stack.Name)
 
-	// Show what will be created
-	fmt.Printf("This will create a new CloudFormation stack with:\n")
-	fmt.Printf("- Name: %s\n", stack.Name)
-	if len(stack.Parameters) > 0 {
-		fmt.Printf("- Parameters: %d\n", len(stack.Parameters))
+	// Build diff result for new stack preview
+	diffResult := &diff.Result{
+		StackName:   stack.Name,
+		Context:     stack.Context.Name,
+		StackExists: false,
 	}
-	if len(stack.Tags) > 0 {
-		fmt.Printf("- Tags: %d\n", len(stack.Tags))
-	}
-	fmt.Println()
 
-	// Prompt for confirmation before creating new resources
-	message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
-	confirmed, err := prompt.Confirm(message)
+	// Add parameters as new additions
+	for key, value := range stack.Parameters {
+		diffResult.ParameterDiffs = append(diffResult.ParameterDiffs, diff.ParameterDiff{
+			Key:           key,
+			ProposedValue: value,
+			ChangeType:    diff.ChangeTypeAdd,
+		})
+	}
+
+	// Add tags as new additions
+	for key, value := range stack.Tags {
+		diffResult.TagDiffs = append(diffResult.TagDiffs, diff.TagDiff{
+			Key:           key,
+			ProposedValue: value,
+			ChangeType:    diff.ChangeTypeAdd,
+		})
+	}
+
+	// Show preview using interactive viewer with confirmation
+	message := fmt.Sprintf("Do you want to create stack %s?", stack.Name)
+	confirmed, err := d.confirmFunc(diffResult, message)
 	if err != nil {
 		return fmt.Errorf("failed to get user confirmation: %w", err)
 	}
 	if !confirmed {
-		fmt.Printf("Stack creation cancelled for %s\n", stack.Name)
+		fmt.Printf("\nStack creation cancelled for %s\n", stack.Name)
 		return CancellationError{StackName: stack.Name}
 	}
+
+	fmt.Println() // Add spacing before deployment starts
 
 	// Convert parameters to AWS format
 	awsParams := make([]aws.Parameter, 0, len(stack.Parameters))
@@ -170,15 +193,12 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		return fmt.Errorf("failed to calculate changes: %w", err)
 	}
 
-	// Show preview using consistent formatting
+	// Show preview using interactive viewer with confirmation
 	if diffResult.HasChanges() {
-		fmt.Printf("Changes to be applied to stack %s:\n\n", stack.Name)
-		fmt.Print(diffResult.String())
-		fmt.Println()
+		fmt.Printf("=== Preview changes for stack %s ===\n\n", stack.Name)
 
-		// Prompt for user confirmation
 		message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
-		confirmed, err := prompt.Confirm(message)
+		confirmed, err := d.confirmFunc(diffResult, message)
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
@@ -192,9 +212,11 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 			if diffResult.ChangeSet != nil {
 				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 			}
-			fmt.Printf("Deployment cancelled for stack %s\n", stack.Name)
+			fmt.Printf("\nDeployment cancelled for stack %s\n", stack.Name)
 			return CancellationError{StackName: stack.Name}
 		}
+
+		fmt.Println() // Add spacing before deployment starts
 	} else {
 		fmt.Printf("No changes detected for stack %s\n", stack.Name)
 		return NoChangesError{StackName: stack.Name}

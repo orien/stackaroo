@@ -5,6 +5,7 @@ SPDX-License-Identifier: BSD-3-Clause
 package diff
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -190,8 +191,13 @@ func TestResult_FormatNewStackText(t *testing.T) {
 		},
 	}
 
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
 	var output strings.Builder
-	result.formatNewStackText(&output)
+	styles := newOutputStyles(false) // Use plain styles for testing
+	result.formatNewStackText(&output, styles)
 	text := output.String()
 
 	assert.Contains(t, text, "Parameters to be set:")
@@ -253,9 +259,14 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set NO_COLOR for plain output in tests
+			_ = os.Setenv("NO_COLOR", "1")
+			defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
 			result := &Result{TemplateChange: tt.templateChange}
 			var output strings.Builder
-			result.formatTemplateChangesText(&output)
+			styles := newOutputStyles(false) // Use plain styles for testing
+			result.formatTemplateChangesText(&output, styles)
 			text := output.String()
 
 			for _, expected := range tt.expectedOutput {
@@ -274,8 +285,13 @@ func TestResult_FormatParameterChangesText(t *testing.T) {
 		},
 	}
 
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
 	var output strings.Builder
-	result.formatParameterChangesText(&output)
+	styles := newOutputStyles(false) // Use plain styles for testing
+	result.formatParameterChangesText(&output, styles)
 	text := output.String()
 
 	assert.Contains(t, text, "Parameter Changes:")
@@ -293,8 +309,13 @@ func TestResult_FormatTagChangesText(t *testing.T) {
 		},
 	}
 
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
 	var output strings.Builder
-	result.formatTagChangesText(&output)
+	styles := newOutputStyles(false) // Use plain styles for testing
+	result.formatTagChangesText(&output, styles)
 	text := output.String()
 
 	assert.Contains(t, text, "Tag Changes:")
@@ -337,8 +358,13 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 		},
 	}
 
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
 	var output strings.Builder
-	result.formatChangeSetText(&output)
+	styles := newOutputStyles(false) // Use plain styles for testing
+	result.formatChangeSetText(&output, styles)
 	text := output.String()
 
 	assert.Contains(t, text, "AWS CloudFormation Preview:")
@@ -346,7 +372,7 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 
 	// Check resource change formatting
 	assert.Contains(t, text, "  + NewBucket (AWS::S3::Bucket)")
-	assert.Contains(t, text, "  ~ WebServer (AWS::EC2::Instance) [i-1234567890] - Replacement: True")
+	assert.Contains(t, text, "  ~ WebServer (AWS::EC2::Instance) [i-1234567890] - ⚠ Replacement: True")
 	assert.Contains(t, text, "  - OldQueue (AWS::SQS::Queue) [old-queue-url]")
 
 	// Check details
@@ -356,7 +382,11 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 }
 
 func TestResult_GetChangeSymbol(t *testing.T) {
-	result := &Result{}
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
+	styles := newOutputStyles(false) // Use plain styles for testing
 
 	tests := []struct {
 		action   string
@@ -371,7 +401,7 @@ func TestResult_GetChangeSymbol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.action, func(t *testing.T) {
-			symbol := result.getChangeSymbol(tt.action)
+			symbol := styles.getChangeSetSymbol(tt.action)
 			assert.Equal(t, tt.expected, symbol)
 		})
 	}

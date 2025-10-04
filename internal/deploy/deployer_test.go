@@ -13,8 +13,8 @@ import (
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
+	"github.com/orien/stackaroo/internal/diff"
 	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -27,6 +27,15 @@ func createMockDeployer(mockFactory aws.ClientFactory) *StackDeployer {
 	mockProvider := &config.MockConfigProvider{}
 	mockResolver := resolve.NewStackResolver(mockProvider, mockFactory)
 	return NewStackDeployer(mockFactory, mockProvider, mockResolver)
+}
+
+// createMockDeployerWithConfirm creates a deployer with injectable confirmation function
+func createMockDeployerWithConfirm(mockFactory aws.ClientFactory, confirmResult bool) *StackDeployer {
+	deployer := createMockDeployer(mockFactory)
+	deployer.SetConfirmFunc(func(result *diff.Result, message string) (bool, error) {
+		return confirmResult, nil
+	})
+	return deployer
 }
 
 func TestNewStackDeployer(t *testing.T) {
@@ -42,17 +51,6 @@ func TestNewStackDeployer(t *testing.T) {
 func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	// Test successful stack deployment
 	ctx := context.Background()
-
-	// Set up mock prompter for confirmation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (new stack creation requires confirmation)
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Create temporary template file
 	tmpDir := t.TempDir()
@@ -88,8 +86,8 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 			input.Capabilities[0] == "CAPABILITY_IAM"
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock CloudFormation operations and confirmation
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -108,20 +106,9 @@ func TestStackDeployer_DeployStack_Success(t *testing.T) {
 	// Verify
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
-	// Set up mock prompter for confirmation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (new stack creation requires confirmation)
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 	// Test deploy stack with empty template body
 	ctx := context.Background()
 
@@ -135,7 +122,8 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == ""
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock confirmation
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack with empty template body
 	stack := &model.Stack{
@@ -153,7 +141,6 @@ func TestStackDeployer_DeployStack_WithEmptyTemplate(t *testing.T) {
 	// Verify
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 // TestDeploySingleStack_ResolverError tests error handling when resolver fails
@@ -268,16 +255,6 @@ func TestDeployAllStacks_ProviderError(t *testing.T) {
 }
 
 func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
-	// Set up mock prompter for confirmation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (new stack creation requires confirmation)
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 	// Test deploy stack when AWS returns an error
 	ctx := context.Background()
 
@@ -299,8 +276,8 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 		return input.StackName == "test-stack" && input.TemplateBody == templateContent
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(errors.New("AWS deployment error"))
 
-	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock CloudFormation operations and confirmation
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack with template content
 	stack := &model.Stack{
@@ -321,7 +298,6 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 	assert.Contains(t, err.Error(), "AWS deployment error")
 
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 func TestStackDeployer_DeployStack_NoChanges(t *testing.T) {
@@ -378,16 +354,6 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	// Test successful deployment with changes
 	ctx := context.Background()
 
-	// Set up mock prompter to auto-confirm deployment
-	mockPrompter := &prompt.MockPrompter{}
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil).Once()
-
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
 	templateContent := `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"NewBucket": {"Type": "AWS::S3::Bucket"}}}`
 
 	// Set up mocks
@@ -432,8 +398,8 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	// Mock delete changeset (cleanup after successful deployment - both differ and deployer delete changesets)
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "test-changeset-id").Return(nil)
 
-	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock CloudFormation operations and confirmation
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -452,7 +418,6 @@ func TestStackDeployer_DeployStack_WithChanges(t *testing.T) {
 	assert.NoError(t, err)
 
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
@@ -478,8 +443,8 @@ func TestStackDeployer_ValidateTemplate_Success(t *testing.T) {
 	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockCfnOps.On("ValidateTemplate", ctx, templateContent).Return(nil)
 
-	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock CloudFormation operations and confirmation
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Execute
 	err = deployer.ValidateTemplate(ctx, templateFile)
@@ -537,17 +502,7 @@ func TestStackDeployer_ValidateTemplate_ValidationError(t *testing.T) {
 }
 
 func TestStackDeployer_DeployStack_WithYAMLTemplate(t *testing.T) {
-	// Set up mock prompter for confirmation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (new stack creation requires confirmation)
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
-	// Test deploying stack with YAML template content
+	// Test deploy stack with YAML template
 	ctx := context.Background()
 
 	templateContent := `AWSTemplateFormatVersion: '2010-09-09'
@@ -570,7 +525,7 @@ Resources:
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -588,23 +543,11 @@ Resources:
 	// Verify
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	// Test deployment with multiple parameters and tags
 	ctx := context.Background()
-
-	// Set up mock prompter for confirmation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (new stack creation requires confirmation)
-	// Business logic sends core message, prompter adds formatting
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(true, nil)
 
 	// Set up mocks
 	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
@@ -621,7 +564,7 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	}), mock.AnythingOfType("func(aws.StackEvent)")).Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	deployer := createMockDeployerWithConfirm(mockFactory, true)
 
 	// Create resolved stack with parameters and tags
 	stack := &model.Stack{
@@ -640,22 +583,12 @@ func TestStackDeployer_DeployStack_WithMultipleParametersAndTags(t *testing.T) {
 	// Verify
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 // TestDeployStack_NewStack_UserCancels tests cancellation during new stack creation
 func TestDeployStack_NewStack_UserCancels(t *testing.T) {
+	// Test new stack deployment when user cancels
 	ctx := context.Background()
-
-	// Set up mock prompter for cancellation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (user cancels)
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
 	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
@@ -663,8 +596,8 @@ func TestDeployStack_NewStack_UserCancels(t *testing.T) {
 	// Mock StackExists call (new stack)
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
-	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	// Create deployer with mock CloudFormation operations (user cancels)
+	deployer := createMockDeployerWithConfirm(mockFactory, false)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -686,29 +619,19 @@ func TestDeployStack_NewStack_UserCancels(t *testing.T) {
 	assert.ErrorAs(t, err, &cancellationErr)
 	assert.Equal(t, "test-stack", cancellationErr.StackName)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 // TestDeployStackWithFeedback_CancellationHandling tests that deployStackWithFeedback handles cancellation correctly
 func TestDeployStackWithFeedback_CancellationHandling(t *testing.T) {
+	// Test that cancellation is handled gracefully by deployStackWithFeedback
 	ctx := context.Background()
-
-	// Set up mock prompter for cancellation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (user cancels)
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
 	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
 	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(false, nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	deployer := createMockDeployerWithConfirm(mockFactory, false)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -727,22 +650,12 @@ func TestDeployStackWithFeedback_CancellationHandling(t *testing.T) {
 	// Verify that no error is returned (cancellation is handled gracefully)
 	assert.NoError(t, err)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }
 
 // TestDeployStack_ExistingStack_UserCancelsChangeset tests cancellation during changeset deployment
 func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
+	// Test existing stack update when user cancels the changeset
 	ctx := context.Background()
-
-	// Set up mock prompter for cancellation
-	mockPrompter := &prompt.MockPrompter{}
-	originalPrompter := prompt.GetDefaultPrompter()
-	prompt.SetPrompter(mockPrompter)
-	defer prompt.SetPrompter(originalPrompter)
-
-	// Mock user confirmation (user cancels changeset)
-	expectedMessage := "Do you want to apply these changes to stack test-stack?"
-	mockPrompter.On("Confirm", expectedMessage).Return(false, nil)
 
 	// Set up mocks
 	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
@@ -781,7 +694,7 @@ func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
 	mockCfnOps.On("DeleteChangeSet", mock.Anything, "changeset-123").Return(nil)
 
 	// Create deployer with mock CloudFormation operations
-	deployer := createMockDeployer(mockFactory)
+	deployer := createMockDeployerWithConfirm(mockFactory, false)
 
 	// Create resolved stack
 	stack := &model.Stack{
@@ -803,5 +716,4 @@ func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
 	assert.ErrorAs(t, err, &cancellationErr)
 	assert.Equal(t, "test-stack", cancellationErr.StackName)
 	mockCfnOps.AssertExpectations(t)
-	mockPrompter.AssertExpectations(t)
 }

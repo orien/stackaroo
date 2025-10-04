@@ -13,178 +13,227 @@ import (
 func (r *Result) toText() string {
 	var output strings.Builder
 
+	// Detect if we should use colour
+	useColour := shouldUseColour()
+	styles := newOutputStyles(useColour)
+
 	// Header
-	output.WriteString(fmt.Sprintf("Stack: %s (Context: %s)\n", r.StackName, r.Context))
-	output.WriteString(strings.Repeat("=", 50) + "\n\n")
+	header := fmt.Sprintf("Stack: %s (Context: %s)", r.StackName, r.Context)
+	output.WriteString(styles.header.Render(header))
+	output.WriteString("\n")
+	output.WriteString(styles.separator.Render(strings.Repeat("═", 60)))
+	output.WriteString("\n\n")
 
 	// Handle new stack case
 	if !r.StackExists {
-		output.WriteString("Status: NEW STACK\n")
+		statusLine := styles.statusNew.Render("Status: NEW STACK")
+		output.WriteString(statusLine)
+		output.WriteString("\n")
 		output.WriteString("This stack does not exist in AWS and will be created.\n\n")
-		r.formatNewStackText(&output)
+		r.formatNewStackText(&output, styles)
 		return output.String()
 	}
 
 	// Handle existing stack
 	if !r.HasChanges() {
-		output.WriteString("Status: NO CHANGES\n")
+		statusLine := styles.statusNoChange.Render("Status: NO CHANGES")
+		output.WriteString(statusLine)
+		output.WriteString("\n")
 		output.WriteString("The deployed stack matches your local configuration.\n")
 		return output.String()
 	}
 
-	output.WriteString("Status: CHANGES DETECTED\n\n")
+	statusLine := styles.statusChanges.Render("Status: CHANGES DETECTED")
+	output.WriteString(statusLine)
+	output.WriteString("\n\n")
 
 	// Template changes
 	if r.TemplateChange != nil && (!r.Options.ParametersOnly && !r.Options.TagsOnly) {
-		r.formatTemplateChangesText(&output)
+		r.formatTemplateChangesText(&output, styles)
 	}
 
 	// Parameter changes
 	if len(r.ParameterDiffs) > 0 && (!r.Options.TemplateOnly && !r.Options.TagsOnly) {
-		r.formatParameterChangesText(&output)
+		r.formatParameterChangesText(&output, styles)
 	}
 
 	// Tag changes
 	if len(r.TagDiffs) > 0 && (!r.Options.TemplateOnly && !r.Options.ParametersOnly) {
-		r.formatTagChangesText(&output)
+		r.formatTagChangesText(&output, styles)
 	}
 
 	// Changeset information
 	if r.ChangeSet != nil {
-		r.formatChangeSetText(&output)
+		r.formatChangeSetText(&output, styles)
 	}
 
 	return output.String()
 }
 
 // formatNewStackText formats output for a new stack
-func (r *Result) formatNewStackText(output *strings.Builder) {
+func (r *Result) formatNewStackText(output *strings.Builder, styles *OutputStyles) {
 	if len(r.ParameterDiffs) > 0 {
-		output.WriteString("Parameters to be set:\n")
+		output.WriteString(styles.sectionHeader.Render("Parameters to be set:"))
+		output.WriteString("\n")
 		for _, diff := range r.ParameterDiffs {
-			fmt.Fprintf(output, "  + %s: %s\n", diff.Key, diff.ProposedValue)
+			symbol := styles.added.Render("+")
+			key := styles.key.Render(diff.Key)
+			value := styles.value.Render(diff.ProposedValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
 		output.WriteString("\n")
 	}
 
 	if len(r.TagDiffs) > 0 {
-		output.WriteString("Tags to be set:\n")
+		output.WriteString(styles.sectionHeader.Render("Tags to be set:"))
+		output.WriteString("\n")
 		for _, diff := range r.TagDiffs {
-			fmt.Fprintf(output, "  + %s: %s\n", diff.Key, diff.ProposedValue)
+			symbol := styles.added.Render("+")
+			key := styles.key.Render(diff.Key)
+			value := styles.value.Render(diff.ProposedValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
 		output.WriteString("\n")
 	}
 }
 
 // formatTemplateChangesText formats template change information
-func (r *Result) formatTemplateChangesText(output *strings.Builder) {
-	output.WriteString("Template Changes:\n")
-	output.WriteString("-----------------\n")
+func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *OutputStyles) {
+	output.WriteString(styles.sectionHeader.Render("Template Changes:"))
+	output.WriteString("\n")
+	output.WriteString(styles.separator.Render(strings.Repeat("─", 17)))
+	output.WriteString("\n")
 
 	if r.TemplateChange.HasChanges {
-		output.WriteString("✓ Template has been modified\n")
+		checkmark := styles.modified.Render("✓")
+		fmt.Fprintf(output, "%s Template has been modified\n", checkmark)
 
 		if r.TemplateChange.ResourceCount.Added > 0 ||
 			r.TemplateChange.ResourceCount.Modified > 0 ||
 			r.TemplateChange.ResourceCount.Removed > 0 {
-			output.WriteString("Resource changes:\n")
+			output.WriteString("\nResource changes:\n")
 			if r.TemplateChange.ResourceCount.Added > 0 {
-				fmt.Fprintf(output, "  + %d resources to be added\n", r.TemplateChange.ResourceCount.Added)
+				symbol := styles.added.Render("+")
+				count := styles.value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Added))
+				fmt.Fprintf(output, "  %s %s resources to be added\n", symbol, count)
 			}
 			if r.TemplateChange.ResourceCount.Modified > 0 {
-				fmt.Fprintf(output, "  ~ %d resources to be modified\n", r.TemplateChange.ResourceCount.Modified)
+				symbol := styles.modified.Render("~")
+				count := styles.value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Modified))
+				fmt.Fprintf(output, "  %s %s resources to be modified\n", symbol, count)
 			}
 			if r.TemplateChange.ResourceCount.Removed > 0 {
-				fmt.Fprintf(output, "  - %d resources to be removed\n", r.TemplateChange.ResourceCount.Removed)
+				symbol := styles.removed.Render("-")
+				count := styles.value.Render(fmt.Sprintf("%d", r.TemplateChange.ResourceCount.Removed))
+				fmt.Fprintf(output, "  %s %s resources to be removed\n", symbol, count)
 			}
 		}
 
 		if r.TemplateChange.Diff != "" {
-			output.WriteString("\nTemplate diff:\n")
+			output.WriteString("\n")
+			output.WriteString(styles.subSection.Render("Template diff:"))
+			output.WriteString("\n")
 			output.WriteString(r.TemplateChange.Diff)
 		}
 	} else {
-		output.WriteString("✗ No template changes\n")
+		crossmark := styles.statusNoChange.Render("✗")
+		fmt.Fprintf(output, "%s No template changes\n", crossmark)
 	}
 	output.WriteString("\n")
 }
 
 // formatParameterChangesText formats parameter change information
-func (r *Result) formatParameterChangesText(output *strings.Builder) {
-	output.WriteString("Parameter Changes:\n")
-	output.WriteString("------------------\n")
+func (r *Result) formatParameterChangesText(output *strings.Builder, styles *OutputStyles) {
+	output.WriteString(styles.sectionHeader.Render("Parameter Changes:"))
+	output.WriteString("\n")
+	output.WriteString(styles.separator.Render(strings.Repeat("─", 18)))
+	output.WriteString("\n")
 
 	for _, diff := range r.ParameterDiffs {
+		symbol := styles.getChangeSymbol(diff.ChangeType)
+		key := styles.key.Render(diff.Key)
+
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
-			fmt.Fprintf(output, "  + %s: %s\n", diff.Key, diff.ProposedValue)
+			value := styles.value.Render(diff.ProposedValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		case ChangeTypeModify:
-			fmt.Fprintf(output, "  ~ %s: %s → %s\n", diff.Key, diff.CurrentValue, diff.ProposedValue)
+			currentVal := styles.value.Render(diff.CurrentValue)
+			proposedVal := styles.value.Render(diff.ProposedValue)
+			arrow := styles.arrow.Render("→")
+			fmt.Fprintf(output, "  %s %s: %s %s %s\n", symbol, key, currentVal, arrow, proposedVal)
 		case ChangeTypeRemove:
-			fmt.Fprintf(output, "  - %s: %s\n", diff.Key, diff.CurrentValue)
+			value := styles.value.Render(diff.CurrentValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
 	}
 	output.WriteString("\n")
 }
 
 // formatTagChangesText formats tag change information
-func (r *Result) formatTagChangesText(output *strings.Builder) {
-	output.WriteString("Tag Changes:\n")
-	output.WriteString("------------\n")
+func (r *Result) formatTagChangesText(output *strings.Builder, styles *OutputStyles) {
+	output.WriteString(styles.sectionHeader.Render("Tag Changes:"))
+	output.WriteString("\n")
+	output.WriteString(styles.separator.Render(strings.Repeat("─", 12)))
+	output.WriteString("\n")
 
 	for _, diff := range r.TagDiffs {
+		symbol := styles.getChangeSymbol(diff.ChangeType)
+		key := styles.key.Render(diff.Key)
+
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
-			fmt.Fprintf(output, "  + %s: %s\n", diff.Key, diff.ProposedValue)
+			value := styles.value.Render(diff.ProposedValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		case ChangeTypeModify:
-			fmt.Fprintf(output, "  ~ %s: %s → %s\n", diff.Key, diff.CurrentValue, diff.ProposedValue)
+			currentVal := styles.value.Render(diff.CurrentValue)
+			proposedVal := styles.value.Render(diff.ProposedValue)
+			arrow := styles.arrow.Render("→")
+			fmt.Fprintf(output, "  %s %s: %s %s %s\n", symbol, key, currentVal, arrow, proposedVal)
 		case ChangeTypeRemove:
-			fmt.Fprintf(output, "  - %s: %s\n", diff.Key, diff.CurrentValue)
+			value := styles.value.Render(diff.CurrentValue)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
 	}
 	output.WriteString("\n")
 }
 
 // formatChangeSetText formats AWS changeset information
-func (r *Result) formatChangeSetText(output *strings.Builder) {
-	output.WriteString("AWS CloudFormation Preview:\n")
-	output.WriteString("---------------------------\n")
+func (r *Result) formatChangeSetText(output *strings.Builder, styles *OutputStyles) {
+	output.WriteString(styles.sectionHeader.Render("AWS CloudFormation Preview:"))
+	output.WriteString("\n")
+	output.WriteString(styles.separator.Render(strings.Repeat("─", 27)))
+	output.WriteString("\n")
 
 	if len(r.ChangeSet.Changes) > 0 {
-		output.WriteString("\nResource Changes:\n")
+		output.WriteString("\n")
+		output.WriteString(styles.subSection.Render("Resource Changes:"))
+		output.WriteString("\n")
 		for _, change := range r.ChangeSet.Changes {
-			symbol := r.getChangeSymbol(change.Action)
-			fmt.Fprintf(output, "  %s %s (%s)", symbol, change.LogicalID, change.ResourceType)
+			symbol := styles.getChangeSetSymbol(change.Action)
+			logicalID := styles.key.Render(change.LogicalID)
+			resourceType := styles.value.Render(change.ResourceType)
+			fmt.Fprintf(output, "  %s %s (%s)", symbol, logicalID, resourceType)
 
 			if change.PhysicalID != "" {
-				fmt.Fprintf(output, " [%s]", change.PhysicalID)
+				physicalID := styles.subSection.Render(fmt.Sprintf("[%s]", change.PhysicalID))
+				fmt.Fprintf(output, " %s", physicalID)
 			}
 
 			if change.Replacement != "" && change.Replacement != "False" {
-				fmt.Fprintf(output, " - Replacement: %s", change.Replacement)
+				replacement := styles.riskHigh.Render(fmt.Sprintf("⚠ Replacement: %s", change.Replacement))
+				fmt.Fprintf(output, " - %s", replacement)
 			}
 
 			output.WriteString("\n")
 
 			// Add details if available
 			for _, detail := range change.Details {
-				fmt.Fprintf(output, "    %s\n", detail)
+				detailText := styles.subSection.Render(fmt.Sprintf("    %s", detail))
+				output.WriteString(detailText)
+				output.WriteString("\n")
 			}
 		}
 	}
 	output.WriteString("\n")
-}
-
-// getChangeSymbol returns the appropriate symbol for a changeset action
-func (r *Result) getChangeSymbol(action string) string {
-	switch action {
-	case "Add":
-		return "+"
-	case "Modify":
-		return "~"
-	case "Remove":
-		return "-"
-	default:
-		return "?"
-	}
 }
