@@ -7,7 +7,6 @@ package diff
 import (
 	"os"
 
-	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
@@ -60,33 +59,84 @@ type Styles struct {
 	UseColour bool
 }
 
-// NewStyles creates a new unified style set using Fang's color scheme for consistency
-// across both plain text and interactive UI output.
+// colorScheme defines a consistent colour palette for the diff output
+type colorScheme struct {
+	HeaderText       string
+	BaseText         string
+	WarningText      string
+	SuccessText      string
+	KeyText          string
+	SubtleText       string
+	BorderText       string
+	SeparatorText    string
+	ActiveText       string
+	ErrorText        string
+	ActiveBackground string
+}
+
+// newColorScheme creates a colour scheme appropriate for the terminal background
+func newColorScheme(hasDarkBackground bool) colorScheme {
+	if hasDarkBackground {
+		// Dark background colours - optimised for readability on dark terminals
+		return colorScheme{
+			HeaderText:       "12",  // Bright Blue
+			BaseText:         "15",  // White
+			WarningText:      "11",  // Yellow
+			SuccessText:      "10",  // Green
+			KeyText:          "14",  // Cyan
+			SubtleText:       "8",   // Dark Grey
+			BorderText:       "240", // Dimmed Grey
+			SeparatorText:    "243", // Medium Grey
+			ActiveText:       "13",  // Magenta
+			ErrorText:        "9",   // Red
+			ActiveBackground: "236", // Dark background
+		}
+	}
+
+	// Light background colours - optimised for readability on light terminals
+	return colorScheme{
+		HeaderText:       "4",   // Blue
+		BaseText:         "0",   // Black
+		WarningText:      "3",   // Yellow/Brown
+		SuccessText:      "2",   // Green
+		KeyText:          "6",   // Cyan
+		SubtleText:       "8",   // Grey
+		BorderText:       "245", // Light Grey
+		SeparatorText:    "242", // Medium Grey
+		ActiveText:       "5",   // Magenta
+		ErrorText:        "1",   // Red
+		ActiveBackground: "254", // Light background
+	}
+}
+
+// NewStyles creates a new unified style set for consistent output across both
+// plain text and interactive UI.
 //
-// Color Mapping from Fang ColorScheme:
-//   - Title       -> Header titles, section headers
-//   - Base        -> Normal text, values
-//   - Command     -> Active sections, changes, warnings
-//   - Flag        -> Success states, additions, new items
-//   - Argument    -> Keys, parameter names
-//   - Comment     -> Subtle text, no changes, inactive items
-//   - DimmedArgument -> Borders, inactive sections
-//   - Dash        -> Separators, arrows
-//   - ErrorDetails -> Errors, removals
+// Colour Mapping:
+//   - HeaderText       -> Header titles, section headers
+//   - BaseText         -> Normal text, values
+//   - WarningText      -> Active sections, changes, warnings
+//   - SuccessText      -> Success states, additions, new items
+//   - KeyText          -> Keys, parameter names
+//   - SubtleText       -> Subtle text, no changes, inactive items
+//   - BorderText       -> Borders, inactive sections
+//   - SeparatorText    -> Separators, arrows
+//   - ActiveText       -> Active sections, highlights
+//   - ErrorText        -> Errors, removals
+//   - ActiveBackground -> Background for active sections
 func NewStyles(useColour bool) *Styles {
 	s := &Styles{UseColour: useColour}
 
 	if useColour {
-		// Detect dark background and get Fang's color scheme
+		// Detect dark background and get appropriate colour scheme
 		hasDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
-		lightDark := lipgloss.LightDark(hasDark)
-		scheme := fang.DefaultColorScheme(lightDark)
+		scheme := newColorScheme(hasDark)
 
-		// Border color - use dimmed color for borders
-		borderColor := scheme.DimmedArgument
+		// Border colour - use dimmed colour for borders
+		borderColor := lipgloss.Color(scheme.BorderText)
 
-		// Change type colours - use explicit ANSI colors for diff consistency
-		// (traditional red/green diff colors are universal and expected)
+		// Change type colours - use explicit ANSI colours for diff consistency
+		// (traditional red/green diff colours are universal and expected)
 		s.Added = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("10")) // ANSI Green for additions
 
@@ -98,18 +148,18 @@ func NewStyles(useColour bool) *Styles {
 
 		// Status colours
 		s.StatusNew = lipgloss.NewStyle().
-			Foreground(scheme.Flag). // Flag color for new/important items
+			Foreground(lipgloss.Color(scheme.SuccessText)). // Success colour for new/important items
 			Bold(true)
 
 		s.StatusChanges = lipgloss.NewStyle().
-			Foreground(scheme.Command). // Command color for changes
+			Foreground(lipgloss.Color(scheme.WarningText)). // Warning colour for changes
 			Bold(true)
 
 		s.StatusNoChange = lipgloss.NewStyle().
-			Foreground(scheme.Comment). // Comment color for no changes
+			Foreground(lipgloss.Color(scheme.SubtleText)). // Subtle colour for no changes
 			Bold(true)
 
-		// Header styles - using Fang's Title and Description colors
+		// Header styles
 		s.Header = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderBottom(true).
@@ -118,75 +168,72 @@ func NewStyles(useColour bool) *Styles {
 
 		s.HeaderTitle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(scheme.Title)
+			Foreground(lipgloss.Color(scheme.HeaderText))
 
 		s.HeaderValue = lipgloss.NewStyle().
-			Foreground(scheme.Base)
+			Foreground(lipgloss.Color(scheme.BaseText))
 
-		// Section styles - using Command color for active sections
+		// Section styles
 		s.SectionHeader = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(scheme.Command).
-			Background(lightDark(
-				lipgloss.Color("254"), // light background
-				lipgloss.Color("236"), // dark background
-			)).
+			Foreground(lipgloss.Color(scheme.ActiveText)).
+			Background(lipgloss.Color(scheme.ActiveBackground)).
 			Padding(0, 1)
 
 		s.SectionHeaderInactive = lipgloss.NewStyle().
-			Foreground(scheme.DimmedArgument).
+			Foreground(lipgloss.Color(scheme.BorderText)).
 			Padding(0, 1)
 
 		s.SectionActive = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(scheme.Command).
+			Foreground(lipgloss.Color(scheme.ActiveText)).
 			MarginRight(2)
 
 		s.SectionInactive = lipgloss.NewStyle().
-			Foreground(scheme.DimmedArgument).
+			Foreground(lipgloss.Color(scheme.BorderText)).
 			MarginRight(2)
 
 		s.SubSection = lipgloss.NewStyle().
-			Foreground(scheme.Comment) // Comment color for subsections
+			Foreground(lipgloss.Color(scheme.SubtleText)) // Subtle colour for subsections
 
 		// Content styles
 		s.Key = lipgloss.NewStyle().
-			Foreground(scheme.Argument) // Argument color for keys
+			Foreground(lipgloss.Color(scheme.KeyText)) // Key colour for keys
 
 		s.Value = lipgloss.NewStyle().
-			Foreground(scheme.Base) // Base text color for values
+			Foreground(lipgloss.Color(scheme.BaseText)) // Base text colour for values
 
 		s.Arrow = lipgloss.NewStyle().
-			Foreground(scheme.Dash) // Dash color for arrows
+			Foreground(lipgloss.Color(scheme.SeparatorText)) // Separator colour for arrows
 
 		s.Subtle = lipgloss.NewStyle().
-			Foreground(scheme.Comment) // Comment color for subtle text
+			Foreground(lipgloss.Color(scheme.SubtleText)) // Subtle colour for subtle text
 
 		s.Bold = lipgloss.NewStyle().Bold(true)
 
 		// Semantic styles
 		s.Success = lipgloss.NewStyle().
-			Foreground(scheme.Flag) // Flag color for success
+			Foreground(lipgloss.Color(scheme.SuccessText)) // Success colour for success
 
 		s.Warning = lipgloss.NewStyle().
-			Foreground(scheme.Command). // Command color for warnings
+			Foreground(lipgloss.Color(scheme.WarningText)). // Warning colour for warnings
 			Bold(true)
 
 		s.Error = lipgloss.NewStyle().
-			Foreground(scheme.ErrorDetails). // Error color from Fang
+			Foreground(lipgloss.Color(scheme.ErrorText)). // Error colour
 			Bold(true)
 
 		// Risk level colours
 		s.RiskLow = lipgloss.NewStyle().
-			Foreground(scheme.Flag).
+			Foreground(lipgloss.Color(scheme.SuccessText)).
 			Bold(true)
 
 		s.RiskMedium = lipgloss.NewStyle().
-			Foreground(scheme.Command).
+			Foreground(lipgloss.Color(scheme.WarningText)).
 			Bold(true)
 
 		s.RiskHigh = lipgloss.NewStyle().
-			Foreground(scheme.ErrorDetails).
+			Foreground(lipgloss.Color(scheme.ErrorText)).
 			Bold(true)
 
 		// Layout styles

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/fang"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/orien/stackaroo/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,10 @@ across multiple contexts with consistent, repeatable configurations.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := fang.Execute(context.Background(), rootCmd); err != nil {
+	colorScheme := func(lightDark lipgloss.LightDarkFunc) fang.ColorScheme {
+		return fang.AnsiColorScheme(lightDark)
+	}
+	if err := fang.Execute(context.Background(), rootCmd, fang.WithColorSchemeFunc(colorScheme)); err != nil {
 		os.Exit(1)
 	}
 }
