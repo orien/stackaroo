@@ -71,7 +71,7 @@ func (r *Result) toText() string {
 // formatNewStackText formats output for a new stack
 func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 	if len(r.ParameterDiffs) > 0 {
-		output.WriteString(styles.SectionHeader.Render("Parameters to be set:"))
+		output.WriteString(styles.SectionHeader.Render("Parameters"))
 		output.WriteString("\n")
 		for _, diff := range r.ParameterDiffs {
 			symbol := styles.Added.Render("+")
@@ -83,7 +83,7 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 	}
 
 	if len(r.TagDiffs) > 0 {
-		output.WriteString(styles.SectionHeader.Render("Tags to be set:"))
+		output.WriteString(styles.SectionHeader.Render("Tags"))
 		output.WriteString("\n")
 		for _, diff := range r.TagDiffs {
 			symbol := styles.Added.Render("+")
@@ -111,7 +111,7 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 
 // formatParameterChangesText formats parameter change information
 func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Parameter Changes:"))
+	output.WriteString(styles.SectionHeader.Render("Parameters"))
 	output.WriteString("\n")
 
 	for _, diff := range r.ParameterDiffs {
@@ -137,7 +137,7 @@ func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Sty
 
 // formatTagChangesText formats tag change information
 func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Tag Changes:"))
+	output.WriteString(styles.SectionHeader.Render("Tags"))
 	output.WriteString("\n")
 
 	for _, diff := range r.TagDiffs {

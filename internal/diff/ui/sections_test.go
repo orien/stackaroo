@@ -202,16 +202,6 @@ func TestFormatTagSection_AllChangeTypes(t *testing.T) {
 	assert.Contains(t, content, "oldvalue")
 }
 
-func TestFormatTagSection_NewStack(t *testing.T) {
-	tags := []diff.TagDiff{
-		{Key: "Tag1", ProposedValue: "value1", ChangeType: diff.ChangeTypeAdd},
-	}
-
-	content := formatTagSection(tags, true)
-
-	assert.Contains(t, content, "Tags to be set:")
-}
-
 func TestFormatChangeSetSection(t *testing.T) {
 	cs := &aws.ChangeSetInfo{
 		Changes: []aws.ResourceChange{

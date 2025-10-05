@@ -139,10 +139,6 @@ func formatTagSection(tags []diff.TagDiff, isNewStack bool) string {
 	useColour := diff.ShouldUseColour()
 	styles := diff.NewStyles(useColour)
 
-	if isNewStack {
-		s.WriteString("Tags to be set:\n\n")
-	}
-
 	for _, t := range tags {
 		symbol := getChangeSymbol(t.ChangeType, styles)
 		key := styles.Key.Render(t.Key)

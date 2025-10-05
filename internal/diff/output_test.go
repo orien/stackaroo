@@ -48,10 +48,10 @@ func TestResult_ToText_NewStack(t *testing.T) {
 	assert.Contains(t, output, "Stack: new-stack (Context: prod)")
 	assert.Contains(t, output, "Status: NEW STACK")
 	assert.Contains(t, output, "This stack does not exist in AWS and will be created.")
-	assert.Contains(t, output, "Parameters to be set:")
+	assert.Contains(t, output, "Parameters")
 	assert.Contains(t, output, "  + InstanceType: t3.micro")
 	assert.Contains(t, output, "  + Environment: prod")
-	assert.Contains(t, output, "Tags to be set:")
+	assert.Contains(t, output, "Tags")
 	assert.Contains(t, output, "  + Owner: team-a")
 	assert.Contains(t, output, "  + Project: webapp")
 }
@@ -108,13 +108,13 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 	assert.Contains(t, output, "Template has modifications")
 
 	// Parameter changes
-	assert.Contains(t, output, "Parameter Changes:")
+	assert.Contains(t, output, "Parameters")
 	assert.Contains(t, output, "~ InstanceType: t2.micro → t3.micro")
 	assert.Contains(t, output, "+ NewParam: newvalue")
 	assert.Contains(t, output, "- OldParam: oldvalue")
 
 	// Tag changes
-	assert.Contains(t, output, "Tag Changes:")
+	assert.Contains(t, output, "Tags")
 	assert.Contains(t, output, "~ Environment: staging → dev")
 
 	// Changeset info
@@ -135,19 +135,19 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 			name:        "template only",
 			options:     Options{TemplateOnly: true},
 			expected:    []string{"Template"},
-			notExpected: []string{"Parameter Changes:", "Tag Changes:"},
+			notExpected: []string{"Parameters", "Tags"},
 		},
 		{
 			name:        "parameters only",
 			options:     Options{ParametersOnly: true},
-			expected:    []string{"Parameter Changes:"},
-			notExpected: []string{"Template", "Tag Changes:"},
+			expected:    []string{"Parameters"},
+			notExpected: []string{"Template", "Tags"},
 		},
 		{
 			name:        "tags only",
 			options:     Options{TagsOnly: true},
-			expected:    []string{"Tag Changes:"},
-			notExpected: []string{"Template", "Parameter Changes:"},
+			expected:    []string{"Tags"},
+			notExpected: []string{"Template", "Parameters"},
 		},
 	}
 
@@ -196,10 +196,10 @@ func TestResult_FormatNewStackText(t *testing.T) {
 	result.formatNewStackText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Parameters to be set:")
+	assert.Contains(t, text, "Parameters")
 	assert.Contains(t, text, "  + Param1: value1")
 	assert.Contains(t, text, "  + Param2: value2")
-	assert.Contains(t, text, "Tags to be set:")
+	assert.Contains(t, text, "Tags")
 	assert.Contains(t, text, "  + Environment: dev")
 	assert.Contains(t, text, "  + Project: test")
 }
@@ -287,7 +287,7 @@ func TestResult_FormatParameterChangesText(t *testing.T) {
 	result.formatParameterChangesText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Parameter Changes:")
+	assert.Contains(t, text, "Parameters")
 	assert.Contains(t, text, "  + AddedParam: newvalue")
 	assert.Contains(t, text, "  ~ ModifiedParam: oldvalue → newvalue")
 	assert.Contains(t, text, "  - RemovedParam: oldvalue")
@@ -311,7 +311,7 @@ func TestResult_FormatTagChangesText(t *testing.T) {
 	result.formatTagChangesText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Tag Changes:")
+	assert.Contains(t, text, "Tags")
 	assert.Contains(t, text, "  + NewTag: newvalue")
 	assert.Contains(t, text, "  ~ UpdatedTag: oldvalue → newvalue")
 	assert.Contains(t, text, "  - DeletedTag: oldvalue")
