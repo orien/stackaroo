@@ -59,80 +59,59 @@ type Styles struct {
 	UseColour bool
 }
 
-// colorScheme defines a consistent colour palette for the diff output
-type colorScheme struct {
-	HeaderText       string
-	BaseText         string
-	WarningText      string
-	SuccessText      string
-	KeyText          string
-	SubtleText       string
-	BorderText       string
-	SeparatorText    string
-	ActiveText       string
-	ErrorText        string
-	ActiveBackground string
-}
-
-// newColorScheme creates a colour scheme appropriate for the terminal background
-func newColorScheme(hasDarkBackground bool) colorScheme {
-	if hasDarkBackground {
-		// Dark background colours - optimised for readability on dark terminals
-		return colorScheme{
-			HeaderText:       "12",  // Bright Blue
-			BaseText:         "15",  // White
-			WarningText:      "11",  // Yellow
-			SuccessText:      "10",  // Green
-			KeyText:          "14",  // Cyan
-			SubtleText:       "8",   // Dark Grey
-			BorderText:       "240", // Dimmed Grey
-			SeparatorText:    "243", // Medium Grey
-			ActiveText:       "13",  // Magenta
-			ErrorText:        "9",   // Red
-			ActiveBackground: "236", // Dark background
-		}
-	}
-
-	// Light background colours - optimised for readability on light terminals
-	return colorScheme{
-		HeaderText:       "4",   // Blue
-		BaseText:         "0",   // Black
-		WarningText:      "3",   // Yellow/Brown
-		SuccessText:      "2",   // Green
-		KeyText:          "6",   // Cyan
-		SubtleText:       "8",   // Grey
-		BorderText:       "245", // Light Grey
-		SeparatorText:    "242", // Medium Grey
-		ActiveText:       "5",   // Magenta
-		ErrorText:        "1",   // Red
-		ActiveBackground: "254", // Light background
-	}
-}
-
-// NewStyles creates a new unified style set for consistent plain text output.
-//
-// Colour Mapping:
-//   - HeaderText       -> Header titles, section headers
-//   - BaseText         -> Normal text, values
-//   - WarningText      -> Active sections, changes, warnings
-//   - SuccessText      -> Success states, additions, new items
-//   - KeyText          -> Keys, parameter names
-//   - SubtleText       -> Subtle text, no changes, inactive items
-//   - BorderText       -> Borders, inactive sections
-//   - SeparatorText    -> Separators, arrows
-//   - ActiveText       -> Active sections, highlights
-//   - ErrorText        -> Errors, removals
-//   - ActiveBackground -> Background for active sections
+// Colours are optimised based on terminal background (dark vs light).
 func NewStyles(useColour bool) *Styles {
 	s := &Styles{UseColour: useColour}
 
 	if useColour {
-		// Detect dark background and get appropriate colour scheme
+		// Detect terminal background and select appropriate colours
 		hasDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
-		scheme := newColorScheme(hasDark)
+
+		// Define colour palette based on background
+		var (
+			headerText       string
+			baseText         string
+			warningText      string
+			successText      string
+			keyText          string
+			subtleText       string
+			borderText       string
+			separatorText    string
+			activeText       string
+			errorText        string
+			activeBackground string
+		)
+
+		if hasDark {
+			// Dark background colours - optimised for readability on dark terminals
+			headerText = "12"        // Bright Blue
+			baseText = "15"          // White
+			warningText = "11"       // Yellow
+			successText = "10"       // Green
+			keyText = "14"           // Cyan
+			subtleText = "8"         // Dark Grey
+			borderText = "240"       // Dimmed Grey
+			separatorText = "243"    // Medium Grey
+			activeText = "13"        // Magenta
+			errorText = "9"          // Red
+			activeBackground = "236" // Dark background
+		} else {
+			// Light background colours - optimised for readability on light terminals
+			headerText = "4"         // Blue
+			baseText = "0"           // Black
+			warningText = "3"        // Yellow/Brown
+			successText = "2"        // Green
+			keyText = "6"            // Cyan
+			subtleText = "8"         // Grey
+			borderText = "245"       // Light Grey
+			separatorText = "242"    // Medium Grey
+			activeText = "5"         // Magenta
+			errorText = "1"          // Red
+			activeBackground = "254" // Light background
+		}
 
 		// Border colour - use dimmed colour for borders
-		borderColor := lipgloss.Color(scheme.BorderText)
+		borderColor := lipgloss.Color(borderText)
 
 		// Change type colours - use explicit ANSI colours for diff consistency
 		// (traditional red/green diff colours are universal and expected)
@@ -147,15 +126,15 @@ func NewStyles(useColour bool) *Styles {
 
 		// Status colours
 		s.StatusNew = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SuccessText)). // Success colour for new/important items
+			Foreground(lipgloss.Color(successText)).
 			Bold(true)
 
 		s.StatusChanges = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.WarningText)). // Warning colour for changes
+			Foreground(lipgloss.Color(warningText)).
 			Bold(true)
 
 		s.StatusNoChange = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SubtleText)). // Subtle colour for no changes
+			Foreground(lipgloss.Color(subtleText)).
 			Bold(true)
 
 		// Header styles
@@ -167,72 +146,72 @@ func NewStyles(useColour bool) *Styles {
 
 		s.HeaderTitle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(scheme.HeaderText))
+			Foreground(lipgloss.Color(headerText))
 
 		s.HeaderValue = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.BaseText))
+			Foreground(lipgloss.Color(baseText))
 
 		// Section styles
 		s.SectionHeader = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(scheme.ActiveText)).
-			Background(lipgloss.Color(scheme.ActiveBackground)).
+			Foreground(lipgloss.Color(activeText)).
+			Background(lipgloss.Color(activeBackground)).
 			Padding(0, 1)
 
 		s.SectionHeaderInactive = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.BorderText)).
+			Foreground(lipgloss.Color(borderText)).
 			Padding(0, 1)
 
 		s.SectionActive = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(scheme.ActiveText)).
+			Foreground(lipgloss.Color(activeText)).
 			MarginRight(2)
 
 		s.SectionInactive = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.BorderText)).
+			Foreground(lipgloss.Color(borderText)).
 			MarginRight(2)
 
 		s.SubSection = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SubtleText)) // Subtle colour for subsections
+			Foreground(lipgloss.Color(subtleText))
 
 		// Content styles
 		s.Key = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.KeyText)) // Key colour for keys
+			Foreground(lipgloss.Color(keyText))
 
 		s.Value = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.BaseText)) // Base text colour for values
+			Foreground(lipgloss.Color(baseText))
 
 		s.Arrow = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SeparatorText)) // Separator colour for arrows
+			Foreground(lipgloss.Color(separatorText))
 
 		s.Subtle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SubtleText)) // Subtle colour for subtle text
+			Foreground(lipgloss.Color(subtleText))
 
 		s.Bold = lipgloss.NewStyle().Bold(true)
 
 		// Semantic styles
 		s.Success = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SuccessText)) // Success colour for success
+			Foreground(lipgloss.Color(successText))
 
 		s.Warning = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.WarningText)). // Warning colour for warnings
+			Foreground(lipgloss.Color(warningText)).
 			Bold(true)
 
 		s.Error = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.ErrorText)). // Error colour
+			Foreground(lipgloss.Color(errorText)).
 			Bold(true)
 
 		// Risk level colours
 		s.RiskLow = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.SuccessText)).
+			Foreground(lipgloss.Color(successText)).
 			Bold(true)
 
 		s.RiskMedium = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.WarningText)).
+			Foreground(lipgloss.Color(warningText)).
 			Bold(true)
 
 		s.RiskHigh = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scheme.ErrorText)).
+			Foreground(lipgloss.Color(errorText)).
 			Bold(true)
 
 		// Layout styles
