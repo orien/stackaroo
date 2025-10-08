@@ -13,8 +13,8 @@ import (
 
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
-	"github.com/orien/stackaroo/internal/diff"
 	"github.com/orien/stackaroo/internal/model"
+	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/orien/stackaroo/internal/resolve"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,12 +29,12 @@ func createMockDeployer(mockFactory aws.ClientFactory) *StackDeployer {
 	return NewStackDeployer(mockFactory, mockProvider, mockResolver)
 }
 
-// createMockDeployerWithConfirm creates a deployer with injectable confirmation function
+// createMockDeployerWithConfirm creates a deployer with mock prompter for testing
 func createMockDeployerWithConfirm(mockFactory aws.ClientFactory, confirmResult bool) *StackDeployer {
 	deployer := createMockDeployer(mockFactory)
-	deployer.SetConfirmFunc(func(result *diff.Result, message string) (bool, error) {
-		return confirmResult, nil
-	})
+	mockPrompter := &prompt.MockPrompter{}
+	mockPrompter.On("Confirm", mock.Anything).Return(confirmResult, nil)
+	deployer.SetPrompter(mockPrompter)
 	return deployer
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
-// Styles contains all the styles for rendering diff output (both plain text and interactive UI)
+// Styles contains all the styles for rendering diff output
 type Styles struct {
 	// Change type styles
 	Added    lipgloss.Style
@@ -109,8 +109,7 @@ func newColorScheme(hasDarkBackground bool) colorScheme {
 	}
 }
 
-// NewStyles creates a new unified style set for consistent output across both
-// plain text and interactive UI.
+// NewStyles creates a new unified style set for consistent plain text output.
 //
 // Colour Mapping:
 //   - HeaderText       -> Header titles, section headers

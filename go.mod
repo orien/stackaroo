@@ -7,8 +7,6 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.39.2
 	github.com/aws/aws-sdk-go-v2/config v1.31.12
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.66.4
-	github.com/charmbracelet/bubbles/v2 v2.0.0-beta.1
-	github.com/charmbracelet/bubbletea/v2 v2.0.0-beta.4
 	github.com/charmbracelet/fang v0.4.1
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.3
 	github.com/spf13/cobra v1.10.1
@@ -35,9 +33,8 @@ require (
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.14-0.20250505150409-97991a1f17d1 // indirect
 	github.com/charmbracelet/x/exp/charmtone v0.0.0-20250603201427-c31516f43444 // indirect
-	github.com/charmbracelet/x/input v0.3.7 // indirect
+	github.com/charmbracelet/x/exp/golden v0.0.0-20250207160936-21c02780d27a // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
-	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
@@ -59,7 +56,6 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/crypto v0.35.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 )

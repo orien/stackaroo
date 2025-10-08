@@ -410,7 +410,7 @@ The template comparator generates **unified diff output** showing line-by-line c
 - Other UI elements use Fang's adaptive color scheme for light/dark terminal backgrounds
 - Colors are automatically enabled when outputting to a terminal (TTY detection)
 - Respects `NO_COLOR` environment variable (disables colors if set)
-- Consistent coloring across both plain text and interactive UI viewer
+- Consistent coloring for plain text output
 
 **Algorithm:**
 1. Parse both templates to YAML structure
@@ -541,7 +541,7 @@ sequenceDiagram
 4. **Output Enhancements**
    - Structured output formats for automation (JSON, YAML)
    - HTML output format for web integration
-   - Interactive diff viewing
+
    - Integration with external diff tools
 
 ### Extension Points

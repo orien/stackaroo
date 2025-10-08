@@ -14,8 +14,8 @@ import (
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/orien/stackaroo/internal/config"
 	"github.com/orien/stackaroo/internal/diff"
-	"github.com/orien/stackaroo/internal/diff/ui"
 	"github.com/orien/stackaroo/internal/model"
+	"github.com/orien/stackaroo/internal/prompt"
 	"github.com/orien/stackaroo/internal/resolve"
 )
 
@@ -50,7 +50,7 @@ type StackDeployer struct {
 	clientFactory aws.ClientFactory
 	provider      config.ConfigProvider
 	resolver      resolve.Resolver
-	confirmFunc   func(*diff.Result, string) (bool, error) // Injectable confirmation function for testing
+	prompter      prompt.Prompter // Prompter for user confirmation (injectable for testing)
 }
 
 // NewStackDeployer creates a new StackDeployer
@@ -59,13 +59,13 @@ func NewStackDeployer(clientFactory aws.ClientFactory, provider config.ConfigPro
 		clientFactory: clientFactory,
 		provider:      provider,
 		resolver:      resolver,
-		confirmFunc:   ui.ShowDiffWithConfirmation, // Default to interactive UI confirmation
+		prompter:      prompt.NewStdinPrompter(),
 	}
 }
 
-// SetConfirmFunc allows injection of a custom confirmation function for testing
-func (d *StackDeployer) SetConfirmFunc(fn func(*diff.Result, string) (bool, error)) {
-	d.confirmFunc = fn
+// SetPrompter allows injection of a custom prompter for testing
+func (d *StackDeployer) SetPrompter(p prompt.Prompter) {
+	d.prompter = p
 }
 
 // DeployStack deploys a CloudFormation stack using changesets for preview and deployment
@@ -118,9 +118,12 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 		})
 	}
 
-	// Show preview using interactive viewer with confirmation
+	// Show preview with confirmation
+	fmt.Print(diffResult.String())
+	fmt.Println()
+
 	message := fmt.Sprintf("Do you want to create stack %s?", stack.Name)
-	confirmed, err := d.confirmFunc(diffResult, message)
+	confirmed, err := d.prompter.Confirm(message)
 	if err != nil {
 		return fmt.Errorf("failed to get user confirmation: %w", err)
 	}
@@ -189,10 +192,13 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		return fmt.Errorf("failed to calculate changes: %w", err)
 	}
 
-	// Show preview using interactive viewer with confirmation
+	// Show preview with confirmation
 	if diffResult.HasChanges() {
+		fmt.Print(diffResult.String())
+		fmt.Println()
+
 		message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
-		confirmed, err := d.confirmFunc(diffResult, message)
+		confirmed, err := d.prompter.Confirm(message)
 		if err != nil {
 			// Clean up changeset on error
 			if diffResult.ChangeSet != nil {
@@ -200,7 +206,6 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 			}
 			return fmt.Errorf("failed to get user confirmation: %w", err)
 		}
-
 		if !confirmed {
 			// Clean up changeset when user cancels
 			if diffResult.ChangeSet != nil {

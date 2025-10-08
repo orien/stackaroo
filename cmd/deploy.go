@@ -14,8 +14,6 @@ import (
 )
 
 var (
-	deployInteractive bool
-
 	// deployer can be injected for testing
 	deployer deploy.Deployer
 )
@@ -54,11 +52,9 @@ waits for your confirmation before applying the changes.`,
 		contextName := args[0]
 		ctx := context.Background()
 
-		// Set STACKAROO_PLAIN environment variable unless --interactive flag is set
-		if !deployInteractive {
-			if err := os.Setenv("STACKAROO_PLAIN", "1"); err != nil {
-				return fmt.Errorf("failed to set STACKAROO_PLAIN environment variable: %w", err)
-			}
+		// Set STACKAROO_PLAIN environment variable to always use plain text output
+		if err := os.Setenv("STACKAROO_PLAIN", "1"); err != nil {
+			return fmt.Errorf("failed to set STACKAROO_PLAIN environment variable: %w", err)
 		}
 
 		configFile, _ := cmd.Flags().GetString("config")
@@ -91,6 +87,4 @@ func SetDeployer(d deploy.Deployer) {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-
-	deployCmd.Flags().BoolVar(&deployInteractive, "interactive", false, "use interactive viewer instead of plain text output")
 }
