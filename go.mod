@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/aws/aws-sdk-go-v2 v1.39.2
 	github.com/aws/aws-sdk-go-v2/config v1.31.12
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.66.4
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.67.0
 	github.com/charmbracelet/fang v0.4.3
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.3.0.20250917201909-41ff0bf215ea
 	github.com/spf13/cobra v1.10.1
