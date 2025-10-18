@@ -18,13 +18,14 @@ func (r *Result) toText() string {
 	styles := NewStyles(useColour)
 
 	// Header
-	header := fmt.Sprintf("Stack: %s (Context: %s)", r.StackName, r.Context)
+	header := fmt.Sprintf("%s - %s", r.StackName, r.Context)
+	output.WriteString("\n")
 	output.WriteString(styles.HeaderTitle.Render(header))
 	output.WriteString("\n\n")
 
 	// Handle new stack case
 	if !r.StackExists {
-		statusLine := styles.StatusNew.Render("Status: NEW STACK")
+		statusLine := styles.StatusNew.Render("NEW STACK")
 		output.WriteString(statusLine)
 		output.WriteString("\n")
 		output.WriteString("This stack does not exist in AWS and will be created.\n\n")
@@ -34,14 +35,14 @@ func (r *Result) toText() string {
 
 	// Handle existing stack
 	if !r.HasChanges() {
-		statusLine := styles.StatusNoChange.Render("Status: NO CHANGES")
+		statusLine := styles.StatusNoChange.Render("NO CHANGES")
 		output.WriteString(statusLine)
 		output.WriteString("\n")
 		output.WriteString("The deployed stack matches your local configuration.\n")
 		return output.String()
 	}
 
-	statusLine := styles.StatusChanges.Render("Status: CHANGES DETECTED")
+	statusLine := styles.StatusChanges.Render("CHANGES DETECTED")
 	output.WriteString(statusLine)
 	output.WriteString("\n\n")
 
@@ -71,8 +72,8 @@ func (r *Result) toText() string {
 // formatNewStackText formats output for a new stack
 func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 	if len(r.ParameterDiffs) > 0 {
-		output.WriteString(styles.SectionHeader.Render("Parameters"))
-		output.WriteString("\n")
+		output.WriteString(styles.SectionHeader.Render("PARAMETERS"))
+		output.WriteString("\n\n")
 		for _, diff := range r.ParameterDiffs {
 			symbol := styles.Added.Render("+")
 			key := styles.Key.Render(diff.Key)
@@ -83,8 +84,8 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 	}
 
 	if len(r.TagDiffs) > 0 {
-		output.WriteString(styles.SectionHeader.Render("Tags"))
-		output.WriteString("\n")
+		output.WriteString(styles.SectionHeader.Render("TAGS"))
+		output.WriteString("\n\n")
 		for _, diff := range r.TagDiffs {
 			symbol := styles.Added.Render("+")
 			key := styles.Key.Render(diff.Key)
@@ -97,7 +98,7 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 
 // formatTemplateChangesText formats template change information
 func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Template"))
+	output.WriteString(styles.SectionHeader.Render("TEMPLATE"))
 	output.WriteString("\n\n")
 
 	if r.TemplateChange.HasChanges && r.TemplateChange.Diff != "" {
@@ -111,8 +112,8 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 
 // formatParameterChangesText formats parameter change information
 func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Parameters"))
-	output.WriteString("\n")
+	output.WriteString(styles.SectionHeader.Render("PARAMETERS"))
+	output.WriteString("\n\n")
 
 	for _, diff := range r.ParameterDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
@@ -137,8 +138,8 @@ func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Sty
 
 // formatTagChangesText formats tag change information
 func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("Tags"))
-	output.WriteString("\n")
+	output.WriteString(styles.SectionHeader.Render("TAGS"))
+	output.WriteString("\n\n")
 
 	for _, diff := range r.TagDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
@@ -146,16 +147,11 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
-			value := styles.Value.Render(diff.ProposedValue)
-			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.ProposedValue)
 		case ChangeTypeModify:
-			currentVal := styles.Value.Render(diff.CurrentValue)
-			proposedVal := styles.Value.Render(diff.ProposedValue)
-			arrow := styles.Arrow.Render("→")
-			fmt.Fprintf(output, "  %s %s: %s %s %s\n", symbol, key, currentVal, arrow, proposedVal)
+			fmt.Fprintf(output, "  %s %s: %s → %s\n", symbol, key, diff.CurrentValue, diff.ProposedValue)
 		case ChangeTypeRemove:
-			value := styles.Value.Render(diff.CurrentValue)
-			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
+			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.CurrentValue)
 		}
 	}
 	output.WriteString("\n")
@@ -163,11 +159,10 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 
 // formatChangeSetText formats AWS changeset information
 func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
-	output.WriteString(styles.SectionHeader.Render("CloudFormation Plan"))
-	output.WriteString("\n")
+	output.WriteString(styles.SectionHeader.Render("PLAN"))
+	output.WriteString("\n\n")
 
 	if len(r.ChangeSet.Changes) > 0 {
-		output.WriteString("\n")
 		output.WriteString(styles.SubSection.Render("Resource changes:"))
 		output.WriteString("\n")
 		for _, change := range r.ChangeSet.Changes {
@@ -181,11 +176,12 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 				fmt.Fprintf(output, " %s", physicalID)
 			}
 
-			if change.Replacement != "" && change.Replacement != "False" {
-				replacement := styles.RiskHigh.Render(fmt.Sprintf("⚠ Replacement: %s", change.Replacement))
-				fmt.Fprintf(output, " - %s", replacement)
+			switch change.Replacement {
+			case "True":
+				output.WriteString(styles.RiskHigh.Render(" REPLACE"))
+			case "Conditional":
+				output.WriteString(styles.RiskHigh.Render(" REPLACE (conditional)"))
 			}
-
 			output.WriteString("\n")
 
 			// Add details if available
@@ -224,9 +220,6 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 		case '-':
 			// Deletion - use red
 			colorized.WriteString(styles.Removed.Render(line))
-		case ' ':
-			// Context - use default/value style
-			colorized.WriteString(styles.Value.Render(line))
 		default:
 			// Unknown - leave as is
 			colorized.WriteString(line)

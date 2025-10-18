@@ -23,8 +23,8 @@ func TestResult_String_TextFormat(t *testing.T) {
 
 	output := result.String()
 
-	assert.Contains(t, output, "Stack: test-stack (Context: dev)")
-	assert.Contains(t, output, "Status: NO CHANGES")
+	assert.Contains(t, output, "test-stack - dev")
+	assert.Contains(t, output, "NO CHANGES")
 	assert.Contains(t, output, "The deployed stack matches your local configuration.")
 }
 
@@ -45,13 +45,13 @@ func TestResult_ToText_NewStack(t *testing.T) {
 
 	output := result.toText()
 
-	assert.Contains(t, output, "Stack: new-stack (Context: prod)")
-	assert.Contains(t, output, "Status: NEW STACK")
+	assert.Contains(t, output, "new-stack - prod")
+	assert.Contains(t, output, "NEW STACK")
 	assert.Contains(t, output, "This stack does not exist in AWS and will be created.")
-	assert.Contains(t, output, "Parameters")
+	assert.Contains(t, output, "PARAMETERS")
 	assert.Contains(t, output, "  + InstanceType: t3.micro")
 	assert.Contains(t, output, "  + Environment: prod")
-	assert.Contains(t, output, "Tags")
+	assert.Contains(t, output, "TAGS")
 	assert.Contains(t, output, "  + Owner: team-a")
 	assert.Contains(t, output, "  + Project: webapp")
 }
@@ -100,25 +100,25 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 	output := result.toText()
 
 	// Header checks
-	assert.Contains(t, output, "Stack: existing-stack (Context: dev)")
-	assert.Contains(t, output, "Status: CHANGES DETECTED")
+	assert.Contains(t, output, "existing-stack - dev")
+	assert.Contains(t, output, "CHANGES DETECTED")
 
 	// Template changes
-	assert.Contains(t, output, "Template")
+	assert.Contains(t, output, "TEMPLATE")
 	assert.Contains(t, output, "Template has modifications")
 
 	// Parameter changes
-	assert.Contains(t, output, "Parameters")
+	assert.Contains(t, output, "PARAMETERS")
 	assert.Contains(t, output, "~ InstanceType: t2.micro → t3.micro")
 	assert.Contains(t, output, "+ NewParam: newvalue")
 	assert.Contains(t, output, "- OldParam: oldvalue")
 
 	// Tag changes
-	assert.Contains(t, output, "Tags")
+	assert.Contains(t, output, "TAGS")
 	assert.Contains(t, output, "~ Environment: staging → dev")
 
 	// Changeset info
-	assert.Contains(t, output, "CloudFormation Plan")
+	assert.Contains(t, output, "PLAN")
 	assert.Contains(t, output, "~ WebServer (AWS::EC2::Instance)")
 	assert.Contains(t, output, "[i-1234567890abcdef0]")
 	assert.Contains(t, output, "Property: InstanceType")
@@ -134,20 +134,20 @@ func TestResult_ToText_FilteredOptions(t *testing.T) {
 		{
 			name:        "template only",
 			options:     Options{TemplateOnly: true},
-			expected:    []string{"Template"},
-			notExpected: []string{"Parameters", "Tags"},
+			expected:    []string{"TEMPLATE"},
+			notExpected: []string{"PARAMETERS", "TAGS"},
 		},
 		{
 			name:        "parameters only",
 			options:     Options{ParametersOnly: true},
-			expected:    []string{"Parameters"},
-			notExpected: []string{"Template", "Tags"},
+			expected:    []string{"PARAMETERS"},
+			notExpected: []string{"TEMPLATE", "TAGS"},
 		},
 		{
 			name:        "tags only",
 			options:     Options{TagsOnly: true},
-			expected:    []string{"Tags"},
-			notExpected: []string{"Template", "Parameters"},
+			expected:    []string{"TAGS"},
+			notExpected: []string{"TEMPLATE", "PARAMETERS"},
 		},
 	}
 
@@ -196,10 +196,10 @@ func TestResult_FormatNewStackText(t *testing.T) {
 	result.formatNewStackText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Parameters")
+	assert.Contains(t, text, "PARAMETERS")
 	assert.Contains(t, text, "  + Param1: value1")
 	assert.Contains(t, text, "  + Param2: value2")
-	assert.Contains(t, text, "Tags")
+	assert.Contains(t, text, "TAGS")
 	assert.Contains(t, text, "  + Environment: dev")
 	assert.Contains(t, text, "  + Project: test")
 }
@@ -216,7 +216,7 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 				HasChanges: false,
 			},
 			expectedOutput: []string{
-				"Template",
+				"TEMPLATE",
 				"✗ No template changes",
 			},
 		},
@@ -230,7 +230,7 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 				Diff: "Template diff content here",
 			},
 			expectedOutput: []string{
-				"Template",
+				"TEMPLATE",
 				"Template diff content here",
 			},
 		},
@@ -244,7 +244,7 @@ func TestResult_FormatTemplateChangesText(t *testing.T) {
 				Diff: "",
 			},
 			expectedOutput: []string{
-				"Template",
+				"TEMPLATE",
 				"✗ No template changes",
 			},
 		},
@@ -287,7 +287,7 @@ func TestResult_FormatParameterChangesText(t *testing.T) {
 	result.formatParameterChangesText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Parameters")
+	assert.Contains(t, text, "PARAMETERS")
 	assert.Contains(t, text, "  + AddedParam: newvalue")
 	assert.Contains(t, text, "  ~ ModifiedParam: oldvalue → newvalue")
 	assert.Contains(t, text, "  - RemovedParam: oldvalue")
@@ -311,7 +311,7 @@ func TestResult_FormatTagChangesText(t *testing.T) {
 	result.formatTagChangesText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "Tags")
+	assert.Contains(t, text, "TAGS")
 	assert.Contains(t, text, "  + NewTag: newvalue")
 	assert.Contains(t, text, "  ~ UpdatedTag: oldvalue → newvalue")
 	assert.Contains(t, text, "  - DeletedTag: oldvalue")
@@ -360,12 +360,12 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 	result.formatChangeSetText(&output, styles)
 	text := output.String()
 
-	assert.Contains(t, text, "CloudFormation Plan")
+	assert.Contains(t, text, "PLAN")
 	assert.Contains(t, text, "Resource changes:")
 
 	// Check resource change formatting
 	assert.Contains(t, text, "  + NewBucket (AWS::S3::Bucket)")
-	assert.Contains(t, text, "  ~ WebServer (AWS::EC2::Instance) [i-1234567890] - ⚠ Replacement: True")
+	assert.Contains(t, text, "  ~ WebServer (AWS::EC2::Instance) [i-1234567890] REPLACE")
 	assert.Contains(t, text, "  - OldQueue (AWS::SQS::Queue) [old-queue-url]")
 
 	// Check details

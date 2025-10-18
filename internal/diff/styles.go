@@ -178,8 +178,7 @@ func NewStyles(useColour bool) *Styles {
 		s.Key = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(keyText))
 
-		s.Value = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(baseText))
+		s.Value = lipgloss.NewStyle()
 
 		s.Arrow = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(separatorText))

@@ -504,5 +504,5 @@ func TestResult_StringMethod_ReturnsTextFormat(t *testing.T) {
 	}
 
 	output := result.String()
-	assert.Contains(t, output, "Stack: test-stack")
+	assert.Contains(t, output, "test-stack - dev")
 }
