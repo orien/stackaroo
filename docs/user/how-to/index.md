@@ -4,8 +4,15 @@ title: 🔧 How-to Guides
 
 # 🔧 How-to Guides
 
-Use these concise procedures when you know what you want to accomplish and need the exact steps. We will catalogue focused tasks such as configuring parameters, orchestrating dependencies, and wiring Stackaroo into a CI pipeline.
+Use this page as a jump-off point for the most common Stackaroo configuration tasks. Each task links to a focused how-to.
 
-- [Configure Stacks](./configure-stacks)
+- [Initialise Configuration](./initialise-configuration)
+  - Capture project metadata, set the template directory, and define environment contexts.
+- [Add a Stack](./add-stack)
+  - Introduce new stacks, parameters, and per-context overrides.
+- [Link Stack Dependencies](./link-stack-dependencies)
+  - Declare `depends_on` relationships and reference outputs safely.
+- [Validate and Preview](./validate-and-preview)
+  - Run diffs to surface issues before deploying.
 
-Each guide will prioritise actionable instructions, prerequisites, and follow-up checks so you can solve the task without revisiting background material.
+Follow the guides in order when bootstrapping a new project, or jump to the workflow you need when making incremental changes.

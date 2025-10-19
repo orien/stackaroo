@@ -33,7 +33,10 @@ export default defineConfig({
           text: '🔧 How-to Guides',
           items: [
             { text: 'Overview', link: '/how-to/' },
-            { text: 'Configure Stacks', link: '/how-to/configure-stacks' }
+            { text: 'Initialise Configuration', link: '/how-to/initialise-configuration' },
+            { text: 'Add a Stack', link: '/how-to/add-stack' },
+            { text: 'Link Stack Dependencies', link: '/how-to/link-stack-dependencies' },
+            { text: 'Validate and Preview', link: '/how-to/validate-and-preview' }
           ]
         }
       ],
