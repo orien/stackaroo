@@ -11,8 +11,38 @@ export default defineConfig({
     lineNumbers: true
   },
   themeConfig: {
-    nav: [],
-    sidebar: [],
+    nav: [
+      { text: 'Tutorials', link: '/tutorials/' },
+      { text: 'How-to Guides', link: '/how-to/' },
+      { text: 'Explanations', link: '/explanation/' },
+      { text: 'Reference', link: '/reference/' }
+    ],
+    sidebar: {
+      '/tutorials/': [
+        {
+          text: 'Tutorials',
+          items: [{ text: 'Overview', link: '/tutorials/' }]
+        }
+      ],
+      '/how-to/': [
+        {
+          text: 'How-to Guides',
+          items: [{ text: 'Overview', link: '/how-to/' }]
+        }
+      ],
+      '/explanation/': [
+        {
+          text: 'Explanations',
+          items: [{ text: 'Overview', link: '/explanation/' }]
+        }
+      ],
+      '/reference/': [
+        {
+          text: 'Reference',
+          items: [{ text: 'Overview', link: '/reference/' }]
+        }
+      ]
+    },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/orien/stackaroo' }
     ],
