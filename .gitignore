@@ -22,6 +22,11 @@ stackaroo
 /bin/
 /dist/
 
+# Node.js / VitePress
+node_modules/
+docs/user/.vitepress/cache/
+docs/user/.vitepress/dist/
+
 # All dotfiles and dotdirectories (IDE, OS, config files)
 .*
 
@@ -29,6 +34,7 @@ stackaroo
 !.github
 !.gitignore
 !.goreleaser.yml
+!docs/user/.vitepress/
 
 # Temporary files
 tmp/

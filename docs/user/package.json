@@ -1,0 +1,16 @@
+{
+  "name": "stackaroo-user-docs",
+  "private": true,
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview ."
+  },
+  "packageManager": "yarn@4.10.3",
+  "devDependencies": {
+    "vitepress": "^2.0.0-alpha.12",
+    "vue": "^3.5.22"
+  }
+}
