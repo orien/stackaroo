@@ -22,7 +22,10 @@ export default defineConfig({
       '/tutorials/': [
         {
           text: '🎓 Tutorials',
-          items: [{ text: 'Overview', link: '/tutorials/' }]
+          items: [
+            { text: 'Overview', link: '/tutorials/' },
+            { text: 'First Stack Deployment', link: '/tutorials/first-stack-deployment' }
+          ]
         }
       ],
       '/how-to/': [
