@@ -4,6 +4,14 @@ title: 📘 Reference
 
 # 📘 Reference
 
-This section will serve as the authoritative source for Stackaroo’s command-line interface, configuration schema, and operational limits. Entries here will emphasise precision and completeness, making it easy to verify exact flag names, parameter shapes, and exit codes.
+This section collects authoritative references for Stackaroo’s command-line interface, configuration schema, and operational limits.
 
-As the documentation grows we will add cross-links to complementary tutorials and how-to guides for practical application.
+## CLI Reference
+
+Auto-generated command documentation is available for every command and subcommand:
+
+- [`stackaroo`](./cli/stackaroo)
+- [`stackaroo deploy`](./cli/stackaroo_deploy)
+- [`stackaroo delete`](./cli/stackaroo_delete)
+- [`stackaroo diff`](./cli/stackaroo_diff)
+- [`stackaroo describe`](./cli/stackaroo_describe)

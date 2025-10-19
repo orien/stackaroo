@@ -26,6 +26,7 @@ stackaroo
 node_modules/
 docs/user/.vitepress/cache/
 docs/user/.vitepress/dist/
+docs/user/reference/cli/*.md
 
 # All dotfiles and dotdirectories (IDE, OS, config files)
 .*

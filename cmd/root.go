@@ -51,3 +51,8 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "stackaroo.yaml", "config file (default is stackaroo.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 }
+
+// RootCommand returns the root cobra command for documentation or tooling usage.
+func RootCommand() *cobra.Command {
+	return rootCmd
+}

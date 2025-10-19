@@ -49,7 +49,10 @@ export default defineConfig({
       '/reference/': [
         {
           text: '📘 Reference',
-          items: [{ text: 'Overview', link: '/reference/' }]
+          items: [
+            { text: 'Overview', link: '/reference/' },
+            { text: 'CLI Reference', link: '/reference/cli/stackaroo' }
+          ]
         }
       ]
     },
