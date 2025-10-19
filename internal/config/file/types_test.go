@@ -161,7 +161,7 @@ func TestConvertStringMap(t *testing.T) {
 func TestStack_MixedParameterTypes(t *testing.T) {
 	yamlConfig := `
 name: test-stack
-template: test.yml
+template: test.yaml
 parameters:
   # Literal values
   Environment: production
@@ -179,7 +179,7 @@ parameters:
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-stack", stack.Name)
-	assert.Equal(t, "test.yml", stack.Template)
+	assert.Equal(t, "test.yaml", stack.Template)
 	assert.Len(t, stack.Parameters, 3)
 
 	// Test literal parameters
@@ -206,7 +206,7 @@ region: us-west-2
 
 stacks:
   - name: test-stack
-    template: test.yml
+    template: test.yaml
     parameters:
       # Literal parameter
       Environment: production
@@ -219,7 +219,7 @@ stacks:
 `
 
 	// Create temporary file
-	tmpFile, err := os.CreateTemp("", "stackaroo-test-*.yml")
+	tmpFile, err := os.CreateTemp("", "stackaroo-test-*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
@@ -599,7 +599,7 @@ func TestParameterValue_ListParameterIntegration(t *testing.T) {
 	// Test complete YAML parsing with list parameters
 	yamlConfig := `
 name: test-stack
-template: test.yml
+template: test.yaml
 parameters:
   # Single literal
   Environment: production

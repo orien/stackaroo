@@ -26,14 +26,14 @@ region: us-west-2
 
 stacks:
   - name: networking
-    template: networking.yml
+    template: networking.yaml
     parameters:
       # Literal values (backwards compatible)
       Environment: production
       VpcCidr: "10.0.0.0/16"
       
   - name: application
-    template: application.yml
+    template: application.yaml
     parameters:
       # Literal values
       AppName: my-ecommerce-app
@@ -139,7 +139,7 @@ contexts:
 
 stacks:
   - name: database
-    template: rds.yml
+    template: rds.yaml
     parameters:
       # Literal parameters
       Environment: dev
@@ -174,7 +174,7 @@ stacks:
 	// Examine the database stack
 	dbStack := config.Stacks[0]
 	assert.Equal(t, "database", dbStack.Name)
-	assert.Equal(t, "rds.yml", dbStack.Template)
+	assert.Equal(t, "rds.yaml", dbStack.Template)
 
 	// Check literal parameters
 	envParam := dbStack.Parameters["Environment"]
@@ -219,7 +219,7 @@ region: us-east-1
 
 stacks:
   - name: web-app
-    template: webapp.yml
+    template: webapp.yaml
     parameters:
       Environment: production
       InstanceType: t3.medium
@@ -267,7 +267,7 @@ contexts:
 
 stacks:
   - name: simple-stack
-    template: simple.yml
+    template: simple.yaml
     parameters:
       Environment: dev
       Debug: "true"
@@ -280,7 +280,7 @@ stacks:
 `
 
 	// Create temporary file
-	tmpFile, err := os.CreateTemp("", "stackaroo-example-*.yml")
+	tmpFile, err := os.CreateTemp("", "stackaroo-example-*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
@@ -303,7 +303,7 @@ stacks:
 	require.NoError(t, err)
 
 	assert.Equal(t, "simple-stack", stackConfig.Name)
-	assert.Contains(t, stackConfig.Template, "simple.yml") // Template URI is resolved to full path
+	assert.Contains(t, stackConfig.Template, "simple.yaml") // Template URI is resolved to full path
 
 	// Verify resolved parameters (literals + context overrides)
 	expectedParams := map[string]string{
@@ -335,7 +335,7 @@ region: us-west-2
 
 stacks:
   - name: app-stack
-    template: app.yml
+    template: app.yaml
     parameters:
       # This works fine
       AppName: my-app
@@ -348,7 +348,7 @@ stacks:
 `
 
 	// Create temporary file
-	tmpFile, err := os.CreateTemp("", "stackaroo-resolver-*.yml")
+	tmpFile, err := os.CreateTemp("", "stackaroo-resolver-*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
@@ -400,7 +400,7 @@ contexts:
     region: us-east-1
 stacks:
   - name: web-application
-    template: webapp.yml
+    template: webapp.yaml
     parameters:
       # Simple literal list
       AllowedPorts:
