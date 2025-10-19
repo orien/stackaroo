@@ -31,7 +31,10 @@ export default defineConfig({
       '/how-to/': [
         {
           text: '🔧 How-to Guides',
-          items: [{ text: 'Overview', link: '/how-to/' }]
+          items: [
+            { text: 'Overview', link: '/how-to/' },
+            { text: 'Configure Stacks', link: '/how-to/configure-stacks' }
+          ]
         }
       ],
       '/explanation/': [
