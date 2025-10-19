@@ -136,7 +136,7 @@ contexts:
 Stackaroo supports dynamic CloudFormation template generation using Go templates with Sprig functions:
 
 ```yaml
-# Template: templates/webapp.yml
+# Template: templates/webapp.yaml
 AWSTemplateFormatVersion: '2010-09-09'
 Description: {{ .Context | title }} web application for {{ .StackName }}
 

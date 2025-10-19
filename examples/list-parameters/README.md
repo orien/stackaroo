@@ -393,8 +393,8 @@ This will show you exactly what comma-separated values will be passed to CloudFo
 ## Getting Started
 
 1. **Update your CloudFormation templates** to use list parameter types
-2. **Convert single parameters to lists** in your `stackaroo.yml`
+2. **Convert single parameters to lists** in your `stackaroo.yaml`
 3. **Test with `stackaroo diff`** to verify resolution
 4. **Deploy incrementally** to validate the changes
 
-The `stackaroo.yml` file in this directory provides a comprehensive example you can adapt for your own infrastructure.
+The `stackaroo.yaml` file in this directory provides a comprehensive example you can adapt for your own infrastructure.

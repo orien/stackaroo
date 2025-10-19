@@ -4,7 +4,7 @@ This example demonstrates Stackaroo's CloudFormation template templating capabil
 
 ## What This Demo Shows
 
-The `webapp.yml` template showcases key templating features:
+The `webapp.yaml` template showcases key templating features:
 
 - **Context-aware resources**: Different resources based on environment
 - **Dynamic configuration**: Environment-specific settings and values
@@ -82,12 +82,12 @@ stackaroo deploy production webapp
 
 ## Template Processing Flow
 
-1. **Raw template** is read from `templates/webapp.yml`
+1. **Raw template** is read from `templates/webapp.yaml`
 2. **Template variables** are injected:
    - `Context`: "development" or "production"
    - `StackName`: "webapp"
 3. **Template is processed** using Go templates + Sprig
-4. **Parameters are resolved** from stackaroo.yml
+4. **Parameters are resolved** from stackaroo.yaml
 5. **Final CloudFormation** template is deployed
 
 ## Key Benefits
