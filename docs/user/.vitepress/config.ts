@@ -13,33 +13,33 @@ export default defineConfig({
   },
   themeConfig: {
     nav: [
-      { text: 'Tutorials', link: '/tutorials/' },
-      { text: 'How-to Guides', link: '/how-to/' },
-      { text: 'Explanations', link: '/explanation/' },
-      { text: 'Reference', link: '/reference/' }
+      { text: '🎓 Tutorials', link: '/tutorials/' },
+      { text: '🔧 How-to Guides', link: '/how-to/' },
+      { text: '💡 Explanations', link: '/explanation/' },
+      { text: '📘 Reference', link: '/reference/' }
     ],
     sidebar: {
       '/tutorials/': [
         {
-          text: 'Tutorials',
+          text: '🎓 Tutorials',
           items: [{ text: 'Overview', link: '/tutorials/' }]
         }
       ],
       '/how-to/': [
         {
-          text: 'How-to Guides',
+          text: '🔧 How-to Guides',
           items: [{ text: 'Overview', link: '/how-to/' }]
         }
       ],
       '/explanation/': [
         {
-          text: 'Explanations',
+          text: '💡 Explanations',
           items: [{ text: 'Overview', link: '/explanation/' }]
         }
       ],
       '/reference/': [
         {
-          text: 'Reference',
+          text: '📘 Reference',
           items: [{ text: 'Overview', link: '/reference/' }]
         }
       ]

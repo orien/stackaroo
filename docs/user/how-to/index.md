@@ -1,8 +1,8 @@
 ---
-title: How-to Guides
+title: 🔧 How-to Guides
 ---
 
-# How-to Guides
+# 🔧 How-to Guides
 
 Use these concise procedures when you know what you want to accomplish and need the exact steps. We will catalogue focused tasks such as configuring parameters, orchestrating dependencies, and wiring Stackaroo into a CI pipeline.
 

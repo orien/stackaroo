@@ -1,8 +1,8 @@
 ---
-title: Reference
+title: 📘 Reference
 ---
 
-# Reference
+# 📘 Reference
 
 This section will serve as the authoritative source for Stackaroo’s command-line interface, configuration schema, and operational limits. Entries here will emphasise precision and completeness, making it easy to verify exact flag names, parameter shapes, and exit codes.
 
