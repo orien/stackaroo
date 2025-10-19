@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Stackaroo',
   description: 'User documentation for Stackaroo.',
+  base: '/stackaroo/',
   lang: 'en-GB',
   appearance: 'auto',
   cleanUrls: true,
