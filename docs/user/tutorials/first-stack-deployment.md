@@ -96,7 +96,7 @@ contexts:
       Environment: development
 
 stacks:
-  - name: stackaroo-tutorial
+  stackaroo-tutorial:
     template: tutorial-bucket.yaml
     parameters: {}
 ```
@@ -106,7 +106,7 @@ Key points:
 - Replace the `region` value with your preferred target region.
 - Update the `account` value with your 12-digit AWS Account ID.
 - The `templates.directory` block lets you reference `tutorial-bucket.yaml` without repeating the folder name.
-- `name` sets the CloudFormation stack name. Use a unique suffix if you expect to run the tutorial repeatedly.
+- The stack key (`stackaroo-tutorial`) sets the CloudFormation stack name. Use a unique name if you expect to run the tutorial repeatedly.
 
 ## Step 5 – Preview the deployment
 

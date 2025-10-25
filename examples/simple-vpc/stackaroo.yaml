@@ -35,7 +35,7 @@ contexts:
 
 # Stack definitions with context-specific overrides
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16           # Global default

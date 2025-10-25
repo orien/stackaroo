@@ -25,14 +25,14 @@ project: ecommerce-platform
 region: us-west-2
 
 stacks:
-  - name: networking
+  networking:
     template: networking.yaml
     parameters:
       # Literal values (backwards compatible)
       Environment: production
       VpcCidr: "10.0.0.0/16"
       
-  - name: application
+  application:
     template: application.yaml
     parameters:
       # Literal values
@@ -64,8 +64,8 @@ stacks:
 	fmt.Printf("Stacks: %d\n", len(config.Stacks))
 
 	// Examine the networking stack (literal parameters only)
-	networkingStack := config.Stacks[0]
-	fmt.Printf("\nNetworking Stack: %s\n", networkingStack.Name)
+	networkingStack := config.Stacks["networking"]
+	fmt.Printf("\nNetworking Stack: networking\n")
 
 	// Sort networking parameter names for deterministic output
 	var networkingParamNames []string
@@ -82,8 +82,8 @@ stacks:
 	}
 
 	// Examine the application stack (mixed parameter types)
-	appStack := config.Stacks[1]
-	fmt.Printf("\nApplication Stack: %s\n", appStack.Name)
+	appStack := config.Stacks["application"]
+	fmt.Printf("\nApplication Stack: application\n")
 
 	// Sort parameter names for deterministic output
 	var paramNames []string
@@ -138,7 +138,7 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: database
+  database:
     template: rds.yaml
     parameters:
       # Literal parameters
@@ -172,8 +172,7 @@ stacks:
 	assert.Len(t, config.Stacks, 1)
 
 	// Examine the database stack
-	dbStack := config.Stacks[0]
-	assert.Equal(t, "database", dbStack.Name)
+	dbStack := config.Stacks["database"]
 	assert.Equal(t, "rds.yaml", dbStack.Template)
 
 	// Check literal parameters
@@ -218,7 +217,7 @@ project: legacy-project
 region: us-east-1
 
 stacks:
-  - name: web-app
+  web-app:
     template: webapp.yaml
     parameters:
       Environment: production
@@ -235,8 +234,7 @@ stacks:
 	err := yaml.Unmarshal([]byte(oldFormatYAML), &config)
 	require.NoError(t, err)
 
-	webAppStack := config.Stacks[0]
-	assert.Equal(t, "web-app", webAppStack.Name)
+	webAppStack := config.Stacks["web-app"]
 
 	// All parameters should be parsed as literals
 	for paramName, paramValue := range webAppStack.Parameters {
@@ -266,7 +264,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: simple-stack
+  simple-stack:
     template: simple.yaml
     parameters:
       Environment: dev
@@ -334,7 +332,7 @@ project: resolver-project
 region: us-west-2
 
 stacks:
-  - name: app-stack
+  app-stack:
     template: app.yaml
     parameters:
       # This works fine
@@ -380,7 +378,7 @@ stacks:
 	err = yaml.Unmarshal([]byte(yamlWithResolvers), &rawConfig)
 	require.NoError(t, err) // This works and preserves ParameterValue types
 
-	rawStack := rawConfig.Stacks[0] // Access raw stack data with yamlParameterValue types
+	rawStack := rawConfig.Stacks["app-stack"] // Access raw stack data with yamlParameterValue types
 	rawVpcIdParam := rawStack.Parameters["VpcId"]
 	assert.True(t, rawVpcIdParam.IsResolver())
 	assert.Equal(t, "stack-output", rawVpcIdParam.Resolver.Type)
@@ -399,7 +397,7 @@ contexts:
     account: "123456789012"
     region: us-east-1
 stacks:
-  - name: web-application
+  web-application:
     template: webapp.yaml
     parameters:
       # Simple literal list
@@ -441,8 +439,8 @@ stacks:
 	}
 
 	// Get the web application stack
-	webAppStack := rawConfig.Stacks[0]
-	fmt.Printf("Stack: %s\n", webAppStack.Name)
+	webAppStack := rawConfig.Stacks["web-application"]
+	fmt.Printf("Stack: web-application\n")
 	fmt.Printf("Parameters parsed:\n")
 
 	// Examine each parameter type

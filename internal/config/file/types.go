@@ -22,7 +22,7 @@ type Config struct {
 	Tags      map[string]string   `yaml:"tags"`
 	Templates *Templates          `yaml:"templates"`
 	Contexts  map[string]*Context `yaml:"contexts"`
-	Stacks    []*Stack            `yaml:"stacks"`
+	Stacks    map[string]*Stack   `yaml:"stacks"`
 }
 
 // Templates represents global template configuration
@@ -39,7 +39,6 @@ type Context struct {
 
 // Stack represents stack configuration as it appears in YAML before context resolution
 type Stack struct {
-	Name         string                         `yaml:"name"`
 	Template     string                         `yaml:"template"`
 	Parameters   map[string]*yamlParameterValue `yaml:"parameters"`
 	Tags         map[string]string              `yaml:"tags"`

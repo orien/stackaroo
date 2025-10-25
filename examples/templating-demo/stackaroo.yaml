@@ -5,7 +5,7 @@ contexts:
   development:
     region: us-west-2
     stacks:
-      - name: webapp
+      webapp:
         template: templates/webapp.yaml
         parameters:
           InstanceType: t3.micro
@@ -14,7 +14,7 @@ contexts:
   production:
     region: us-east-1
     stacks:
-      - name: webapp
+      webapp:
         template: templates/webapp.yaml
         parameters:
           InstanceType: t3.large

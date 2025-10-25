@@ -83,9 +83,9 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
-  - name: app
+  app:
     template: templates/app.yaml
 `
 	tmpDir := t.TempDir()
@@ -154,7 +154,7 @@ contexts:
   empty-context:
     region: us-east-1
 
-stacks: []
+stacks: {}
 `
 	tmpDir := t.TempDir()
 	configFile := tmpDir + "/stackaroo.yaml"
@@ -200,7 +200,7 @@ contexts:
     parameters:
       Environment: test
 stacks:
-  - name: test-stack
+  test-stack:
     template: test-template.json
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "stackaroo.yaml"), []byte(configContent), 0644)
@@ -280,9 +280,9 @@ contexts:
     parameters:
       Environment: test
 stacks:
-  - name: stack-1
+  stack-1:
     template: template1.json
-  - name: stack-2
+  stack-2:
     template: template2.json
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "stackaroo.yaml"), []byte(configContent), 0644)
@@ -355,7 +355,7 @@ contexts:
       Environment: dev
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -437,18 +437,18 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
 
-  - name: database
+  database:
     template: templates/db.yaml
     depends_on: [vpc]
     parameters:
       DBInstanceClass: db.t3.micro
 
-  - name: app
+  app:
     template: templates/app.yaml
     depends_on: [database]
     parameters:
@@ -519,14 +519,14 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
 
-  - name: database
+  database:
     template: templates/db.yaml
     depends_on: [vpc]
 
-  - name: app
+  app:
     template: templates/app.yaml
     depends_on: [database]
 `

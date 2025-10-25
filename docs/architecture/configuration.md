@@ -282,7 +282,7 @@ type Config struct {
     Region   string              `yaml:"region"`
     Tags     map[string]string   `yaml:"tags"`
     Contexts map[string]*Context `yaml:"contexts"`
-    Stacks   []*Stack            `yaml:"stacks"`
+    Stacks   map[string]*Stack   `yaml:"stacks"`
 }
 ```
 
@@ -298,7 +298,6 @@ type Context struct {
 #### **Raw Stack (`file.Stack`)**
 ```go
 type Stack struct {
-    Name         string                         `yaml:"name"`
     Template     string                         `yaml:"template"`
     Parameters   map[string]*yamlParameterValue `yaml:"parameters"`
     Tags         map[string]string              `yaml:"tags"`
@@ -307,6 +306,8 @@ type Stack struct {
     Contexts     map[string]*ContextOverride    `yaml:"contexts"`
 }
 ```
+
+**Note**: The stack name is the map key in `Config.Stacks`, not a field in the struct. This provides a consistent structure where both stacks and parameters use names as map keys.
 
 #### **YAML Parameter Value (`file.yamlParameterValue`)**
 Handles flexible parameter parsing from YAML:

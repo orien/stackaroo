@@ -79,7 +79,7 @@ Different environments can have completely different lists:
 
 ```yaml
 stacks:
-  - name: web-app
+  web-app:
     parameters:
       InstanceTypes:
         - "t3.micro"
@@ -174,7 +174,7 @@ parameters:
 ```yaml
 stacks:
   # Load Balancer with multiple subnets
-  - name: load-balancer
+  load-balancer:
     parameters:
       SubnetIds:
         - type: stack-output
@@ -188,7 +188,7 @@ stacks:
           output_key: PublicSubnet3Id
 
   # Web app with mixed security groups
-  - name: web-application
+  web-application:
     parameters:
       SecurityGroupIds:
         - sg-company-baseline    # Standard corporate SG
@@ -204,7 +204,7 @@ stacks:
 
 ```yaml
 stacks:
-  - name: global-service
+  global-service:
     parameters:
       # Target groups from multiple regions
       TargetGroupArns:
@@ -298,13 +298,13 @@ contexts:
 Ensure stacks are properly ordered in `depends_on`:
 ```yaml
 stacks:
-  - name: vpc
+  vpc:
     # No dependencies
     
-  - name: security
+  security:
     depends_on: [vpc]       # Security groups need VPC
     
-  - name: application
+  application:
     depends_on: [vpc, security]  # App needs both VPC and security groups
     parameters:
       SecurityGroupIds:

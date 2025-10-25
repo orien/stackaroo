@@ -83,20 +83,13 @@ func (fp *FileConfigProvider) GetStack(stackName, context string) (*config.Stack
 	}
 
 	// Find the stack in raw config
-	var rawStack *Stack
-	for _, stack := range fp.rawConfig.Stacks {
-		if stack.Name == stackName {
-			rawStack = stack
-			break
-		}
-	}
-
-	if rawStack == nil {
+	rawStack, exists := fp.rawConfig.Stacks[stackName]
+	if !exists {
 		return nil, fmt.Errorf("stack '%s' not found in configuration", stackName)
 	}
 
 	// Resolve the stack for the given context
-	stack, err := fp.resolveStack(rawStack, context)
+	stack, err := fp.resolveStack(stackName, rawStack, context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve stack '%s' for context '%s': %w", stackName, context, err)
 	}
@@ -117,8 +110,8 @@ func (fp *FileConfigProvider) ListStacks(context string) ([]string, error) {
 
 	// Extract stack names
 	stackNames := make([]string, 0, len(fp.rawConfig.Stacks))
-	for _, stack := range fp.rawConfig.Stacks {
-		stackNames = append(stackNames, stack.Name)
+	for stackName := range fp.rawConfig.Stacks {
+		stackNames = append(stackNames, stackName)
 	}
 
 	return stackNames, nil
@@ -131,10 +124,10 @@ func (fp *FileConfigProvider) Validate() error {
 	}
 
 	// Check that all stack context references exist
-	for _, stack := range fp.rawConfig.Stacks {
+	for stackName, stack := range fp.rawConfig.Stacks {
 		for contextName := range stack.Contexts {
 			if _, exists := fp.rawConfig.Contexts[contextName]; !exists {
-				return fmt.Errorf("stack '%s' references undefined context '%s'", stack.Name, contextName)
+				return fmt.Errorf("stack '%s' references undefined context '%s'", stackName, contextName)
 			}
 		}
 	}
@@ -152,12 +145,12 @@ func (fp *FileConfigProvider) Validate() error {
 	}
 
 	// Check that template files exist (basic validation)
-	for _, stack := range fp.rawConfig.Stacks {
+	for stackName, stack := range fp.rawConfig.Stacks {
 		if stack.Template != "" {
 			// Make template path relative to config file directory
 			templatePath := fp.resolveTemplatePath(stack.Template)
 			if _, err := os.Stat(templatePath); err != nil && os.IsNotExist(err) {
-				return fmt.Errorf("template file not found for stack '%s': %s", stack.Name, templatePath)
+				return fmt.Errorf("template file not found for stack '%s': %s", stackName, templatePath)
 			}
 		}
 	}
@@ -220,8 +213,8 @@ func (fp *FileConfigProvider) resolveContext(name string, rawContext *Context) *
 func (fp *FileConfigProvider) resolveStacks(context string) ([]*config.StackConfig, error) {
 	resolved := make([]*config.StackConfig, 0, len(fp.rawConfig.Stacks))
 
-	for _, rawStack := range fp.rawConfig.Stacks {
-		stack, err := fp.resolveStack(rawStack, context)
+	for stackName, rawStack := range fp.rawConfig.Stacks {
+		stack, err := fp.resolveStack(stackName, rawStack, context)
 		if err != nil {
 			return nil, err
 		}
@@ -232,15 +225,15 @@ func (fp *FileConfigProvider) resolveStacks(context string) ([]*config.StackConf
 }
 
 // resolveStack resolves a single stack configuration for the given context
-func (fp *FileConfigProvider) resolveStack(rawStack *Stack, context string) (*config.StackConfig, error) {
+func (fp *FileConfigProvider) resolveStack(stackName string, rawStack *Stack, context string) (*config.StackConfig, error) {
 	// Convert parameters to string map (only literal values supported)
 	parameters, err := fp.convertParameters(rawStack.Parameters)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert parameters for stack '%s': %w", rawStack.Name, err)
+		return nil, fmt.Errorf("failed to convert parameters for stack '%s': %w", stackName, err)
 	}
 
 	resolved := &config.StackConfig{
-		Name:         rawStack.Name,
+		Name:         stackName,
 		Template:     fp.resolveTemplateURI(rawStack.Template),
 		Parameters:   parameters,
 		Tags:         fp.copyStringMap(rawStack.Tags),
@@ -254,7 +247,7 @@ func (fp *FileConfigProvider) resolveStack(rawStack *Stack, context string) (*co
 		if contextOverride.Parameters != nil {
 			contextParams, err := fp.convertParameters(contextOverride.Parameters)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert context parameters for stack '%s': %w", rawStack.Name, err)
+				return nil, fmt.Errorf("failed to convert context parameters for stack '%s': %w", stackName, err)
 			}
 
 			if resolved.Parameters == nil {

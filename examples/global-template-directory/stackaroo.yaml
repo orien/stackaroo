@@ -13,17 +13,17 @@ contexts:
 
 stacks:
   # Simple template path - resolves to templates/vpc.yaml
-  - name: vpc
+  vpc:
     template: vpc.yaml
 
   # Subdirectory template path - resolves to templates/security/security-groups.yaml
-  - name: security-groups
+  security-groups:
     template: security/security-groups.yaml
 
   # Another subdirectory example - resolves to templates/compute/app.yaml
-  - name: app
+  app:
     template: compute/app.yaml
 
   # Database stack - resolves to templates/database/rds.yaml
-  - name: database
+  database:
     template: database/rds.yaml

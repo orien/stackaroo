@@ -6,7 +6,7 @@ Date: 2025-08-23
 
 Accepted
 
-Amended by [ADR 0014: Global template directory](0014-global-template-directory.md), [ADR 0017: Parameter resolution system enhancement](0017-parameter-resolution-system-enhancement.md)
+Amended by [ADR 0014: Global template directory](0014-global-template-directory.md), [ADR 0017: Parameter resolution system enhancement](0017-parameter-resolution-system-enhancement.md), [ADR 0021: Consistent YAML schema structure](0021-consistent-yaml-schema-structure.md)
 
 ## Context
 

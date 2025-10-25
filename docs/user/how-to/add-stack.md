@@ -8,11 +8,11 @@ Use this guide when you need to introduce a new CloudFormation stack to `stackar
 
 ## 1. Create the stack entry
 
-Append a block under the `stacks` list:
+Add an entry to the `stacks` map:
 
 ```yaml
 stacks:
-  - name: payment-app-network
+  payment-app-network:
     template: network.yaml
     parameters:
       VpcCidr: "10.0.0.0/16"
@@ -24,7 +24,7 @@ stacks:
       Tier: shared-network
 ```
 
-- `name` becomes the CloudFormation stack name. Keep it unique per region.
+- The key (e.g., `payment-app-network`) becomes the CloudFormation stack name. Keep it unique per region.
 - `template` resolves relative to `templates.directory`.
 - `parameters` accept literal values, nested lists, or stack-output references.
 - `tags` override the project defaults for this stack only.
@@ -34,7 +34,7 @@ stacks:
 Tailor parameters or tags per environment by nesting a `contexts` block:
 
 ```yaml
-  - name: payment-app-service
+  payment-app-service:
     template: app.yaml
     parameters:
       DesiredCapacity: "2"

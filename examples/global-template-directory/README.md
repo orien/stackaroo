@@ -36,13 +36,13 @@ contexts:
     account: "987654321098"
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
-  - name: security-groups
+  security-groups:
     template: templates/security/security-groups.yaml
-  - name: app
+  app:
     template: templates/compute/app.yaml
-  - name: database
+  database:
     template: templates/database/rds.yaml
 ```
 
@@ -61,13 +61,13 @@ contexts:
     account: "987654321098"
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml                    # Resolves to templates/vpc.yaml
-  - name: security-groups
+  security-groups:
     template: security/security-groups.yaml  # Resolves to templates/security/security-groups.yaml
-  - name: app
+  app:
     template: compute/app.yaml            # Resolves to templates/compute/app.yaml
-  - name: database
+  database:
     template: database/rds.yaml           # Resolves to templates/database/rds.yaml
 ```
 
@@ -81,7 +81,7 @@ templates:
   directory: "templates/"
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml  # Much cleaner than templates/vpc.yaml
 ```
 
@@ -90,9 +90,9 @@ Templates can be organised in subdirectories within the global template director
 
 ```yaml
 stacks:
-  - name: security-groups
+  security-groups:
     template: security/security-groups.yaml  # Resolves to templates/security/security-groups.yaml
-  - name: app
+  app:
     template: compute/app.yaml              # Resolves to templates/compute/app.yaml
 ```
 
@@ -101,7 +101,7 @@ Absolute paths bypass the global template directory entirely, providing flexibil
 
 ```yaml
 stacks:
-  - name: shared-template
+  shared-template:
     template: /absolute/path/to/shared.yaml  # Uses absolute path as-is
 ```
 

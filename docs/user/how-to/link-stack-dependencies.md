@@ -11,7 +11,7 @@ Follow this guide when one stack needs outputs produced by another stack.
 Add the upstream stack to `depends_on`:
 
 ```yaml
-  - name: payment-app-service
+  payment-app-service:
     template: app.yaml
     depends_on:
       - payment-app-network
@@ -47,7 +47,7 @@ parameters:
 
 Tips:
 
-- `stack_name` must match the CloudFormation stack name. For stacks defined in `stackaroo.yaml`, use the same value you set in the `name` field; you can also point at external stacks by specifying their deployed CloudFormation name.
+- `stack_name` must match the CloudFormation stack name. For stacks defined in `stackaroo.yaml`, use the stack key (the name used in the stacks map); you can also point at external stacks by specifying their deployed CloudFormation name.
 - Treat list parameters as arrays—you can mix literals and output references inside the same list.
 - Keep output keys consistent with the source template to avoid runtime errors.
 

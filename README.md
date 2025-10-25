@@ -247,7 +247,7 @@ contexts:
       Environment: production
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       # Literal parameters
@@ -260,7 +260,7 @@ stacks:
           Environment: production
           VpcCidr: "172.16.0.0/16"
 
-  - name: app
+  app:
     template: templates/app.yaml
     parameters:
       # Literal parameters

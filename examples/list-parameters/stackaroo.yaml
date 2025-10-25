@@ -35,7 +35,7 @@ contexts:
 # Stack definitions with list parameter examples
 stacks:
   # VPC Stack - provides outputs for other stacks
-  - name: networking
+  networking:
     template: vpc.yaml
     parameters:
       # Simple literal list for CIDR blocks
@@ -63,7 +63,7 @@ stacks:
             - "us-east-1f"
 
   # Security Groups Stack - demonstrates complex list scenarios
-  - name: security
+  security:
     template: security-groups.yaml
     depends_on: [networking]
     parameters:
@@ -98,7 +98,7 @@ stacks:
             - "3000"  # Grafana dashboard
 
   # Application Load Balancer - demonstrates cross-stack dependencies
-  - name: load-balancer
+  load-balancer:
     template: alb.yaml
     depends_on: [networking, security]
     parameters:
@@ -125,7 +125,7 @@ stacks:
           output_key: WebTierSecurityGroupId
 
   # Web Application - demonstrates complex mixed lists
-  - name: web-application
+  web-application:
     template: web-app.yaml
     depends_on: [networking, security, load-balancer]
     parameters:
@@ -215,7 +215,7 @@ stacks:
               output_key: ComplianceSecurityGroupId
 
   # Database - demonstrates nested dependency resolution
-  - name: database
+  database:
     template: rds.yaml
     depends_on: [networking, security]
     parameters:
@@ -255,7 +255,7 @@ stacks:
             - "90"  # 90 days for compliance backups
 
   # Multi-region example - demonstrates cross-region dependencies
-  - name: global-cdn
+  global-cdn:
     template: cloudfront.yaml
     depends_on: [load-balancer]
     parameters:

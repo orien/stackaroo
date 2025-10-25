@@ -78,7 +78,7 @@ contexts:
       Environment: dev
 
 stacks:
-  - name: test-stack
+  test-stack:
     template: templates/test-stack.yaml
     parameters:
       Environment: dev
@@ -174,7 +174,7 @@ contexts:
       Environment: dev
 
 stacks:
-  - name: nonexistent-stack
+  nonexistent-stack:
     template: templates/nonexistent-stack.yaml
     parameters:
       Environment: dev
@@ -305,7 +305,7 @@ contexts:
       Environment: production
 
 stacks:
-  - name: my-stack
+  my-stack:
     template: templates/my-stack.yaml
     parameters:
       Environment: production

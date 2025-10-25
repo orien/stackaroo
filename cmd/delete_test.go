@@ -89,7 +89,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -138,11 +138,11 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
-  - name: app
+  app:
     template: templates/app.yaml
     depends_on:
       - vpc
@@ -194,7 +194,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -289,7 +289,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -339,7 +339,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -389,14 +389,14 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
 
-  - name: database
+  database:
     template: templates/database.yaml
     depends_on: [vpc]
 
-  - name: app
+  app:
     template: templates/app.yaml
     depends_on: [database]
 `

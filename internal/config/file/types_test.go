@@ -160,7 +160,6 @@ func TestConvertStringMap(t *testing.T) {
 
 func TestStack_MixedParameterTypes(t *testing.T) {
 	yamlConfig := `
-name: test-stack
 template: test.yaml
 parameters:
   # Literal values
@@ -178,7 +177,7 @@ parameters:
 	err := yaml.Unmarshal([]byte(yamlConfig), &stack)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-stack", stack.Name)
+	// stack.Name removed - name is now the map key
 	assert.Equal(t, "test.yaml", stack.Template)
 	assert.Len(t, stack.Parameters, 3)
 
@@ -205,7 +204,7 @@ project: test-project
 region: us-west-2
 
 stacks:
-  - name: test-stack
+  test-stack:
     template: test.yaml
     parameters:
       # Literal parameter
@@ -261,7 +260,7 @@ func TestFileConfig_FieldAssignment(t *testing.T) {
 	// Test that FileConfig fields can be set and retrieved
 	tags := map[string]string{"Environment": "test"}
 	contexts := map[string]*Context{"dev": {}}
-	stacks := []*Stack{{Name: "test-stack"}}
+	stacks := map[string]*Stack{"test-stack": {}}
 
 	config := Config{
 		Project:  "test-project",
@@ -335,9 +334,8 @@ func TestFileConfig_YAMLMarshaling(t *testing.T) {
 		Templates: &Templates{
 			Directory: "templates/",
 		},
-		Stacks: []*Stack{
-			{
-				Name:     "vpc",
+		Stacks: map[string]*Stack{
+			"vpc": {
 				Template: "templates/vpc.yaml",
 				Parameters: map[string]*yamlParameterValue{
 					"VpcCidr": {Literal: "10.0.0.0/16", IsLiteralValue: true},
@@ -423,7 +421,7 @@ func TestStackConfig_DefaultValues(t *testing.T) {
 	// Test default zero values
 	stack := Stack{}
 
-	assert.Equal(t, "", stack.Name)
+	// stack.Name removed - name is now the map key
 	assert.Equal(t, "", stack.Template)
 	assert.Nil(t, stack.Parameters)
 	assert.Nil(t, stack.Tags)
@@ -447,7 +445,6 @@ func TestStackConfig_FieldAssignment(t *testing.T) {
 	}
 
 	stack := Stack{
-		Name:         "database",
 		Template:     "templates/rds.yaml",
 		Parameters:   parameters,
 		Tags:         tags,
@@ -456,7 +453,7 @@ func TestStackConfig_FieldAssignment(t *testing.T) {
 		Contexts:     contexts,
 	}
 
-	assert.Equal(t, "database", stack.Name)
+	// stack.Name removed - name is now the map key
 	assert.Equal(t, "templates/rds.yaml", stack.Template)
 	assert.Equal(t, parameters, stack.Parameters)
 	assert.Equal(t, tags, stack.Tags)
@@ -524,7 +521,7 @@ contexts:
       CostCenter: production
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: "10.0.0.0/16"
@@ -541,7 +538,7 @@ stacks:
         parameters:
           VpcCidr: "10.3.0.0/16"
           
-  - name: app
+  app:
     template: templates/app.yaml
     depends_on:
       - vpc
@@ -581,15 +578,15 @@ stacks:
 	// Verify stacks
 	assert.Len(t, config.Stacks, 2)
 
-	vpcStack := config.Stacks[0]
-	assert.Equal(t, "vpc", vpcStack.Name)
+	vpcStack := config.Stacks["vpc"]
+	assert.NotNil(t, vpcStack)
 	assert.Equal(t, "templates/vpc.yaml", vpcStack.Template)
 	assert.Equal(t, "10.0.0.0/16", vpcStack.Parameters["VpcCidr"].Literal)
 	assert.Contains(t, vpcStack.Capabilities, "CAPABILITY_IAM")
 	assert.Equal(t, "10.1.0.0/16", vpcStack.Contexts["dev"].Parameters["VpcCidr"].Literal)
 
-	appStack := config.Stacks[1]
-	assert.Equal(t, "app", appStack.Name)
+	appStack := config.Stacks["app"]
+	assert.NotNil(t, appStack)
 	assert.Contains(t, appStack.Dependencies, "vpc")
 	assert.Equal(t, "t3.micro", appStack.Contexts["dev"].Parameters["InstanceType"].Literal)
 	assert.Equal(t, "enabled", appStack.Contexts["prod"].Tags["Monitoring"])
@@ -598,7 +595,6 @@ stacks:
 func TestParameterValue_ListParameterIntegration(t *testing.T) {
 	// Test complete YAML parsing with list parameters
 	yamlConfig := `
-name: test-stack
 template: test.yaml
 parameters:
   # Single literal
@@ -819,7 +815,6 @@ func TestStackConfig_Dependencies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stack := Stack{
-				Name:         "test-stack",
 				Dependencies: tt.dependencies,
 			}
 
@@ -856,7 +851,6 @@ func TestStackConfig_Capabilities(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stack := Stack{
-				Name:         "test-stack",
 				Capabilities: tt.capabilities,
 			}
 

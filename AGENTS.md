@@ -129,7 +129,7 @@ templates/
 ```yaml
 # stackaroo.yml
 stacks:
-  - name: web-app
+  web-app:
     template: templates/webapp.yml
     parameters:
       # Simple literal parameter

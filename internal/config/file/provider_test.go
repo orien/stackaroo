@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/orien/stackaroo/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,7 +46,7 @@ contexts:
       Environment: prod
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
     parameters:
       VpcCidr: 10.0.0.0/16
@@ -97,7 +98,7 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
 `
 
@@ -123,7 +124,7 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: database
+  database:
     template: templates/rds.yaml
     parameters:
       DBInstanceClass: db.t3.micro
@@ -171,7 +172,7 @@ contexts:
     region: us-west-2
   
 stacks:
-  - name: vpc
+  vpc:
     template: nonexistent/template.yaml  # Invalid template path
     contexts:
       nonexistent-context:  # References context that doesn't exist
@@ -199,12 +200,12 @@ contexts:
     region: us-east-1
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
-  - name: app
+  app:
     template: templates/app.yaml
-  - name: database
-    template: templates/db.yaml
+  database:
+    template: templates/rds.yaml
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
@@ -238,7 +239,7 @@ contexts:
   dev:
     region: us-west-2
 
-stacks: []
+stacks: {}
 `
 
 	tmpFile := createTempConfigFile(t, configContent)
@@ -275,9 +276,9 @@ contexts:
     account: "123456789012"
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml
-  - name: app
+  app:
     template: subdirectory/app.yaml
 `
 
@@ -309,13 +310,22 @@ stacks:
 	// Verify stacks use global template directory
 	require.Len(t, cfg.Stacks, 2)
 
-	vpcStack := cfg.Stacks[0]
-	assert.Equal(t, "vpc", vpcStack.Name)
+	// Find stacks by name (map iteration order is not guaranteed)
+	var vpcStack, appStack *config.StackConfig
+	for _, stack := range cfg.Stacks {
+		switch stack.Name {
+		case "vpc":
+			vpcStack = stack
+		case "app":
+			appStack = stack
+		}
+	}
+
+	require.NotNil(t, vpcStack, "vpc stack should be present")
 	assert.True(t, strings.HasPrefix(vpcStack.Template, "file://"))
 	assert.True(t, strings.Contains(vpcStack.Template, "templates/vpc.yaml"))
 
-	appStack := cfg.Stacks[1]
-	assert.Equal(t, "app", appStack.Name)
+	require.NotNil(t, appStack, "app stack should be present")
 	assert.True(t, strings.HasPrefix(appStack.Template, "file://"))
 	assert.True(t, strings.Contains(appStack.Template, "templates/subdirectory/app.yaml"))
 }
@@ -332,7 +342,7 @@ contexts:
     account: "123456789012"
 
 stacks:
-  - name: vpc
+  vpc:
     template: templates/vpc.yaml
 `
 
@@ -367,7 +377,7 @@ contexts:
     account: "123456789012"
 
 stacks:
-  - name: vpc
+  vpc:
     template: /absolute/path/vpc.yaml
 `
 
@@ -400,7 +410,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml
 `
 
@@ -430,7 +440,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml
 `
 
@@ -469,7 +479,7 @@ contexts:
     region: us-west-2
 
 stacks:
-  - name: vpc
+  vpc:
     template: vpc.yaml
 `
 
