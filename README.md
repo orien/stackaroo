@@ -2,6 +2,8 @@
 
 A command-line tool for managing AWS CloudFormation stacks as code.
 
+📚 **[Read the user documentation](https://orien.github.io/stackaroo/)** for tutorials, how-to guides, explanations, and detailed reference material.
+
 ## Overview
 
 Stackaroo simplifies CloudFormation stack management by providing:
