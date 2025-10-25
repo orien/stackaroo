@@ -8,9 +8,6 @@ export default defineConfig({
   appearance: 'auto',
   cleanUrls: true,
   lastUpdated: true,
-  markdown: {
-    lineNumbers: true
-  },
   themeConfig: {
     nav: [
       { text: '🎓 Tutorials', link: '/tutorials/' },
