@@ -77,9 +77,9 @@ type yamlParameterResolver struct {
 
 // StackOutputConfig represents configuration for resolving stack output values
 type StackOutputConfig struct {
-	StackName string `yaml:"stack_name"`
-	OutputKey string `yaml:"output_key"`
-	Region    string `yaml:"region,omitempty"` // Optional, defaults to current region
+	Stack  string `yaml:"stack"`
+	Output string `yaml:"output"`
+	Region string `yaml:"region,omitempty"` // Optional, defaults to current region
 }
 
 // UnmarshalYAML implements custom YAML unmarshalling for yamlParameterValue

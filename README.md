@@ -76,13 +76,13 @@ Pull values dynamically from existing CloudFormation stack outputs:
 parameters:
   VpcId:
     type: stack-output
-    stack_name: networking
-    output_key: VpcId
+    stack: networking
+    output: VpcId
 
   DatabaseEndpoint:
     type: stack-output
-    stack_name: database
-    output_key: DatabaseEndpoint
+    stack: database
+    output: DatabaseEndpoint
 ```
 
 #### Cross-Region Stack Outputs
@@ -91,8 +91,8 @@ Reference outputs from stacks in different AWS regions:
 parameters:
   SharedBucketArn:
     type: stack-output
-    stack_name: shared-resources
-    output_key: BucketArn
+    stack: shared-resources
+    output: BucketArn
     region: us-east-1
 ```
 
@@ -104,8 +104,8 @@ parameters:
   SecurityGroupIds:
     - sg-baseline123         # Literal value
     - type: stack-output     # Dynamic from stack output
-      stack_name: security-stack
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
     - sg-additional456       # Another literal
 
   # Simple literal list
@@ -271,19 +271,19 @@ stacks:
       # Stack output parameters (pull from existing stacks)
       VpcId:
         type: stack-output
-        stack_name: vpc
-        output_key: VpcId
+        stack: vpc
+        output: VpcId
 
       PrivateSubnetId:
         type: stack-output
-        stack_name: vpc
-        output_key: PrivateSubnet1Id
+        stack: vpc
+        output: PrivateSubnet1Id
 
       # Cross-region stack output (optional region parameter)
       SharedBucketArn:
         type: stack-output
-        stack_name: shared-resources
-        output_key: BucketArn
+        stack: shared-resources
+        output: BucketArn
         region: us-east-1
     contexts:
       production:

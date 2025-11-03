@@ -139,8 +139,8 @@ stacks:
       SecurityGroupIds:
         - sg-baseline123         # Literal value
         - type: stack-output     # Dynamic from stack output
-          stack_name: security-stack
-          output_key: WebSGId
+          stack: security-stack
+          output: WebSGId
         - sg-additional456       # Another literal
 
       # Simple literal list

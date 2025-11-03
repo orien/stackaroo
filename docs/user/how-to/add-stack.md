@@ -40,8 +40,8 @@ Tailor parameters or tags per environment by nesting a `contexts` block:
       DesiredCapacity: "2"
       VpcId:
         type: stack-output
-        stack_name: payment-app-network
-        output_key: VpcId
+        stack: payment-app-network
+        output: VpcId
     contexts:
       production:
         parameters:

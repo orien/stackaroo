@@ -210,14 +210,14 @@ func (r *StackResolver) resolveParameters(ctx context.Context, params map[string
 
 // resolveStackOutput resolves a stack output reference to its actual value
 func (r *StackResolver) resolveStackOutput(ctx context.Context, outputConfig map[string]string, contextRegion string) (string, error) {
-	stackName, exists := outputConfig["stack_name"]
+	stackName, exists := outputConfig["stack"]
 	if !exists {
-		return "", fmt.Errorf("stack output resolver missing required 'stack_name'")
+		return "", fmt.Errorf("stack output resolver missing required 'stack'")
 	}
 
-	outputKey, exists := outputConfig["output_key"]
+	outputKey, exists := outputConfig["output"]
 	if !exists {
-		return "", fmt.Errorf("stack output resolver missing required 'output_key'")
+		return "", fmt.Errorf("stack output resolver missing required 'output'")
 	}
 
 	// Determine which region to use for the stack lookup

@@ -98,8 +98,8 @@ parameters := map[string]*config.ParameterValue{
     "VpcId": {
         ResolutionType: "stack-output",
         ResolutionConfig: map[string]string{
-            "stack_name": "vpc-stack",
-            "output_key": "VpcId",
+            "stack": "vpc-stack",
+            "output": "VpcId",
             "region":     "us-west-2",  // Different region
         },
     },

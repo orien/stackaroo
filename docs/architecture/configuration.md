@@ -29,17 +29,17 @@ The configuration system follows these core architectural principles:
 graph TD
     A[CLI Layer] --> B[config.ConfigProvider Interface]
     B --> C[file.FileConfigProvider Implementation]
-    
+
     C --> D[Raw YAML Parsing]
     C --> E[Resolution Engine]
     C --> F[Validation Engine]
     C --> G[Template Resolution]
-    
+
     D --> H[YAML Configuration File]
     E --> H
     F --> H
     G --> H
-    
+
     style A fill:#e1f5fe
     style B fill:#f3e5f5
     style C fill:#f1f8e9
@@ -54,13 +54,13 @@ graph TD
 type ConfigProvider interface {
     // LoadConfig loads configuration for a specific context
     LoadConfig(ctx context.Context, context string) (*Config, error)
-    
+
     // ListContexts returns all available contexts
     ListContexts() ([]string, error)
-    
+
     // GetStack returns stack configuration for specific stack and context
     GetStack(stackName, context string) (*StackConfig, error)
-    
+
     // Validate checks configuration for consistency and errors
     Validate() error
 }
@@ -151,8 +151,8 @@ Dynamic references to CloudFormation stack outputs:
 parameters:
   VpcId:
     type: stack-output
-    stack_name: vpc-stack
-    output_key: VpcId
+    stack: vpc-stack
+    output: VpcId
 ```
 
 #### **List Parameters**
@@ -163,8 +163,8 @@ parameters:
   SecurityGroupIds:
     - sg-baseline123           # Literal value
     - type: stack-output       # Dynamic resolution
-      stack_name: security-stack
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
     - sg-additional456         # Another literal
 
   # Simple literal list
@@ -178,7 +178,7 @@ parameters:
 
 1. **YAML Parsing** - `yamlParameterValue.UnmarshalYAML()` detects parameter type:
    - Scalar nodes → Literal parameters
-   - Mapping nodes → Resolver parameters  
+   - Mapping nodes → Resolver parameters
    - Sequence nodes → List parameters
 
 2. **Configuration Conversion** - `ToConfigParameterValue()` creates unified `ParameterValue` structures
@@ -197,8 +197,8 @@ List parameters resolve to comma-separated strings compatible with CloudFormatio
 SecurityGroupIds:
   - sg-123
   - type: stack-output
-    stack_name: vpc-stack  
-    output_key: WebSGId    # Resolves to "sg-456"
+    stack: vpc-stack
+    output: WebSGId    # Resolves to "sg-456"
 
 # Resolved Parameter Value
 SecurityGroupIds: "sg-123,sg-456"
@@ -224,19 +224,19 @@ stacks:
       SecurityGroupIds:
         - sg-base
         - type: stack-output
-          stack_name: security
-          output_key: WebSGId
+          stack: security
+          output: WebSGId
     contexts:
       prod:
         parameters:
           SecurityGroupIds:
             - sg-prod-base      # Different baseline for prod
             - type: stack-output
-              stack_name: security
-              output_key: WebSGId
+              stack: security
+              output: WebSGId
             - type: stack-output  # Additional monitoring SG
-              stack_name: monitoring
-              output_key: MonitoringSGId
+              stack: monitoring
+              output: MonitoringSGId
 ```
 
 ### Error Handling
@@ -254,7 +254,7 @@ The system is designed for extensibility with new resolution types:
 // Future resolver types can be added easily
 switch paramValue.ResolutionType {
 case "literal":        // Existing
-case "stack-output":   // Existing  
+case "stack-output":   // Existing
 case "list":          // Existing
 case "ssm-parameter": // Future: Systems Manager parameters
 case "secrets-manager": // Future: Secrets Manager values
@@ -320,7 +320,7 @@ type yamlParameterValue struct {
 
     // For complex resolution
     Resolver *yamlParameterResolver
-    
+
     // For list parameters - detected from YAML arrays
     ListItems   []*yamlParameterValue
     IsListValue bool
@@ -338,7 +338,7 @@ graph LR
     A[YAML: templates/vpc.yaml] --> B[resolveTemplatePath]
     B --> C[Absolute Path: /project/templates/vpc.yaml]
     C --> D[file:// URI: file:///project/templates/vpc.yaml]
-    
+
     style A fill:#fff3e0
     style D fill:#e8f5e8
 ```
@@ -351,10 +351,10 @@ Parameters are resolved using a three-level inheritance hierarchy:
 graph TD
     A[Global Parameters<br/>file.Config.*] --> B[Stack Parameters<br/>file.Stack.Parameters]
     B --> C[Context Parameters<br/>file.ContextOverride.Parameters]
-    
+
     A -.->|inherited by| B
     B -.->|overridden by| C
-    
+
     style A fill:#ffebee
     style B fill:#f3e5f5
     style C fill:#e8f5e8
@@ -369,11 +369,11 @@ graph TD
     A[Global Tags<br/>file.Config.Tags] --> B[Context Tags<br/>file.Context.Tags]
     B --> C[Stack Tags<br/>file.Stack.Tags]
     C --> D[Context Override Tags<br/>file.ContextOverride.Tags]
-    
+
     A -.->|merged with| B
     B -.->|merged with| C
     C -.->|overridden by| D
-    
+
     style A fill:#ffebee
     style B fill:#fff3e0
     style C fill:#f3e5f5
@@ -387,16 +387,16 @@ flowchart TD
     A[Start: Stack Configuration] --> B[Apply Stack Defaults]
     B --> C[Apply Global Defaults]
     C --> D{Context Override Exists?}
-    
+
     D -->|Yes| E[Merge Context Parameters<br/>Context Wins]
     D -->|No| H[Resolve Template Path]
-    
+
     E --> F[Merge Context Tags<br/>Context Wins]
     F --> G[Replace Dependencies & Capabilities<br/>if specified]
     G --> H[Convert Template Path to URI<br/>file:// scheme for file paths]
-    
+
     H --> I[Return Resolved StackConfig]
-    
+
     style A fill:#e3f2fd
     style I fill:#e8f5e8
     style D fill:#fff9c4
@@ -422,14 +422,14 @@ contexts:
     tags:
       Environment: dev
       CostCenter: engineering
-      
+
   staging:
     account: "123456789012"
     region: us-east-1
     tags:
       Environment: staging
       CostCenter: engineering
-      
+
   prod:
     account: "987654321098"
     region: us-east-1
@@ -445,15 +445,15 @@ stacks:
       # Simple literal parameters (traditional syntax)
       VpcCidr: 10.0.0.0/16
       EnableDnsHostnames: "true"
-      
+
       # List parameter with mixed resolution types
       SecurityGroupIds:
         - sg-baseline123         # Literal value
         - type: stack-output     # Dynamic from stack output
-          stack_name: security-stack
-          output_key: WebSGId
+          stack: security-stack
+          output: WebSGId
         - sg-additional456       # Another literal
-      
+
       # Simple list of literals
       AllowedPorts:
         - "80"
@@ -471,8 +471,8 @@ stacks:
           SecurityGroupIds:
             - sg-dev-baseline
             - type: stack-output
-              stack_name: dev-security
-              output_key: DevWebSGId
+              stack: dev-security
+              output: DevWebSGId
       prod:
         parameters:
           VpcCidr: 10.2.0.0/16
@@ -480,14 +480,14 @@ stacks:
           SecurityGroupIds:
             - sg-prod-baseline
             - type: stack-output
-              stack_name: security-stack
-              output_key: WebSGId
+              stack: security-stack
+              output: WebSGId
             - type: stack-output
-              stack_name: monitoring-stack
-              output_key: MonitoringSGId
+              stack: monitoring-stack
+              output: MonitoringSGId
         tags:
           Component: prod-networking
-          
+
   - name: database
     template: templates/rds.yaml
     depends_on: [vpc]
@@ -496,14 +496,14 @@ stacks:
       # Database subnets from VPC stack
       DBSubnetGroupSubnetIds:
         - type: stack-output
-          stack_name: vpc
-          output_key: DatabaseSubnet1Id
+          stack: vpc
+          output: DatabaseSubnet1Id
         - type: stack-output
-          stack_name: vpc
-          output_key: DatabaseSubnet2Id
+          stack: vpc
+          output: DatabaseSubnet2Id
         - type: stack-output
-          stack_name: vpc
-          output_key: DatabaseSubnet3Id
+          stack: vpc
+          output: DatabaseSubnet3Id
     contexts:
       prod:
         parameters:
@@ -764,10 +764,10 @@ The configuration system follows the testing patterns established in [ADR 0011](
 func createTempConfigFile(t *testing.T, content string) string {
     tmpDir := t.TempDir()
     tmpFile := tmpDir + "/stackaroo.yaml"
-    
+
     err := os.WriteFile(tmpFile, []byte(content), 0644)
     require.NoError(t, err)
-    
+
     return tmpFile
 }
 ```

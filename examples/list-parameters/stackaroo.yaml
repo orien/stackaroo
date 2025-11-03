@@ -72,8 +72,8 @@ stacks:
         - "203.0.113.0/24"  # Office network
         - "198.51.100.0/24"  # Partner network
         - type: stack-output
-          stack_name: networking
-          output_key: VpcCidrBlock
+          stack: networking
+          output: VpcCidrBlock
       
       # Web tier allowed ports
       WebPorts:
@@ -105,24 +105,24 @@ stacks:
       # Subnets from VPC stack
       SubnetIds:
         - type: stack-output
-          stack_name: networking
-          output_key: PublicSubnet1Id
+          stack: networking
+          output: PublicSubnet1Id
         - type: stack-output
-          stack_name: networking
-          output_key: PublicSubnet2Id
+          stack: networking
+          output: PublicSubnet2Id
         - type: stack-output
-          stack_name: networking
-          output_key: PublicSubnet3Id
+          stack: networking
+          output: PublicSubnet3Id
       
       # Security groups from security stack + base security group
       SecurityGroupIds:
         - sg-baseline123456789  # Company baseline security group
         - type: stack-output
-          stack_name: security
-          output_key: LoadBalancerSecurityGroupId
+          stack: security
+          output: LoadBalancerSecurityGroupId
         - type: stack-output
-          stack_name: security
-          output_key: WebTierSecurityGroupId
+          stack: security
+          output: WebTierSecurityGroupId
 
   # Web Application - demonstrates complex mixed lists
   web-application:
@@ -139,20 +139,20 @@ stacks:
       SecurityGroupIds:
         - sg-company-baseline  # Literal: company standard
         - type: stack-output   # Dynamic: web tier security group
-          stack_name: security
-          output_key: WebTierSecurityGroupId
+          stack: security
+          output: WebTierSecurityGroupId
         - type: stack-output   # Dynamic: app-specific security group
-          stack_name: security
-          output_key: ApplicationSecurityGroupId
+          stack: security
+          output: ApplicationSecurityGroupId
       
       # Target group ARNs from load balancer
       TargetGroupArns:
         - type: stack-output
-          stack_name: load-balancer
-          output_key: WebTargetGroupArn
+          stack: load-balancer
+          output: WebTargetGroupArn
         - type: stack-output
-          stack_name: load-balancer
-          output_key: ApiTargetGroupArn
+          stack: load-balancer
+          output: ApiTargetGroupArn
       
       # Environment variables as key=value pairs
       EnvironmentVariables:
@@ -181,14 +181,14 @@ stacks:
           SecurityGroupIds:
             - sg-company-baseline
             - type: stack-output
-              stack_name: security
-              output_key: WebTierSecurityGroupId
+              stack: security
+              output: WebTierSecurityGroupId
             - type: stack-output
-              stack_name: security
-              output_key: ApplicationSecurityGroupId
+              stack: security
+              output: ApplicationSecurityGroupId
             - type: stack-output
-              stack_name: monitoring
-              output_key: MonitoringSecurityGroupId
+              stack: monitoring
+              output: MonitoringSecurityGroupId
       
       prod:
         parameters:
@@ -202,17 +202,17 @@ stacks:
           SecurityGroupIds:
             - sg-company-baseline
             - type: stack-output
-              stack_name: security
-              output_key: WebTierSecurityGroupId
+              stack: security
+              output: WebTierSecurityGroupId
             - type: stack-output
-              stack_name: security
-              output_key: ApplicationSecurityGroupId
+              stack: security
+              output: ApplicationSecurityGroupId
             - type: stack-output
-              stack_name: monitoring
-              output_key: MonitoringSecurityGroupId
+              stack: monitoring
+              output: MonitoringSecurityGroupId
             - type: stack-output
-              stack_name: compliance
-              output_key: ComplianceSecurityGroupId
+              stack: compliance
+              output: ComplianceSecurityGroupId
 
   # Database - demonstrates nested dependency resolution
   database:
@@ -222,23 +222,23 @@ stacks:
       # Database subnet group from VPC
       DBSubnetGroupSubnetIds:
         - type: stack-output
-          stack_name: networking
-          output_key: DatabaseSubnet1Id
+          stack: networking
+          output: DatabaseSubnet1Id
         - type: stack-output
-          stack_name: networking
-          output_key: DatabaseSubnet2Id
+          stack: networking
+          output: DatabaseSubnet2Id
         - type: stack-output
-          stack_name: networking
-          output_key: DatabaseSubnet3Id
+          stack: networking
+          output: DatabaseSubnet3Id
       
       # Security groups for database access
       VpcSecurityGroupIds:
         - type: stack-output
-          stack_name: security
-          output_key: DatabaseSecurityGroupId
+          stack: security
+          output: DatabaseSecurityGroupId
         - type: stack-output
-          stack_name: security
-          output_key: ApplicationSecurityGroupId
+          stack: security
+          output: ApplicationSecurityGroupId
       
       # Backup window (hours in UTC)
       BackupRetentionPeriods:
@@ -262,8 +262,8 @@ stacks:
       # Origins from multiple regions (example of complex resolution)
       OriginDomainNames:
         - type: stack-output
-          stack_name: load-balancer
-          output_key: LoadBalancerDNSName
+          stack: load-balancer
+          output: LoadBalancerDNSName
         - api.example.com  # Literal: legacy API endpoint
         - assets.example.com  # Literal: assets CDN
       

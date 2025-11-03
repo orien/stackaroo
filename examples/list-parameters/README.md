@@ -37,11 +37,11 @@ parameters:
   SecurityGroupIds:
     - sg-baseline123        # Literal hardcoded value
     - type: stack-output    # Dynamic from another stack
-      stack_name: security-stack
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
     - type: stack-output    # Another dynamic value
-      stack_name: database-stack
-      output_key: DatabaseSGId
+      stack: database-stack
+      output: DatabaseSGId
     - sg-additional456      # Another literal
 ```
 
@@ -51,14 +51,14 @@ parameters:
 parameters:
   SubnetIds:
     - type: stack-output
-      stack_name: vpc-stack
-      output_key: PublicSubnet1Id
+      stack: vpc-stack
+      output: PublicSubnet1Id
     - type: stack-output
-      stack_name: vpc-stack
-      output_key: PublicSubnet2Id  
+      stack: vpc-stack
+      output: PublicSubnet2Id  
     - type: stack-output
-      stack_name: vpc-stack
-      output_key: PublicSubnet3Id
+      stack: vpc-stack
+      output: PublicSubnet3Id
 ```
 
 ## CloudFormation Parameter Type Mapping
@@ -101,14 +101,14 @@ Lists can reference outputs from multiple different stacks:
 parameters:
   TargetGroupArns:
     - type: stack-output
-      stack_name: us-east-1-alb
-      output_key: WebTargetGroupArn
+      stack: us-east-1-alb
+      output: WebTargetGroupArn
     - type: stack-output
-      stack_name: us-west-2-alb
-      output_key: WebTargetGroupArn
+      stack: us-west-2-alb
+      output: WebTargetGroupArn
     - type: stack-output
-      stack_name: legacy-lb
-      output_key: ApiTargetGroupArn
+      stack: legacy-lb
+      output: ApiTargetGroupArn
 ```
 
 ### 3. Incremental Environment Configuration
@@ -121,8 +121,8 @@ parameters:
   SecurityGroupIds:
     - sg-baseline
     - type: stack-output
-      stack_name: web-security
-      output_key: WebSGId
+      stack: web-security
+      output: WebSGId
 
 contexts:
   staging:
@@ -130,25 +130,25 @@ contexts:
       SecurityGroupIds:
         - sg-baseline
         - type: stack-output
-          stack_name: web-security
-          output_key: WebSGId
+          stack: web-security
+          output: WebSGId
         - type: stack-output
-          stack_name: monitoring
-          output_key: MonitoringSGId    # Add monitoring in staging
+          stack: monitoring
+          output: MonitoringSGId    # Add monitoring in staging
           
   prod:
     parameters:
       SecurityGroupIds:
         - sg-baseline
         - type: stack-output
-          stack_name: web-security
-          output_key: WebSGId
+          stack: web-security
+          output: WebSGId
         - type: stack-output
-          stack_name: monitoring
-          output_key: MonitoringSGId
+          stack: monitoring
+          output: MonitoringSGId
         - type: stack-output
-          stack_name: compliance
-          output_key: ComplianceSGId    # Add compliance in prod
+          stack: compliance
+          output: ComplianceSGId    # Add compliance in prod
 ```
 
 ### 4. Mixed Resolution Types
@@ -160,11 +160,11 @@ parameters:
   AllowedCIDRs:
     - "203.0.113.0/24"      # Office network (literal)
     - type: stack-output    # VPC CIDR (dynamic)
-      stack_name: vpc-stack
-      output_key: VpcCidrBlock
+      stack: vpc-stack
+      output: VpcCidrBlock
     - type: stack-output    # Partner VPN CIDR (dynamic)
-      stack_name: vpn-stack
-      output_key: PartnerCidrBlock
+      stack: vpn-stack
+      output: PartnerCidrBlock
 ```
 
 ## Real-World Examples
@@ -178,14 +178,14 @@ stacks:
     parameters:
       SubnetIds:
         - type: stack-output
-          stack_name: vpc
-          output_key: PublicSubnet1Id
+          stack: vpc
+          output: PublicSubnet1Id
         - type: stack-output
-          stack_name: vpc
-          output_key: PublicSubnet2Id
+          stack: vpc
+          output: PublicSubnet2Id
         - type: stack-output
-          stack_name: vpc
-          output_key: PublicSubnet3Id
+          stack: vpc
+          output: PublicSubnet3Id
 
   # Web app with mixed security groups
   web-application:
@@ -193,11 +193,11 @@ stacks:
       SecurityGroupIds:
         - sg-company-baseline    # Standard corporate SG
         - type: stack-output     # Application-specific SG
-          stack_name: app-security
-          output_key: WebAppSGId
+          stack: app-security
+          output: WebAppSGId
         - type: stack-output     # Load balancer SG
-          stack_name: load-balancer
-          output_key: ALBSecurityGroupId
+          stack: load-balancer
+          output: ALBSecurityGroupId
 ```
 
 ### Multi-Region Deployment
@@ -209,14 +209,14 @@ stacks:
       # Target groups from multiple regions
       TargetGroupArns:
         - type: stack-output
-          stack_name: us-east-1-app
-          output_key: WebTargetGroupArn
+          stack: us-east-1-app
+          output: WebTargetGroupArn
         - type: stack-output
-          stack_name: us-west-2-app
-          output_key: WebTargetGroupArn
+          stack: us-west-2-app
+          output: WebTargetGroupArn
         - type: stack-output
-          stack_name: eu-west-1-app
-          output_key: WebTargetGroupArn
+          stack: eu-west-1-app
+          output: WebTargetGroupArn
 ```
 
 ## Resolution Process
@@ -234,8 +234,8 @@ Example resolution:
 SecurityGroupIds:
   - sg-literal123
   - type: stack-output
-    stack_name: security
-    output_key: WebSGId      # Resolves to "sg-dynamic456"
+    stack: security
+    output: WebSGId      # Resolves to "sg-dynamic456"
 ```
 
 Becomes: `"sg-literal123,sg-dynamic456"`
@@ -249,11 +249,11 @@ Keep list items in a consistent order for predictable results:
 SecurityGroupIds:
   - sg-baseline           # Always first: baseline
   - type: stack-output    # Then: app-specific
-    stack_name: app-security
-    output_key: WebSGId
+    stack: app-security
+    output: WebSGId
   - type: stack-output    # Finally: environment-specific  
-    stack_name: monitoring
-    output_key: MonitoringSGId
+    stack: monitoring
+    output: MonitoringSGId
 ```
 
 ### 2. Comment Your Lists
@@ -262,11 +262,11 @@ Use comments to explain the purpose of each item:
 SecurityGroupIds:
   - sg-baseline123        # Company security baseline
   - type: stack-output    # Web tier access rules
-    stack_name: web-security
-    output_key: WebTierSGId
+    stack: web-security
+    output: WebTierSGId
   - type: stack-output    # Application-specific rules
-    stack_name: app-security  
-    output_key: AppSGId
+    stack: app-security  
+    output: AppSGId
 ```
 
 ### 3. Environment-Specific Variations
@@ -284,14 +284,14 @@ contexts:
       SecurityGroupIds:
         - sg-prod-baseline
         - type: stack-output
-          stack_name: security
-          output_key: WebSGId
+          stack: security
+          output: WebSGId
         - type: stack-output
-          stack_name: monitoring
-          output_key: MonitoringSGId
+          stack: monitoring
+          output: MonitoringSGId
         - type: stack-output
-          stack_name: compliance
-          output_key: ComplianceSGId
+          stack: compliance
+          output: ComplianceSGId
 ```
 
 ### 4. Dependency Management
@@ -309,8 +309,8 @@ stacks:
     parameters:
       SecurityGroupIds:
         - type: stack-output
-          stack_name: security  # This dependency is declared above
-          output_key: WebSGId
+          stack: security  # This dependency is declared above
+          output: WebSGId
 ```
 
 ## Migration from Single Values
@@ -322,8 +322,8 @@ If you have existing single-value parameters, you can easily migrate:
 parameters:
   SecurityGroupId:
     type: stack-output
-    stack_name: security-stack
-    output_key: WebSGId
+    stack: security-stack
+    output: WebSGId
 ```
 
 ### After (list with single item):
@@ -331,8 +331,8 @@ parameters:
 parameters:
   SecurityGroupIds:  # Note: parameter name typically changes to plural
     - type: stack-output
-      stack_name: security-stack
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
 ```
 
 ### After (list with multiple items):
@@ -341,8 +341,8 @@ parameters:
   SecurityGroupIds:
     - sg-baseline123    # Add baseline security group
     - type: stack-output
-      stack_name: security-stack
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
     - sg-monitoring456  # Add monitoring access
 ```
 

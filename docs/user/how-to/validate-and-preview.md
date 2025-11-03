@@ -21,7 +21,7 @@ stackaroo diff production payment-app-service
 Common causes:
 
 - Missing template files or typos in the `template` path.
-- Incorrect `stack_name` or `output_key` values when referencing stack outputs.
+- Incorrect `stack` or `output` values when referencing stack outputs.
 - Parameters that break CloudFormation type constraints (for example, malformed CIDR blocks).
 
 Fix the configuration and rerun `stackaroo diff` until it completes without errors.

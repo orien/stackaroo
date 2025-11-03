@@ -8,6 +8,8 @@ Accepted
 
 Amends [ADR 0010: File provider configuration structure](0010-file-provider-configuration-structure.md)
 
+Amended by [ADR 0022: Simplified stack output reference field names](0022-simplified-stack-output-field-names.md)
+
 ## Context
 
 The original configuration system implemented in ADR 0010 established a parameter structure using simple `map[string]string` values, which worked well for basic CloudFormation parameters but had significant limitations:

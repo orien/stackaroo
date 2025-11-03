@@ -41,14 +41,14 @@ stacks:
       # Stack output resolver
       VpcId:
         type: stack-output
-        stack_name: networking
-        output_key: VpcId
+        stack: networking
+        output: VpcId
         
       # Cross-region stack output
       SharedBucketArn:
         type: stack-output
-        stack_name: shared-resources
-        output_key: BucketArn
+        stack: shared-resources
+        output: BucketArn
         region: us-east-1
 `
 
@@ -99,8 +99,8 @@ stacks:
 		} else if paramValue.IsResolver() {
 			fmt.Printf("  %s -> resolver(type=%s)\n", paramName, paramValue.Resolver.Type)
 			if paramValue.Resolver.Type == "stack-output" {
-				stackName := paramValue.Resolver.Config["stack_name"]
-				outputKey := paramValue.Resolver.Config["output_key"]
+				stackName := paramValue.Resolver.Config["stack"]
+				outputKey := paramValue.Resolver.Config["output"]
 				fmt.Printf("    references: %s.%s\n", stackName, outputKey)
 			}
 		}
@@ -148,8 +148,8 @@ stacks:
       # Cross-stack reference
       VpcId:
         type: output
-        stack_name: networking
-        output_key: VpcId
+        stack: networking
+        output: VpcId
         
       # Environment-specific overrides
     contexts:
@@ -188,8 +188,8 @@ stacks:
 	vpcIdParam := dbStack.Parameters["VpcId"]
 	assert.True(t, vpcIdParam.IsResolver())
 	assert.Equal(t, "output", vpcIdParam.Resolver.Type)
-	assert.Equal(t, "networking", vpcIdParam.Resolver.Config["stack_name"])
-	assert.Equal(t, "VpcId", vpcIdParam.Resolver.Config["output_key"])
+	assert.Equal(t, "networking", vpcIdParam.Resolver.Config["stack"])
+	assert.Equal(t, "VpcId", vpcIdParam.Resolver.Config["output"])
 
 	// Check context overrides
 	prodOverride := dbStack.Contexts["prod"]
@@ -341,8 +341,8 @@ stacks:
       # This should be parsed successfully by the provider
       VpcId:
         type: stack-output
-        stack_name: vpc-stack
-        output_key: VpcId
+        stack: vpc-stack
+        output: VpcId
 `
 
 	// Create temporary file
@@ -368,8 +368,8 @@ stacks:
 	// Verify resolver parameter is parsed correctly
 	vpcIdParam := stackConfig.Parameters["VpcId"]
 	assert.True(t, vpcIdParam.ResolutionType == "stack-output")
-	assert.Equal(t, "vpc-stack", vpcIdParam.ResolutionConfig["stack_name"])
-	assert.Equal(t, "VpcId", vpcIdParam.ResolutionConfig["output_key"])
+	assert.Equal(t, "vpc-stack", vpcIdParam.ResolutionConfig["stack"])
+	assert.Equal(t, "VpcId", vpcIdParam.ResolutionConfig["output"])
 
 	fmt.Printf("Successfully parsed resolver parameters into ParameterValue objects\n")
 
@@ -410,24 +410,24 @@ stacks:
       SecurityGroupIds:
         - sg-baseline123
         - type: stack-output
-          stack_name: security-stack
-          output_key: WebServerSGId
+          stack: security-stack
+          output: WebServerSGId
         - type: stack-output
-          stack_name: database-stack
-          output_key: DatabaseSGId
+          stack: database-stack
+          output: DatabaseSGId
         - sg-additional456
       
       # All stack outputs from different stacks
       SubnetIds:
         - type: stack-output
-          stack_name: vpc-stack
-          output_key: PublicSubnet1Id
+          stack: vpc-stack
+          output: PublicSubnet1Id
         - type: stack-output
-          stack_name: vpc-stack
-          output_key: PublicSubnet2Id
+          stack: vpc-stack
+          output: PublicSubnet2Id
         - type: stack-output
-          stack_name: additional-vpc
-          output_key: ExtraSubnetId
+          stack: additional-vpc
+          output: ExtraSubnetId
 `
 
 	// Parse YAML into raw config structure
@@ -456,8 +456,8 @@ stacks:
 					fmt.Printf("    [%d] = \"%s\" (literal)\n", i, item.Literal)
 				} else if item.IsResolver() {
 					fmt.Printf("    [%d] = resolver(type=%s", i, item.Resolver.Type)
-					if stackName, exists := item.Resolver.Config["stack_name"]; exists {
-						outputKey := item.Resolver.Config["output_key"]
+					if stackName, exists := item.Resolver.Config["stack"]; exists {
+						outputKey := item.Resolver.Config["output"]
 						fmt.Printf(", %s.%s", stackName, outputKey)
 					}
 					fmt.Printf(")\n")

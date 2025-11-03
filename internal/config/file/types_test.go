@@ -68,12 +68,12 @@ func TestParameterValue_UnmarshalYAML_ComplexObject(t *testing.T) {
 			name: "stack output resolver",
 			yaml: `
 type: output
-stack_name: vpc-stack
-output_key: VpcId`,
+stack: vpc-stack
+output: VpcId`,
 			expectedType: "output",
 			expectedConfig: map[string]interface{}{
-				"stack_name": "vpc-stack",
-				"output_key": "VpcId",
+				"stack":  "vpc-stack",
+				"output": "VpcId",
 			},
 		},
 	}
@@ -115,8 +115,8 @@ func TestParameterValue_MarshalYAML(t *testing.T) {
 			Resolver: &yamlParameterResolver{
 				Type: "output",
 				Config: map[string]interface{}{
-					"stack_name": "vpc-stack",
-					"output_key": "VpcId",
+					"stack":  "vpc-stack",
+					"output": "VpcId",
 				},
 			},
 		}
@@ -128,8 +128,8 @@ func TestParameterValue_MarshalYAML(t *testing.T) {
 		err = yaml.Unmarshal(result, &unmarshalled)
 		require.NoError(t, err)
 		assert.Equal(t, "output", unmarshalled["type"])
-		assert.Equal(t, "vpc-stack", unmarshalled["stack_name"])
-		assert.Equal(t, "VpcId", unmarshalled["output_key"])
+		assert.Equal(t, "vpc-stack", unmarshalled["stack"])
+		assert.Equal(t, "VpcId", unmarshalled["output"])
 	})
 }
 
@@ -165,12 +165,12 @@ parameters:
   # Literal values
   Environment: production
   Region: us-west-2
-  
+
   # Stack output resolver
   VpcId:
     type: output
-    stack_name: vpc-stack
-    output_key: VpcId
+    stack: vpc-stack
+    output: VpcId
 `
 
 	var stack Stack
@@ -192,8 +192,8 @@ parameters:
 	vpcIdParam := stack.Parameters["VpcId"]
 	assert.True(t, vpcIdParam.IsResolver())
 	assert.Equal(t, "output", vpcIdParam.Resolver.Type)
-	assert.Equal(t, "vpc-stack", vpcIdParam.Resolver.Config["stack_name"])
-	assert.Equal(t, "VpcId", vpcIdParam.Resolver.Config["output_key"])
+	assert.Equal(t, "vpc-stack", vpcIdParam.Resolver.Config["stack"])
+	assert.Equal(t, "VpcId", vpcIdParam.Resolver.Config["output"])
 
 }
 
@@ -209,12 +209,12 @@ stacks:
     parameters:
       # Literal parameter
       Environment: production
-      
+
       # Resolver parameter
       VpcId:
         type: stack-output
-        stack_name: vpc-stack
-        output_key: VpcId
+        stack: vpc-stack
+        output: VpcId
 `
 
 	// Create temporary file
@@ -241,8 +241,8 @@ stacks:
 	// Verify resolver parameter
 	vpcIdParam := stackConfig.Parameters["VpcId"]
 	assert.Equal(t, "stack-output", vpcIdParam.ResolutionType)
-	assert.Equal(t, "vpc-stack", vpcIdParam.ResolutionConfig["stack_name"])
-	assert.Equal(t, "VpcId", vpcIdParam.ResolutionConfig["output_key"])
+	assert.Equal(t, "vpc-stack", vpcIdParam.ResolutionConfig["stack"])
+	assert.Equal(t, "VpcId", vpcIdParam.ResolutionConfig["output"])
 }
 
 func TestFileConfig_DefaultValues(t *testing.T) {
@@ -505,7 +505,7 @@ tags:
 
 templates:
   directory: "templates/"
-  
+
 contexts:
   dev:
     account: "123456789012"
@@ -537,7 +537,7 @@ stacks:
       prod:
         parameters:
           VpcCidr: "10.3.0.0/16"
-          
+
   app:
     template: templates/app.yaml
     depends_on:
@@ -599,24 +599,24 @@ template: test.yaml
 parameters:
   # Single literal
   Environment: production
-  
+
   # Single resolver
   VpcId:
     type: stack-output
-    stack_name: vpc-stack
-    output_key: VpcId
-  
+    stack: vpc-stack
+    output: VpcId
+
   # List parameter with mixed types
   SecurityGroupIds:
     - sg-baseline123
     - type: stack-output
-      stack_name: security-stack  
-      output_key: WebSGId
+      stack: security-stack
+      output: WebSGId
     - type: stack-output
-      stack_name: database-stack
-      output_key: DatabaseSGId
+      stack: database-stack
+      output: DatabaseSGId
     - sg-additional456
-  
+
   # Simple literal list
   Ports:
     - "80"
@@ -649,11 +649,11 @@ parameters:
 
 	assert.True(t, sgParam.ListItems[1].IsResolver())
 	assert.Equal(t, "stack-output", sgParam.ListItems[1].Resolver.Type)
-	assert.Equal(t, "security-stack", sgParam.ListItems[1].Resolver.Config["stack_name"])
+	assert.Equal(t, "security-stack", sgParam.ListItems[1].Resolver.Config["stack"])
 
 	assert.True(t, sgParam.ListItems[2].IsResolver())
 	assert.Equal(t, "stack-output", sgParam.ListItems[2].Resolver.Type)
-	assert.Equal(t, "database-stack", sgParam.ListItems[2].Resolver.Config["stack_name"])
+	assert.Equal(t, "database-stack", sgParam.ListItems[2].Resolver.Config["stack"])
 
 	assert.True(t, sgParam.ListItems[3].IsLiteral())
 	assert.Equal(t, "sg-additional456", sgParam.ListItems[3].Literal)
@@ -680,8 +680,8 @@ func TestParameterValue_ToConfigParameterValue_List(t *testing.T) {
 				Resolver: &yamlParameterResolver{
 					Type: "stack-output",
 					Config: map[string]interface{}{
-						"stack_name": "security-stack",
-						"output_key": "WebSGId",
+						"stack":  "security-stack",
+						"output": "WebSGId",
 					},
 				},
 			},
@@ -703,8 +703,8 @@ func TestParameterValue_ToConfigParameterValue_List(t *testing.T) {
 
 	// Verify second item (stack-output)
 	assert.Equal(t, "stack-output", configParam.ListItems[1].ResolutionType)
-	assert.Equal(t, "security-stack", configParam.ListItems[1].ResolutionConfig["stack_name"])
-	assert.Equal(t, "WebSGId", configParam.ListItems[1].ResolutionConfig["output_key"])
+	assert.Equal(t, "security-stack", configParam.ListItems[1].ResolutionConfig["stack"])
+	assert.Equal(t, "WebSGId", configParam.ListItems[1].ResolutionConfig["output"])
 
 	// Verify third item (literal)
 	assert.Equal(t, "literal", configParam.ListItems[2].ResolutionType)
@@ -721,8 +721,8 @@ func TestParameterValue_MarshalYAML_List(t *testing.T) {
 				Resolver: &yamlParameterResolver{
 					Type: "stack-output",
 					Config: map[string]interface{}{
-						"stack_name": "vpc-stack",
-						"output_key": "VpcId",
+						"stack":  "vpc-stack",
+						"output": "VpcId",
 					},
 				},
 			},
@@ -744,8 +744,8 @@ func TestParameterValue_MarshalYAML_List(t *testing.T) {
 
 	assert.True(t, unmarshalled[1].IsResolver())
 	assert.Equal(t, "stack-output", unmarshalled[1].Resolver.Type)
-	assert.Equal(t, "vpc-stack", unmarshalled[1].Resolver.Config["stack_name"])
-	assert.Equal(t, "VpcId", unmarshalled[1].Resolver.Config["output_key"])
+	assert.Equal(t, "vpc-stack", unmarshalled[1].Resolver.Config["stack"])
+	assert.Equal(t, "VpcId", unmarshalled[1].Resolver.Config["output"])
 }
 
 func TestConfig_EmptyMaps(t *testing.T) {

@@ -208,8 +208,8 @@ The resolver supports cross-region stack output resolution via the ClientFactory
 parameters:
   VpcId:
     type: stack-output
-    stack_name: vpc-foundation
-    output_key: VpcId
+    stack: vpc-foundation
+    output: VpcId
     region: us-east-1  # Cross-region reference
 ```
 

@@ -177,15 +177,15 @@ func TestStackResolver_ResolveParameters_StackOutputs(t *testing.T) {
 		"VpcId": {
 			ResolutionType: "stack-output",
 			ResolutionConfig: map[string]string{
-				"stack_name": "vpc-stack",
-				"output_key": "VpcId",
+				"stack":  "vpc-stack",
+				"output": "VpcId",
 			},
 		},
 		"SubnetId": {
 			ResolutionType: "stack-output",
 			ResolutionConfig: map[string]string{
-				"stack_name": "vpc-stack",
-				"output_key": "SubnetId",
+				"stack":  "vpc-stack",
+				"output": "SubnetId",
 			},
 		},
 	}
@@ -229,8 +229,8 @@ func TestStackResolver_ResolveParameters_MixedTypes(t *testing.T) {
 		"VpcId": {
 			ResolutionType: "stack-output",
 			ResolutionConfig: map[string]string{
-				"stack_name": "networking",
-				"output_key": "VpcId",
+				"stack":  "networking",
+				"output": "VpcId",
 			},
 		},
 	}
@@ -299,8 +299,8 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			"VpcId": {
 				ResolutionType: "stack-output",
 				ResolutionConfig: map[string]string{
-					"stack_name": "missing-stack",
-					"output_key": "VpcId",
+					"stack":  "missing-stack",
+					"output": "VpcId",
 				},
 			},
 		}
@@ -331,8 +331,8 @@ func TestStackResolver_ResolveParameters_ErrorCases(t *testing.T) {
 			"BadOutput": {
 				ResolutionType: "stack-output",
 				ResolutionConfig: map[string]string{
-					"stack_name": "vpc-stack",
-					"output_key": "MissingOutput",
+					"stack":  "vpc-stack",
+					"output": "MissingOutput",
 				},
 			},
 		}
@@ -354,28 +354,28 @@ func TestStackResolver_ResolveStackOutput_MissingConfig(t *testing.T) {
 	mockFactory, _ := aws.NewMockClientFactoryForRegion("us-east-1")
 	resolver := NewStackResolver(mockConfigProvider, mockFactory)
 
-	t.Run("missing stack_name", func(t *testing.T) {
+	t.Run("missing stack", func(t *testing.T) {
 		outputConfig := map[string]string{
-			"output_key": "VpcId",
-			// Missing stack_name
+			"output": "VpcId",
+			// Missing stack
 		}
 
 		_, err := resolver.resolveStackOutput(ctx, outputConfig, "us-west-2")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "stack output resolver missing required 'stack_name'")
+		assert.Contains(t, err.Error(), "stack output resolver missing required 'stack'")
 	})
 
-	t.Run("missing output_key", func(t *testing.T) {
+	t.Run("missing output", func(t *testing.T) {
 		outputConfig := map[string]string{
-			"stack_name": "vpc-stack",
-			// Missing output_key
+			"stack": "vpc-stack",
+			// Missing output
 		}
 
 		_, err := resolver.resolveStackOutput(ctx, outputConfig, "us-west-2")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "stack output resolver missing required 'output_key'")
+		assert.Contains(t, err.Error(), "stack output resolver missing required 'output'")
 	})
 }
 
@@ -875,15 +875,15 @@ func TestStackResolver_ResolveParameters_MixedList(t *testing.T) {
 				{
 					ResolutionType: "stack-output",
 					ResolutionConfig: map[string]string{
-						"stack_name": "security-stack",
-						"output_key": "WebSGId",
+						"stack":  "security-stack",
+						"output": "WebSGId",
 					},
 				},
 				{
 					ResolutionType: "stack-output",
 					ResolutionConfig: map[string]string{
-						"stack_name": "database-stack",
-						"output_key": "DatabaseSGId",
+						"stack":  "database-stack",
+						"output": "DatabaseSGId",
 					},
 				},
 				{
@@ -1066,8 +1066,8 @@ func TestStackResolver_ResolveParameters_ListErrorCases(t *testing.T) {
 					{
 						ResolutionType: "stack-output",
 						ResolutionConfig: map[string]string{
-							"stack_name": "missing-stack",
-							"output_key": "SomeOutput",
+							"stack":  "missing-stack",
+							"output": "SomeOutput",
 						},
 					},
 				},

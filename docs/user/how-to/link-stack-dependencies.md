@@ -19,8 +19,8 @@ Add the upstream stack to `depends_on`:
       DesiredCapacity: "2"
       VpcId:
         type: stack-output
-        stack_name: payment-app-network
-        output_key: VpcId
+        stack: payment-app-network
+        output: VpcId
 ```
 
 - Declaring the dependency is optional, but strongly recommended whenever you reference another stack’s outputs.
@@ -34,20 +34,20 @@ Use `type: stack-output` for each value you need:
 parameters:
   VpcId:
     type: stack-output
-    stack_name: payment-app-network
-    output_key: VpcId
+    stack: payment-app-network
+    output: VpcId
   PublicSubnetIds:
     - type: stack-output
-      stack_name: payment-app-network
-      output_key: PublicSubnetA
+      stack: payment-app-network
+      output: PublicSubnetA
     - type: stack-output
-      stack_name: payment-app-network
-      output_key: PublicSubnetB
+      stack: payment-app-network
+      output: PublicSubnetB
 ```
 
 Tips:
 
-- `stack_name` must match the CloudFormation stack name. For stacks defined in `stackaroo.yaml`, use the stack key (the name used in the stacks map); you can also point at external stacks by specifying their deployed CloudFormation name.
+- `stack` must match the CloudFormation stack name. For stacks defined in `stackaroo.yaml`, use the stack key (the name used in the stacks map); you can also point at external stacks by specifying their deployed CloudFormation name.
 - Treat list parameters as arrays—you can mix literals and output references inside the same list.
 - Keep output keys consistent with the source template to avoid runtime errors.
 
