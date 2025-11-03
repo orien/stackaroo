@@ -6,19 +6,7 @@ A command-line tool for managing AWS CloudFormation stacks as code.
 
 ## Overview
 
-Stackaroo simplifies CloudFormation stack management by providing:
-
-- **Declarative Configuration**: Define your stacks and parameters in YAML files
-- **Environment Management**: Deploy the same templates across multiple contexts
-- **Change Preview**: See exactly what changes will be made before deployment
-- **Stack Information**: View comprehensive details about deployed CloudFormation stacks
-- **Template Validation**: Validate CloudFormation templates before deployment
-- **Stack Lifecycle**: Deploy, update, delete, and monitor stack status
-- **Parameter Management**: Comprehensive parameter system supporting both literal values and dynamic stack output resolution
-  - **Literal Parameters**: Direct string values for configuration
-  - **Stack Output Parameters**: Pull values from existing CloudFormation stack outputs
-  - **Cross-Region Support**: Reference outputs from stacks in different AWS regions
-  - **Context Overrides**: Different parameter values per deployment context
+Stackaroo simplifies CloudFormation stack management through declarative YAML configuration, allowing you to define your infrastructure once and deploy it consistently across multiple environments. It provides comprehensive parameter management with support for literal values, dynamic stack output resolution, and cross-region references. Features include dependency-aware deployment ordering, integrated change previews, template validation, and real-time event streaming during stack operations.
 
 ## Features
 
