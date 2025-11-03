@@ -123,47 +123,34 @@ contexts:
 
 ### CloudFormation Template Templating
 
-Stackaroo supports dynamic CloudFormation template generation using Go templates with Sprig functions:
+Stackaroo supports dynamic CloudFormation template generation using Go templates with Sprig functions. This allows you to use the same template file across different contexts with context-specific variations:
 
 ```yaml
-# Template: templates/webapp.yaml
+# Template: templates/storage.yaml
 AWSTemplateFormatVersion: '2010-09-09'
-Description: {{ .Context | title }} web application for {{ .StackName }}
+Description: {{ .Context | title }} storage for {{ .StackName }}
 
 Resources:
-{{- if eq .Context "production" }}
-  MonitoringRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: {{ .StackName }}-monitoring-{{ .Context }}
-{{- end }}
-
-  WebServer:
-    Type: AWS::EC2::Instance
-    Properties:
-      UserData:
-        Fn::Base64: |
-{{- `#!/bin/bash
-          yum update -y
-          echo "ENVIRONMENT=` | nindent 10 }}{{ .Context | upper }}{{ `" > /etc/app.conf` | nindent 10 }}
-      Tags:
-        - Key: Name
-          Value: {{ .StackName }}-web-{{ .Context }}
-        - Key: Environment
-          Value: {{ .Context | title }}
-
-  DataBucket:
+  AppBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: {{ .StackName }}-data-{{ .Context }}-{{ randAlphaNum 6 | lower }}
+      BucketName: {{ .StackName }}-bucket-{{ .Context | lower }}
+      Tags:
+        - Key: Environment
+          Value: {{ .Context }}
+{{- if eq .Context "production" }}
+        - Key: BackupEnabled
+          Value: "true"
+{{- end }}
 ```
 
-**Features:**
-- **Context Variables**: `{{ .Context }}`, `{{ .StackName }}`
-- **Conditional Resources**: Different resources per environment
-- **Multiline Script Injection**: Clean UserData and script templating
-- **Sprig Functions**: `upper`, `title`, `nindent`, `randAlphaNum`, conditionals
-- **Always-On**: All templates processed, backward compatible
+When deployed to the `development` context, this generates a bucket named `my-app-bucket-development`. When deployed to `production`, it generates `my-app-bucket-production` with an additional backup tag.
+
+**Available features:**
+- **Context variables**: Access `{{ .Context }}` (the context name like "development" or "production") and `{{ .StackName }}` (the stack name) in templates
+- **Sprig functions**: Use `upper`, `lower`, `title`, and other text transformations
+- **Conditionals**: `{{- if eq .Context "production" }}` for environment-specific resources
+- **Automatic processing**: All templates are processed automatically, backwards compatible with static templates
 
 ### Real-time Event Streaming
 
