@@ -2,6 +2,8 @@ version: 2
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
+    allow:
+      - dependency-type: "all"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 20
@@ -34,6 +36,8 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/docs/user"
+    allow:
+      - dependency-type: "all"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 20
