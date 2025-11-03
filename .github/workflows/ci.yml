@@ -149,7 +149,7 @@ jobs:
         cache: true
 
     - name: Download Linux build
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: stackaroo-linux-amd64
 
