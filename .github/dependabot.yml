@@ -22,7 +22,6 @@ updates:
     commit-message:
       prefix: "maintain"
       prefix-development: "maintain"
-      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/.github/workflows"
@@ -32,7 +31,6 @@ updates:
     commit-message:
       prefix: "ci"
       prefix-development: "ci"
-      include: "scope"
 
   - package-ecosystem: "npm"
     directory: "/docs/user"
@@ -42,4 +40,3 @@ updates:
     commit-message:
       prefix: "docs"
       prefix-development: "docs"
-      include: "scope"
