@@ -63,5 +63,5 @@ require (
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 )
