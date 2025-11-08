@@ -41,9 +41,25 @@ Stackaroo simplifies CloudFormation stack management through declarative YAML co
 
 ### Template Validation
 
-- Local CloudFormation template validation
-- Parameter validation against template requirements
-- Circular dependency detection
+- **Fast Feedback**: Validate CloudFormation templates without deployment
+- **AWS API Integration**: Uses CloudFormation ValidateTemplate API for accurate validation
+- **Syntax Checking**: Catches template syntax errors and invalid resource types
+- **Batch Validation**: Validate all stacks in a context with a single command
+- **CI/CD Ready**: Perfect for pre-deployment checks in automated pipelines
+- **Regional Validation**: Validates templates in the context's target region
+- **Clear Output**: Progress indicators and summary reports for validation results
+
+Validate templates early in your development workflow:
+
+```bash
+# Validate a single stack's template
+stackaroo validate dev vpc
+
+# Validate all stacks in a context
+stackaroo validate production
+```
+
+The validation command provides immediate feedback on template errors without requiring actual deployment, making it ideal for development workflows and continuous integration pipelines. It processes templates through the same resolution pipeline as deployment, including Go template processing, ensuring validation matches what will actually be deployed.
 
 ### Parameter System
 
@@ -294,6 +310,7 @@ stackaroo describe production vpc
 - `deploy <context> [stack-name]` - Deploy all stacks or a specific stack with dependency-aware ordering and integrated change preview
 - `diff <context> <stack-name>` - Preview changes between deployed stack and local configuration
 - `describe <context> <stack-name>` - Display detailed information about a deployed CloudFormation stack
+- `validate <context> [stack-name]` - Validate CloudFormation templates for syntax and AWS-specific requirements
 - `delete <context> [stack-name]` - Delete stacks with dependency-aware ordering and confirmation prompts
 
 #### Global Flags
@@ -315,6 +332,12 @@ stackaroo diff staging vpc
 
 # View detailed stack information
 stackaroo describe production app
+
+# Validate templates before deployment
+stackaroo validate development vpc
+
+# Validate all templates in a context
+stackaroo validate production
 
 # Delete specific stack with confirmation
 stackaroo delete development app
