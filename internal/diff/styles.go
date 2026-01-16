@@ -7,7 +7,7 @@ package diff
 import (
 	"os"
 
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Styles contains all the styles for rendering diff output
