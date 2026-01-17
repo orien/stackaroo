@@ -117,18 +117,21 @@ func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Sty
 
 	for _, diff := range r.ParameterDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
-		key := styles.Key.Render(diff.Key)
 
+		var key string
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
+			key = styles.Added.Render(diff.Key)
 			value := styles.Value.Render(diff.ProposedValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		case ChangeTypeModify:
+			key = styles.Modified.Render(diff.Key)
 			currentVal := styles.Value.Render(diff.CurrentValue)
 			proposedVal := styles.Value.Render(diff.ProposedValue)
 			arrow := styles.Arrow.Render("→")
 			fmt.Fprintf(output, "  %s %s: %s %s %s\n", symbol, key, currentVal, arrow, proposedVal)
 		case ChangeTypeRemove:
+			key = styles.Removed.Render(diff.Key)
 			value := styles.Value.Render(diff.CurrentValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
@@ -143,14 +146,17 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 
 	for _, diff := range r.TagDiffs {
 		symbol := styles.GetChangeSymbol(diff.ChangeType)
-		key := styles.Key.Render(diff.Key)
 
+		var key string
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
+			key = styles.Added.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.ProposedValue)
 		case ChangeTypeModify:
+			key = styles.Modified.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s → %s\n", symbol, key, diff.CurrentValue, diff.ProposedValue)
 		case ChangeTypeRemove:
+			key = styles.Removed.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.CurrentValue)
 		}
 	}
@@ -167,7 +173,19 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 		output.WriteString("\n")
 		for _, change := range r.ChangeSet.Changes {
 			symbol := styles.GetChangeSetSymbol(change.Action)
-			logicalID := styles.Key.Render(change.LogicalID)
+
+			var logicalID string
+			switch change.Action {
+			case "Add":
+				logicalID = styles.Added.Render(change.LogicalID)
+			case "Modify":
+				logicalID = styles.Modified.Render(change.LogicalID)
+			case "Remove":
+				logicalID = styles.Removed.Render(change.LogicalID)
+			default:
+				logicalID = styles.Key.Render(change.LogicalID)
+			}
+
 			resourceType := styles.Value.Render(change.ResourceType)
 			fmt.Fprintf(output, "  %s %s (%s)", symbol, logicalID, resourceType)
 
