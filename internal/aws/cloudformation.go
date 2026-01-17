@@ -354,7 +354,7 @@ func (cf *DefaultCloudFormationOperations) ValidateTemplate(ctx context.Context,
 	})
 
 	if err != nil {
-		return fmt.Errorf("template validation failed: %w", err)
+		return err
 	}
 
 	return nil

@@ -7,6 +7,7 @@ package aws
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -352,6 +353,75 @@ func TestIsNoChangesError(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestValidateTemplate_InvalidResourceType(t *testing.T) {
+	// Test validation with invalid resource type
+	ctx := context.Background()
+
+	// Create a mock client that returns a validation error for invalid resource type
+	mockClient := &MockCloudFormationClient{}
+	cfOps := &DefaultCloudFormationOperations{
+		client: mockClient,
+	}
+
+	// Template with invalid resource type
+	invalidTemplate := `{
+		"AWSTemplateFormatVersion": "2010-09-09",
+		"Resources": {
+			"TestResource": {
+				"Type": "AWS::InvalidService::InvalidType",
+				"Properties": {}
+			}
+		}
+	}`
+
+	// Mock the ValidateTemplate call to return an error similar to what AWS returns
+	validationError := fmt.Errorf("ValidationError: Template format error: Unrecognized resource types: [AWS::InvalidService::InvalidType]")
+	mockClient.On("ValidateTemplate", ctx, mock.MatchedBy(func(input *cloudformation.ValidateTemplateInput) bool {
+		return input.TemplateBody != nil
+	})).Return(&cloudformation.ValidateTemplateOutput{}, validationError)
+
+	// Execute validation
+	err := cfOps.ValidateTemplate(ctx, invalidTemplate)
+
+	// Verify error is returned with AWS error message directly
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Unrecognized resource types")
+	assert.Contains(t, err.Error(), "AWS::InvalidService::InvalidType")
+	mockClient.AssertExpectations(t)
+}
+
+func TestValidateTemplate_Success(t *testing.T) {
+	// Test successful validation
+	ctx := context.Background()
+
+	mockClient := &MockCloudFormationClient{}
+	cfOps := &DefaultCloudFormationOperations{
+		client: mockClient,
+	}
+
+	validTemplate := `{
+		"AWSTemplateFormatVersion": "2010-09-09",
+		"Resources": {
+			"TestBucket": {
+				"Type": "AWS::S3::Bucket",
+				"Properties": {}
+			}
+		}
+	}`
+
+	// Mock successful validation
+	mockClient.On("ValidateTemplate", ctx, mock.MatchedBy(func(input *cloudformation.ValidateTemplateInput) bool {
+		return input.TemplateBody != nil
+	})).Return(&cloudformation.ValidateTemplateOutput{}, nil)
+
+	// Execute validation
+	err := cfOps.ValidateTemplate(ctx, validTemplate)
+
+	// Verify no error
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }
 
 func TestDeployStackWithCallback_Success(t *testing.T) {
