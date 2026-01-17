@@ -37,6 +37,7 @@ type Result struct {
 	ParameterDiffs []ParameterDiff
 	TagDiffs       []TagDiff
 	ChangeSet      *aws.ChangeSetInfo // AWS changeset information when available
+	ChangeSetError error              // Error encountered during changeset generation (if any)
 	Options        Options            // Options used for this diff
 }
 

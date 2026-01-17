@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"errors"
+
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -465,6 +467,67 @@ func TestResult_HasChanges(t *testing.T) {
 			assert.Equal(t, tt.expected, hasChanges)
 		})
 	}
+}
+
+func TestResult_FormatChangeSetErrorText(t *testing.T) {
+	result := &Result{
+		ChangeSetError: assert.AnError,
+	}
+
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
+	var output strings.Builder
+	styles := NewStyles(false) // Use plain styles for testing
+	result.formatChangeSetErrorText(&output, styles)
+	text := output.String()
+
+	// Check that error is displayed prominently
+	assert.Contains(t, text, "PLAN")
+	assert.Contains(t, text, "Changeset Generation Failed")
+	assert.Contains(t, text, "CloudFormation was unable to generate a detailed change plan:")
+	assert.Contains(t, text, assert.AnError.Error())
+
+	// Check that reassurance is provided
+	assert.Contains(t, text, "The parameter, tag, and template changes shown above are still accurate.")
+	assert.Contains(t, text, "However, resource-level change details are not available.")
+
+	// Check that guidance is provided
+	assert.Contains(t, text, "Common causes:")
+	assert.Contains(t, text, "Invalid parameter name")
+	assert.Contains(t, text, "Invalid parameter value")
+	assert.Contains(t, text, "Template validation errors")
+	assert.Contains(t, text, "Missing required parameters")
+	assert.Contains(t, text, "Review the error message and your configuration before proceeding.")
+}
+
+func TestResult_ToText_WithChangeSetError(t *testing.T) {
+	result := &Result{
+		StackName:   "test-stack",
+		Context:     "dev",
+		StackExists: true,
+		ParameterDiffs: []ParameterDiff{
+			{Key: "InvalidParam", ProposedValue: "value", ChangeType: ChangeTypeAdd},
+		},
+		ChangeSetError: errors.New("changeset creation failed: parameter InvalidParam does not exist in template"),
+		Options:        Options{},
+	}
+
+	// Set NO_COLOR for plain output in tests
+	_ = os.Setenv("NO_COLOR", "1")
+	defer func() { _ = os.Unsetenv("NO_COLOR") }()
+
+	output := result.toText()
+
+	// Should show parameter changes
+	assert.Contains(t, output, "PARAMETERS")
+	assert.Contains(t, output, "+ InvalidParam: value")
+
+	// Should show changeset error
+	assert.Contains(t, output, "PLAN")
+	assert.Contains(t, output, "Changeset Generation Failed")
+	assert.Contains(t, output, "parameter InvalidParam does not exist in template")
 }
 
 func TestColorizeUnifiedDiff(t *testing.T) {

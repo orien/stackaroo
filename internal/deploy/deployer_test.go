@@ -717,3 +717,53 @@ func TestDeployStack_ExistingStack_UserCancelsChangeset(t *testing.T) {
 	assert.Equal(t, "test-stack", cancellationErr.StackName)
 	mockCfnOps.AssertExpectations(t)
 }
+
+func TestDeployStack_ExistingStack_ChangeSetGenerationFails(t *testing.T) {
+	// Test that deployment fails early when changeset generation fails (e.g., invalid parameter)
+	ctx := context.Background()
+
+	// Set up mocks
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+
+	// Mock StackExists call (existing stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
+
+	// Mock differ operations
+	currentStackInfo := &aws.StackInfo{
+		Name:       "test-stack",
+		Status:     "UPDATE_COMPLETE",
+		Parameters: map[string]string{"Environment": "test"},
+		Tags:       map[string]string{"Project": "stackaroo"},
+	}
+	mockCfnOps.On("DescribeStack", mock.Anything, "test-stack").Return(currentStackInfo, nil)
+	mockCfnOps.On("GetTemplate", mock.Anything, "test-stack").Return(`{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"Bucket": {"Type": "AWS::S3::Bucket"}}}`, nil)
+
+	// Mock changeset creation failure (e.g., invalid parameter)
+	changeSetError := errors.New("operation error CloudFormation: CreateChangeSet, api error ValidationError: Parameter values specified for a template which does not require them")
+	mockCfnOps.On("CreateChangeSetForDeployment", mock.Anything, "test-stack", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return((*aws.ChangeSetInfo)(nil), changeSetError)
+
+	// Create deployer - we should never reach the confirm prompt
+	deployer := createMockDeployer(mockFactory)
+
+	// Create resolved stack with invalid parameter
+	stack := &model.Stack{
+		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
+		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09", "Resources": {"Bucket": {"Type": "AWS::S3::Bucket"}}}`,
+		Parameters:   map[string]string{"InvalidParam": "value"}, // This parameter doesn't exist in template
+		Tags:         map[string]string{"Project": "stackaroo"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute
+	err := deployer.DeployStack(ctx, stack)
+
+	// Verify that deployment fails with changeset error
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot deploy: changeset generation failed")
+	assert.Contains(t, err.Error(), "Parameter values specified for a template which does not require them")
+
+	// Verify that we never prompted the user (the prompter should not have been called)
+	mockCfnOps.AssertExpectations(t)
+}

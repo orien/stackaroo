@@ -95,8 +95,8 @@ func (d *StackDiffer) DiffStack(ctx context.Context, stack *model.Stack, options
 		changeSetInfo, err := d.generateChangeSet(ctx, stack, options, cfClient)
 		if err != nil {
 			// Don't fail the entire diff if changeset generation fails
-			// Just log and continue without changeset info
-			fmt.Printf("Warning: failed to generate changeset: %v\n", err)
+			// Store the error in the result for display in formatted output
+			result.ChangeSetError = err
 		} else {
 			result.ChangeSet = changeSetInfo
 		}
@@ -213,7 +213,7 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create changeset: %w", err)
+		return nil, err
 	}
 
 	return changeSetInfo, nil

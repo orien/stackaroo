@@ -192,34 +192,41 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		return fmt.Errorf("failed to calculate changes: %w", err)
 	}
 
-	// Show preview with confirmation
-	if diffResult.HasChanges() {
-		fmt.Print(diffResult.String())
-		fmt.Println()
+	// Show preview
+	fmt.Print(diffResult.String())
+	fmt.Println()
 
-		message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
-		confirmed, err := d.prompter.Confirm(message)
-		if err != nil {
-			// Clean up changeset on error
-			if diffResult.ChangeSet != nil {
-				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
-			}
-			return fmt.Errorf("failed to get user confirmation: %w", err)
-		}
-		if !confirmed {
-			// Clean up changeset when user cancels
-			if diffResult.ChangeSet != nil {
-				_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
-			}
-			fmt.Printf("\nDeployment cancelled for stack %s\n", stack.Name)
-			return CancellationError{StackName: stack.Name}
-		}
+	// Check if changeset generation failed
+	if diffResult.ChangeSetError != nil {
+		return fmt.Errorf("cannot deploy: changeset generation failed: %w", diffResult.ChangeSetError)
+	}
 
-		fmt.Println() // Add spacing before deployment starts
-	} else {
+	// Check for changes
+	if !diffResult.HasChanges() {
 		fmt.Printf("No changes detected for stack %s\n", stack.Name)
 		return NoChangesError{StackName: stack.Name}
 	}
+
+	// Prompt for confirmation
+	message := fmt.Sprintf("Do you want to apply these changes to stack %s?", stack.Name)
+	confirmed, err := d.prompter.Confirm(message)
+	if err != nil {
+		// Clean up changeset on error
+		if diffResult.ChangeSet != nil {
+			_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+		}
+		return fmt.Errorf("failed to get user confirmation: %w", err)
+	}
+	if !confirmed {
+		// Clean up changeset when user cancels
+		if diffResult.ChangeSet != nil {
+			_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
+		}
+		fmt.Printf("\nDeployment cancelled for stack %s\n", stack.Name)
+		return CancellationError{StackName: stack.Name}
+	}
+
+	fmt.Println() // Add spacing before deployment starts
 
 	// Get changeset from diff result (kept alive for deployment)
 	if diffResult.ChangeSet == nil {

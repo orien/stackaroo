@@ -61,9 +61,11 @@ func (r *Result) toText() string {
 		r.formatTagChangesText(&output, styles)
 	}
 
-	// Changeset information
+	// Changeset information or error
 	if r.ChangeSet != nil {
 		r.formatChangeSetText(&output, styles)
+	} else if r.ChangeSetError != nil {
+		r.formatChangeSetErrorText(&output, styles)
 	}
 
 	return output.String()
@@ -211,6 +213,40 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 		}
 	}
 	output.WriteString("\n")
+}
+
+// formatChangeSetErrorText formats changeset generation errors
+func (r *Result) formatChangeSetErrorText(output *strings.Builder, styles *Styles) {
+	output.WriteString(styles.SectionHeader.Render("PLAN"))
+	output.WriteString("\n\n")
+
+	// Display the error prominently
+	errorHeader := styles.RiskHigh.Render("Changeset Generation Failed")
+	fmt.Fprintf(output, "%s\n\n", errorHeader)
+
+	// Explain what happened
+	output.WriteString(styles.SubSection.Render("CloudFormation was unable to generate a detailed change plan:"))
+	output.WriteString("\n")
+
+	errorMsg := styles.Value.Render(r.ChangeSetError.Error())
+	fmt.Fprintf(output, "  %s\n\n", errorMsg)
+
+	// Reassure the user
+	output.WriteString(styles.SubSection.Render("The parameter, tag, and template changes shown above are still accurate."))
+	output.WriteString("\n")
+	output.WriteString(styles.SubSection.Render("However, resource-level change details are not available."))
+	output.WriteString("\n\n")
+
+	// Provide guidance
+	output.WriteString(styles.SubSection.Render("Common causes:"))
+	output.WriteString("\n")
+	output.WriteString("  • Invalid parameter name (parameter not defined in template)\n")
+	output.WriteString("  • Invalid parameter value (doesn't meet template constraints)\n")
+	output.WriteString("  • Template validation errors\n")
+	output.WriteString("  • Missing required parameters\n\n")
+
+	output.WriteString(styles.SubSection.Render("Review the error message and your configuration before proceeding."))
+	output.WriteString("\n\n")
 }
 
 // ColorizeUnifiedDiff applies color formatting to unified diff output

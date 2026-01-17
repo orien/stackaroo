@@ -413,7 +413,9 @@ func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.True(t, result.HasChanges())
-	assert.Nil(t, result.ChangeSet) // Changeset should be nil due to error
+	assert.Nil(t, result.ChangeSet)         // Changeset should be nil due to error
+	assert.NotNil(t, result.ChangeSetError) // Error should be stored
+	assert.Contains(t, result.ChangeSetError.Error(), "changeset failed")
 
 	cfClient.AssertExpectations(t)
 	templateComp.AssertExpectations(t)
