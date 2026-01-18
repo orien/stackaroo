@@ -122,7 +122,9 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 
 	// Changeset info
 	assert.Contains(t, output, "PLAN")
-	assert.Contains(t, output, "~ WebServer (AWS::EC2::Instance)")
+	// Check changeset contains resource type (may be hyperlinked)
+	assert.Contains(t, output, "WebServer")
+	assert.Contains(t, output, "AWS::EC2::Instance")
 	assert.Contains(t, output, "[i-1234567890abcdef0]")
 	assert.Contains(t, output, "Property: InstanceType")
 }
@@ -365,10 +367,16 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 
 	assert.Contains(t, text, "PLAN")
 
-	// Check resource change formatting
-	assert.Contains(t, text, "  + NewBucket (AWS::S3::Bucket)")
-	assert.Contains(t, text, "  ~ WebServer (AWS::EC2::Instance) [i-1234567890] REPLACE")
-	assert.Contains(t, text, "  - OldQueue (AWS::SQS::Queue) [old-queue-url]")
+	// Check resource change formatting (resource types may be hyperlinked)
+	assert.Contains(t, text, "NewBucket")
+	assert.Contains(t, text, "AWS::S3::Bucket")
+	assert.Contains(t, text, "WebServer")
+	assert.Contains(t, text, "AWS::EC2::Instance")
+	assert.Contains(t, text, "[i-1234567890]")
+	assert.Contains(t, text, "REPLACE")
+	assert.Contains(t, text, "OldQueue")
+	assert.Contains(t, text, "AWS::SQS::Queue")
+	assert.Contains(t, text, "[old-queue-url]")
 
 	// Check details
 	assert.Contains(t, text, "    Property: BucketName")

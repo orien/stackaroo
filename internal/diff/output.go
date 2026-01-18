@@ -198,7 +198,8 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 				logicalID = styles.Key.Render(change.LogicalID)
 			}
 
-			resourceType := styles.Value.Render(change.ResourceType)
+			linkedType := HyperlinkResourceType(change.ResourceType)
+			resourceType := styles.Value.Render(linkedType)
 			fmt.Fprintf(output, "  %s %s (%s)", symbol, logicalID, resourceType)
 
 			if change.PhysicalID != "" {

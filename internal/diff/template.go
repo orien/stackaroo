@@ -421,14 +421,17 @@ func (c *YAMLTemplateComparator) generateResourceDiff(currentData, proposedData 
 
 		if !currentExists && proposedExists {
 			resourceType := c.getResourceType(proposedResource)
-			resourceChanges = append(resourceChanges, fmt.Sprintf("  + %s (%s)", resourceName, resourceType))
+			linkedType := HyperlinkResourceType(resourceType)
+			resourceChanges = append(resourceChanges, fmt.Sprintf("  + %s (%s)", resourceName, linkedType))
 		} else if currentExists && !proposedExists {
 			resourceType := c.getResourceType(currentResource)
-			resourceChanges = append(resourceChanges, fmt.Sprintf("  - %s (%s)", resourceName, resourceType))
+			linkedType := HyperlinkResourceType(resourceType)
+			resourceChanges = append(resourceChanges, fmt.Sprintf("  - %s (%s)", resourceName, linkedType))
 		} else if currentExists && proposedExists {
 			if !reflect.DeepEqual(currentResource, proposedResource) {
 				resourceType := c.getResourceType(proposedResource)
-				resourceChanges = append(resourceChanges, fmt.Sprintf("  ~ %s (%s)", resourceName, resourceType))
+				linkedType := HyperlinkResourceType(resourceType)
+				resourceChanges = append(resourceChanges, fmt.Sprintf("  ~ %s (%s)", resourceName, linkedType))
 			}
 		}
 	}
