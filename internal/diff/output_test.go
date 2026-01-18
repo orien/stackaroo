@@ -26,7 +26,7 @@ func TestResult_String_TextFormat(t *testing.T) {
 	output := result.String()
 
 	assert.Contains(t, output, "test-stack - dev")
-	assert.Contains(t, output, "NO CHANGES")
+	assert.Contains(t, output, "No Changes")
 	assert.Contains(t, output, "The deployed stack matches your local configuration.")
 }
 
@@ -48,7 +48,7 @@ func TestResult_ToText_NewStack(t *testing.T) {
 	output := result.toText()
 
 	assert.Contains(t, output, "new-stack - prod")
-	assert.Contains(t, output, "NEW STACK")
+	assert.Contains(t, output, "New Stack")
 	assert.Contains(t, output, "This stack does not exist in AWS and will be created.")
 	assert.Contains(t, output, "PARAMETERS")
 	assert.Contains(t, output, "  + InstanceType: t3.micro")
@@ -103,7 +103,7 @@ func TestResult_ToText_WithChanges(t *testing.T) {
 
 	// Header checks
 	assert.Contains(t, output, "existing-stack - dev")
-	assert.Contains(t, output, "CHANGES DETECTED")
+	assert.Contains(t, output, "Changes Detected")
 
 	// Template changes
 	assert.Contains(t, output, "TEMPLATE")

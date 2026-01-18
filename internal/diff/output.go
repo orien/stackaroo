@@ -25,7 +25,7 @@ func (r *Result) toText() string {
 
 	// Handle new stack case
 	if !r.StackExists {
-		statusLine := styles.StatusNew.Render("NEW STACK")
+		statusLine := styles.StatusNew.Render("New Stack")
 		output.WriteString(statusLine)
 		output.WriteString("\n")
 		output.WriteString("This stack does not exist in AWS and will be created.\n\n")
@@ -35,16 +35,17 @@ func (r *Result) toText() string {
 
 	// Handle existing stack
 	if !r.HasChanges() {
-		statusLine := styles.StatusNoChange.Render("NO CHANGES")
+		statusLine := styles.StatusNoChange.Render("No Changes")
 		output.WriteString(statusLine)
 		output.WriteString("\n")
 		output.WriteString("The deployed stack matches your local configuration.\n")
 		return output.String()
 	}
 
-	statusLine := styles.StatusChanges.Render("CHANGES DETECTED")
+	statusLine := styles.StatusChanges.Render("Changes Detected")
 	output.WriteString(statusLine)
-	output.WriteString("\n\n")
+	output.WriteString("\n")
+	output.WriteString("Your local configuration differs from the deployed stack.\n\n")
 
 	// Template changes
 	if r.TemplateChange != nil && (!r.Options.ParametersOnly && !r.Options.TagsOnly) {
