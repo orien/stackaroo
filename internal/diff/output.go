@@ -87,7 +87,7 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 		output.WriteString(styles.SectionHeader.Render("PARAMETERS"))
 		output.WriteString("\n\n")
 		for _, diff := range r.ParameterDiffs {
-			symbol := styles.Added.Render("+")
+			symbol := styles.AddedText.Render("+")
 			key := styles.Key.Render(diff.Key)
 			value := styles.Value.Render(diff.ProposedValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
@@ -99,7 +99,7 @@ func (r *Result) formatNewStackText(output *strings.Builder, styles *Styles) {
 		output.WriteString(styles.SectionHeader.Render("TAGS"))
 		output.WriteString("\n\n")
 		for _, diff := range r.TagDiffs {
-			symbol := styles.Added.Render("+")
+			symbol := styles.AddedText.Render("+")
 			key := styles.Key.Render(diff.Key)
 			value := styles.Value.Render(diff.ProposedValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
@@ -134,17 +134,17 @@ func (r *Result) formatParameterChangesText(output *strings.Builder, styles *Sty
 		var key string
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
-			key = styles.Added.Render(diff.Key)
+			key = styles.AddedText.Render(diff.Key)
 			value := styles.Value.Render(diff.ProposedValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		case ChangeTypeModify:
-			key = styles.Modified.Render(diff.Key)
+			key = styles.ModifiedText.Render(diff.Key)
 			currentVal := styles.Value.Render(diff.CurrentValue)
 			proposedVal := styles.Value.Render(diff.ProposedValue)
 			arrow := styles.Arrow.Render("→")
 			fmt.Fprintf(output, "  %s %s: %s %s %s\n", symbol, key, currentVal, arrow, proposedVal)
 		case ChangeTypeRemove:
-			key = styles.Removed.Render(diff.Key)
+			key = styles.RemovedText.Render(diff.Key)
 			value := styles.Value.Render(diff.CurrentValue)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, value)
 		}
@@ -163,13 +163,13 @@ func (r *Result) formatTagChangesText(output *strings.Builder, styles *Styles) {
 		var key string
 		switch diff.ChangeType {
 		case ChangeTypeAdd:
-			key = styles.Added.Render(diff.Key)
+			key = styles.AddedText.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.ProposedValue)
 		case ChangeTypeModify:
-			key = styles.Modified.Render(diff.Key)
+			key = styles.ModifiedText.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s → %s\n", symbol, key, diff.CurrentValue, diff.ProposedValue)
 		case ChangeTypeRemove:
-			key = styles.Removed.Render(diff.Key)
+			key = styles.RemovedText.Render(diff.Key)
 			fmt.Fprintf(output, "  %s %s: %s\n", symbol, key, diff.CurrentValue)
 		}
 	}
@@ -188,11 +188,11 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 			var logicalID string
 			switch change.Action {
 			case "Add":
-				logicalID = styles.Added.Render(change.LogicalID)
+				logicalID = styles.AddedText.Render(change.LogicalID)
 			case "Modify":
-				logicalID = styles.Modified.Render(change.LogicalID)
+				logicalID = styles.ModifiedText.Render(change.LogicalID)
 			case "Remove":
-				logicalID = styles.Removed.Render(change.LogicalID)
+				logicalID = styles.RemovedText.Render(change.LogicalID)
 			default:
 				logicalID = styles.Key.Render(change.LogicalID)
 			}

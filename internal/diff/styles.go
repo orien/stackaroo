@@ -12,12 +12,17 @@ import (
 
 // Styles contains all the styles for rendering diff output
 type Styles struct {
-	// Change type styles
+	// Change type styles (with background - for template diffs only)
 	Added       lipgloss.Style
 	Removed     lipgloss.Style
 	Modified    lipgloss.Style
 	DiffContext lipgloss.Style
 	DiffHunk    lipgloss.Style
+
+	// Change type styles (text only - for parameters, tags, plan)
+	AddedText    lipgloss.Style
+	RemovedText  lipgloss.Style
+	ModifiedText lipgloss.Style
 
 	// Status styles
 	StatusNew      lipgloss.Style
@@ -137,6 +142,16 @@ func NewStyles(useColour bool) *Styles {
 		s.Modified = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")) // ANSI Yellow for modifications
 
+		// Text-only styles (no background) for parameters, tags, and plan sections
+		s.AddedText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("10")) // ANSI Green for additions
+
+		s.RemovedText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")) // ANSI Red for removals
+
+		s.ModifiedText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")) // ANSI Yellow for modifications
+
 		s.DiffContext = lipgloss.NewStyle().
 			Background(lipgloss.Color(diffContextBg))
 
@@ -248,6 +263,9 @@ func NewStyles(useColour bool) *Styles {
 		s.Added = plainStyle
 		s.Removed = plainStyle
 		s.Modified = plainStyle
+		s.AddedText = plainStyle
+		s.RemovedText = plainStyle
+		s.ModifiedText = plainStyle
 		s.DiffContext = plainStyle
 		s.DiffHunk = plainStyle
 		s.StatusNew = plainStyle
@@ -295,11 +313,11 @@ func NewStyles(useColour bool) *Styles {
 func (s *Styles) GetChangeSymbol(changeType ChangeType) string {
 	switch changeType {
 	case ChangeTypeAdd:
-		return s.Added.Render("+")
+		return s.AddedText.Render("+")
 	case ChangeTypeModify:
-		return s.Modified.Render("~")
+		return s.ModifiedText.Render("~")
 	case ChangeTypeRemove:
-		return s.Removed.Render("-")
+		return s.RemovedText.Render("-")
 	default:
 		return "?"
 	}
@@ -309,11 +327,11 @@ func (s *Styles) GetChangeSymbol(changeType ChangeType) string {
 func (s *Styles) GetChangeSetSymbol(action string) string {
 	switch action {
 	case "Add":
-		return s.Added.Render("+")
+		return s.AddedText.Render("+")
 	case "Modify":
-		return s.Modified.Render("~")
+		return s.ModifiedText.Render("~")
 	case "Remove":
-		return s.Removed.Render("-")
+		return s.RemovedText.Render("-")
 	default:
 		return "?"
 	}
