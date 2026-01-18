@@ -341,3 +341,11 @@ func ShouldUseColour() bool {
 	// Check if it's a character device (terminal)
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
+
+// Highlight returns the text highlighted in the accent color if colours are enabled
+func Highlight(text string) string {
+	if !ShouldUseColour() {
+		return text
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(text)
+}

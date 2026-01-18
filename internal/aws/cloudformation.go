@@ -814,7 +814,7 @@ func isChangeSetNoChangesMessage(statusReason string) bool {
 		"no updates are to be performed",
 		"no updates to be performed",
 	}
-	
+
 	lowerReason := strings.ToLower(statusReason)
 	for _, phrase := range noChangePhrases {
 		if strings.Contains(lowerReason, phrase) {

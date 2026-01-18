@@ -99,9 +99,11 @@ func diffSingleStack(ctx context.Context, stackName, contextName, configFile str
 	// Set exit code based on whether changes were found
 	if result.HasChanges() {
 		// Exit with code 1 if changes detected (similar to git diff)
-		fmt.Printf("\nChanges detected for stack %s in context %s\n", stackName, contextName)
+		fmt.Printf("\nChanges detected for stack %s in context %s\n",
+			diff.Highlight(stackName), diff.Highlight(contextName))
 	} else {
-		fmt.Printf("\nNo changes detected for stack %s in context %s\n", stackName, contextName)
+		fmt.Printf("\nNo changes detected for stack %s in context %s\n",
+			diff.Highlight(stackName), diff.Highlight(contextName))
 	}
 
 	return nil

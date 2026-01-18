@@ -128,7 +128,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 		return fmt.Errorf("failed to get user confirmation: %w", err)
 	}
 	if !confirmed {
-		fmt.Printf("\nStack creation cancelled for %s\n", stack.Name)
+		fmt.Printf("\nStack creation cancelled for %s\n", diff.Highlight(stack.Name))
 		return CancellationError{StackName: stack.Name}
 	}
 
@@ -175,7 +175,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 		return fmt.Errorf("failed to create stack: %w", err)
 	}
 
-	fmt.Printf("Stack %s create completed successfully\n", stack.Name)
+	fmt.Printf("Stack %s create completed successfully\n", diff.Highlight(stack.Name))
 	return nil
 }
 
@@ -202,7 +202,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		var noChangesErr aws.NoChangesError
 		if errors.As(diffResult.ChangeSetError, &noChangesErr) {
 			// Treat metadata-only changes the same as no changes - no deployment needed
-			fmt.Printf("No infrastructure changes for stack %s (metadata-only changes detected)\n", stack.Name)
+			fmt.Printf("No infrastructure changes for stack %s (metadata-only changes detected)\n", diff.Highlight(stack.Name))
 			return NoChangesError{StackName: stack.Name}
 		}
 		return fmt.Errorf("cannot deploy: changeset generation failed: %w", diffResult.ChangeSetError)
@@ -210,7 +210,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 
 	// Check for changes
 	if !diffResult.HasChanges() {
-		fmt.Printf("No changes detected for stack %s\n", stack.Name)
+		fmt.Printf("No changes detected for stack %s\n", diff.Highlight(stack.Name))
 		return NoChangesError{StackName: stack.Name}
 	}
 
@@ -229,7 +229,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if diffResult.ChangeSet != nil {
 			_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 		}
-		fmt.Printf("\nDeployment cancelled for stack %s\n", stack.Name)
+		fmt.Printf("\nDeployment cancelled for stack %s\n", diff.Highlight(stack.Name))
 		return CancellationError{StackName: stack.Name}
 	}
 
@@ -272,7 +272,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	// Clean up changeset after successful deployment
 	_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
 
-	fmt.Printf("Stack %s update completed successfully\n", stack.Name)
+	fmt.Printf("Stack %s update completed successfully\n", diff.Highlight(stack.Name))
 	return nil
 }
 
@@ -332,7 +332,7 @@ func (d *StackDeployer) deployStackWithFeedback(ctx context.Context, stack *mode
 		return fmt.Errorf("error deploying stack %s: %w", stack.Name, err)
 	}
 
-	fmt.Printf("Successfully deployed stack %s in context %s\n", stack.Name, contextName)
+	fmt.Printf("Successfully deployed stack %s in context %s\n", diff.Highlight(stack.Name), diff.Highlight(contextName))
 	return nil
 }
 
@@ -355,7 +355,7 @@ func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string)
 		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
 	}
 	if len(stackNames) == 0 {
-		fmt.Printf("No stacks found in context %s\n", contextName)
+		fmt.Printf("No stacks found in context %s\n", diff.Highlight(contextName))
 		return nil
 	}
 
