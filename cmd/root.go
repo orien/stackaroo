@@ -48,7 +48,7 @@ func init() {
 	rootCmd.SetVersionTemplate(version.Info() + "\n")
 
 	// Global flags
-	rootCmd.PersistentFlags().StringP("config", "c", "stackaroo.yaml", "config file (default is stackaroo.yaml)")
+	rootCmd.PersistentFlags().StringP("config", "c", "stackaroo.yaml", "configuration file")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 }
 

@@ -39,7 +39,7 @@ func TestRootCmd_GlobalFlags(t *testing.T) {
 	require.NotNil(t, configFlag)
 	assert.Equal(t, "stackaroo.yaml", configFlag.DefValue)
 	assert.Equal(t, "c", configFlag.Shorthand)
-	assert.Contains(t, configFlag.Usage, "config file")
+	assert.Contains(t, configFlag.Usage, "configuration file")
 
 	// Test verbose flag
 	verboseFlag := flags.Lookup("verbose")
