@@ -105,7 +105,8 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 	output.WriteString("\n\n")
 
 	if r.TemplateChange.HasChanges && r.TemplateChange.Diff != "" {
-		output.WriteString(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles))
+		indentedDiff := indentLines(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles), "  ")
+		output.WriteString(indentedDiff)
 	} else {
 		crossmark := styles.StatusNoChange.Render("✗")
 		fmt.Fprintf(output, "%s No template changes\n", crossmark)
@@ -246,6 +247,28 @@ func (r *Result) formatChangeSetErrorText(output *strings.Builder, styles *Style
 
 	output.WriteString(styles.SubSection.Render("Review the error message and your configuration before proceeding."))
 	output.WriteString("\n\n")
+}
+
+// indentLines adds the specified indentation to each line of text
+func indentLines(text string, indent string) string {
+	if text == "" {
+		return text
+	}
+
+	lines := strings.Split(text, "\n")
+	var indented strings.Builder
+
+	for i, line := range lines {
+		if len(line) > 0 {
+			indented.WriteString(indent)
+		}
+		indented.WriteString(line)
+		if i < len(lines)-1 {
+			indented.WriteString("\n")
+		}
+	}
+
+	return indented.String()
 }
 
 // ColorizeUnifiedDiff applies color formatting to unified diff output
