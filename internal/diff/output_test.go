@@ -587,8 +587,8 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 
 		// Test hunk header
 		hunkResult := ColorizeUnifiedDiff("@@ -1,2 +1,3 @@", styles)
-		expectedHunk := styles.Key.Render("@@ -1,2 +1,3 @@")
-		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use key style")
+		expectedHunk := styles.DiffHunk.Render("@@ -1,2 +1,3 @@")
+		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use DiffHunk style")
 
 		// Test added line
 		addedResult := ColorizeUnifiedDiff("+added content", styles)
@@ -602,7 +602,7 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 
 		// Test context line
 		contextResult := ColorizeUnifiedDiff(" context content", styles)
-		expectedContext := styles.Value.Render(" context content")
-		assert.Equal(t, expectedContext, contextResult, "Context line should use value style")
+		expectedContext := styles.DiffContext.Render(" context content")
+		assert.Equal(t, expectedContext, contextResult, "Context line should use DiffContext style")
 	})
 }

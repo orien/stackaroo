@@ -278,6 +278,15 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 	}
 
 	lines := strings.Split(diff, "\n")
+
+	// Find the maximum line length for padding
+	maxLen := 0
+	for _, line := range lines {
+		if len(line) > maxLen {
+			maxLen = len(line)
+		}
+	}
+
 	var colorized strings.Builder
 
 	for i, line := range lines {
@@ -286,19 +295,25 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 			continue
 		}
 
+		// Pad line to max length for uniform background
+		paddedLine := line
+		if len(line) < maxLen {
+			paddedLine = line + strings.Repeat(" ", maxLen-len(line))
+		}
+
 		switch line[0] {
 		case '@':
-			// Hunk header - use cyan/key style
-			colorized.WriteString(styles.Key.Render(line))
+			// Hunk header
+			colorized.WriteString(styles.DiffHunk.Render(paddedLine))
 		case '+':
-			// Addition - use green
-			colorized.WriteString(styles.Added.Render(line))
+			// Addition
+			colorized.WriteString(styles.Added.Render(paddedLine))
 		case '-':
-			// Deletion - use red
-			colorized.WriteString(styles.Removed.Render(line))
+			// Deletion
+			colorized.WriteString(styles.Removed.Render(paddedLine))
 		default:
-			// Unknown - leave as is
-			colorized.WriteString(line)
+			// Context line
+			colorized.WriteString(styles.DiffContext.Render(paddedLine))
 		}
 
 		// Add newline except for the last line if it was empty

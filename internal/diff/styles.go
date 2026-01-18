@@ -13,9 +13,11 @@ import (
 // Styles contains all the styles for rendering diff output
 type Styles struct {
 	// Change type styles
-	Added    lipgloss.Style
-	Removed  lipgloss.Style
-	Modified lipgloss.Style
+	Added       lipgloss.Style
+	Removed     lipgloss.Style
+	Modified    lipgloss.Style
+	DiffContext lipgloss.Style
+	DiffHunk    lipgloss.Style
 
 	// Status styles
 	StatusNew      lipgloss.Style
@@ -23,7 +25,7 @@ type Styles struct {
 	StatusNoChange lipgloss.Style
 
 	// Header styles
-	Header      lipgloss.Style // Header with border
+	Header      lipgloss.Style
 	HeaderTitle lipgloss.Style
 	HeaderValue lipgloss.Style
 
@@ -52,7 +54,7 @@ type Styles struct {
 	RiskHigh   lipgloss.Style
 
 	// Layout styles
-	Footer    lipgloss.Style // Footer with border
+	Footer    lipgloss.Style
 	Separator lipgloss.Style
 
 	// Whether colours are enabled
@@ -113,13 +115,22 @@ func NewStyles(useColour bool) *Styles {
 		// Change type colours - use explicit ANSI colours for diff consistency
 		// (traditional red/green diff colours are universal and expected)
 		s.Added = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10")) // ANSI Green for additions
+			Foreground(lipgloss.Color("10")). // ANSI Green for additions
+			Background(lipgloss.Color("22"))  // Dark green background
 
 		s.Removed = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9")) // ANSI Red for removals
+			Foreground(lipgloss.Color("9")). // ANSI Red for removals
+			Background(lipgloss.Color("52")) // Dark red background
 
 		s.Modified = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")) // ANSI Yellow for modifications
+
+		s.DiffContext = lipgloss.NewStyle().
+			Background(lipgloss.Color("236"))
+
+		s.DiffHunk = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(keyText)).
+			Background(lipgloss.Color("236"))
 
 		// Status colours
 		s.StatusNew = lipgloss.NewStyle().
@@ -225,6 +236,8 @@ func NewStyles(useColour bool) *Styles {
 		s.Added = plainStyle
 		s.Removed = plainStyle
 		s.Modified = plainStyle
+		s.DiffContext = plainStyle
+		s.DiffHunk = plainStyle
 		s.StatusNew = plainStyle
 		s.StatusChanges = plainStyle
 		s.StatusNoChange = plainStyle
