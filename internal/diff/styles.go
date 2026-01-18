@@ -114,23 +114,35 @@ func NewStyles(useColour bool) *Styles {
 
 		// Change type colours - use explicit ANSI colours for diff consistency
 		// (traditional red/green diff colours are universal and expected)
+		// Background colors adapt to terminal theme
+		var addedBg, removedBg, diffContextBg string
+		if hasDark {
+			addedBg = "22"        // Dark green background for dark terminals
+			removedBg = "52"      // Dark red background for dark terminals
+			diffContextBg = "236" // Very dark grey for dark terminals
+		} else {
+			addedBg = "194"       // Light green background for light terminals
+			removedBg = "224"     // Light red/pink background for light terminals
+			diffContextBg = "254" // Very light grey for light terminals
+		}
+
 		s.Added = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("10")). // ANSI Green for additions
-			Background(lipgloss.Color("22"))  // Dark green background
+			Background(lipgloss.Color(addedBg))
 
 		s.Removed = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9")). // ANSI Red for removals
-			Background(lipgloss.Color("52")) // Dark red background
+			Background(lipgloss.Color(removedBg))
 
 		s.Modified = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")) // ANSI Yellow for modifications
 
 		s.DiffContext = lipgloss.NewStyle().
-			Background(lipgloss.Color("236"))
+			Background(lipgloss.Color(diffContextBg))
 
 		s.DiffHunk = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(keyText)).
-			Background(lipgloss.Color("236"))
+			Background(lipgloss.Color(diffContextBg))
 
 		// Status colours
 		s.StatusNew = lipgloss.NewStyle().
