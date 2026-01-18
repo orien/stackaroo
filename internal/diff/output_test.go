@@ -363,7 +363,6 @@ func TestResult_FormatChangeSetText(t *testing.T) {
 	text := output.String()
 
 	assert.Contains(t, text, "PLAN")
-	assert.Contains(t, text, "Resource changes:")
 
 	// Check resource change formatting
 	assert.Contains(t, text, "  + NewBucket (AWS::S3::Bucket)")

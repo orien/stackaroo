@@ -69,45 +69,42 @@ func NewStyles(useColour bool) *Styles {
 
 		// Define colour palette based on background
 		var (
-			headerText       string
-			baseText         string
-			warningText      string
-			successText      string
-			keyText          string
-			subtleText       string
-			borderText       string
-			separatorText    string
-			activeText       string
-			errorText        string
-			activeBackground string
+			headerText    string
+			baseText      string
+			warningText   string
+			successText   string
+			keyText       string
+			subtleText    string
+			borderText    string
+			separatorText string
+			activeText    string
+			errorText     string
 		)
 
 		if hasDark {
 			// Dark background colours - optimised for readability on dark terminals
-			headerText = "12"        // Bright Blue
-			baseText = "15"          // White
-			warningText = "11"       // Yellow
-			successText = "10"       // Green
-			keyText = "14"           // Cyan
-			subtleText = "8"         // Dark Grey
-			borderText = "240"       // Dimmed Grey
-			separatorText = "243"    // Medium Grey
-			activeText = "13"        // Magenta
-			errorText = "9"          // Red
-			activeBackground = "236" // Dark background
+			headerText = "4"      // Blue
+			baseText = "15"       // White
+			warningText = "11"    // Yellow
+			successText = "10"    // Green
+			keyText = "14"        // Cyan
+			subtleText = "8"      // Dark Grey
+			borderText = "240"    // Dimmed Grey
+			separatorText = "243" // Medium Grey
+			activeText = "13"     // Magenta
+			errorText = "9"       // Red
 		} else {
 			// Light background colours - optimised for readability on light terminals
-			headerText = "4"         // Blue
-			baseText = "0"           // Black
-			warningText = "3"        // Yellow/Brown
-			successText = "2"        // Green
-			keyText = "6"            // Cyan
-			subtleText = "8"         // Grey
-			borderText = "245"       // Light Grey
-			separatorText = "242"    // Medium Grey
-			activeText = "5"         // Magenta
-			errorText = "1"          // Red
-			activeBackground = "254" // Light background
+			headerText = "4"      // Blue
+			baseText = "0"        // Black
+			warningText = "3"     // Yellow/Brown
+			successText = "2"     // Green
+			keyText = "6"         // Cyan
+			subtleText = "8"      // Grey
+			borderText = "245"    // Light Grey
+			separatorText = "242" // Medium Grey
+			activeText = "5"      // Magenta
+			errorText = "1"       // Red
 		}
 
 		// Border colour - use dimmed colour for borders
@@ -154,13 +151,10 @@ func NewStyles(useColour bool) *Styles {
 		// Section styles
 		s.SectionHeader = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(activeText)).
-			Background(lipgloss.Color(activeBackground)).
-			Padding(0, 1)
+			Foreground(lipgloss.Color(headerText))
 
 		s.SectionHeaderInactive = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(borderText)).
-			Padding(0, 1)
+			Foreground(lipgloss.Color(borderText))
 
 		s.SectionActive = lipgloss.NewStyle().
 			Bold(true).
@@ -242,8 +236,8 @@ func NewStyles(useColour bool) *Styles {
 		s.HeaderTitle = plainStyle
 		s.HeaderValue = plainStyle
 
-		s.SectionHeader = plainStyle.Padding(0, 1)
-		s.SectionHeaderInactive = plainStyle.Padding(0, 1)
+		s.SectionHeader = plainStyle
+		s.SectionHeaderInactive = plainStyle
 		s.SectionActive = plainStyle.MarginRight(2)
 		s.SectionInactive = plainStyle.MarginRight(2)
 		s.SubSection = plainStyle

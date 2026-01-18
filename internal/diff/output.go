@@ -171,8 +171,6 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 	output.WriteString("\n\n")
 
 	if len(r.ChangeSet.Changes) > 0 {
-		output.WriteString(styles.SubSection.Render("Resource changes:"))
-		output.WriteString("\n")
 		for _, change := range r.ChangeSet.Changes {
 			symbol := styles.GetChangeSetSymbol(change.Action)
 
