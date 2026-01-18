@@ -767,3 +767,54 @@ func TestDeployStack_ExistingStack_ChangeSetGenerationFails(t *testing.T) {
 	// Verify that we never prompted the user (the prompter should not have been called)
 	mockCfnOps.AssertExpectations(t)
 }
+
+func TestDeployStack_ExistingStack_MetadataOnlyChanges(t *testing.T) {
+	// Test that deployment handles metadata-only changes gracefully (no infrastructure changes needed)
+	ctx := context.Background()
+
+	// Set up mocks
+	mockFactory, mockCfnOps := aws.NewMockClientFactoryForRegion("us-east-1")
+
+	// Mock StackExists call (existing stack)
+	mockCfnOps.On("StackExists", mock.Anything, "test-stack").Return(true, nil)
+
+	// Mock differ operations
+	currentStackInfo := &aws.StackInfo{
+		Name:       "test-stack",
+		Status:     "UPDATE_COMPLETE",
+		Parameters: map[string]string{"Environment": "test"},
+		Tags:       map[string]string{"Project": "stackaroo"},
+	}
+	mockCfnOps.On("DescribeStack", mock.Anything, "test-stack").Return(currentStackInfo, nil)
+	mockCfnOps.On("GetTemplate", mock.Anything, "test-stack").Return(`{"AWSTemplateFormatVersion": "2010-09-09", "Description": "Old description", "Resources": {"Bucket": {"Type": "AWS::S3::Bucket"}}}`, nil)
+
+	// Mock changeset creation failure with "no changes" error (metadata-only changes)
+	noChangesError := aws.NoChangesError{StackName: "test-stack"}
+	mockCfnOps.On("CreateChangeSetForDeployment", mock.Anything, "test-stack", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return((*aws.ChangeSetInfo)(nil), noChangesError)
+
+	// Create deployer - we should never reach the confirm prompt
+	deployer := createMockDeployer(mockFactory)
+
+	// Create resolved stack with only Description changed (metadata-only)
+	stack := &model.Stack{
+		Name:         "test-stack",
+		Context:      model.NewTestContext("dev", "us-east-1", "123456789012"),
+		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09", "Description": "New description", "Resources": {"Bucket": {"Type": "AWS::S3::Bucket"}}}`,
+		Parameters:   map[string]string{"Environment": "test"},
+		Tags:         map[string]string{"Project": "stackaroo"},
+		Dependencies: []string{},
+		Capabilities: []string{"CAPABILITY_IAM"},
+	}
+
+	// Execute
+	err := deployer.DeployStack(ctx, stack)
+
+	// Verify that deployment succeeds with NoChangesError (not a real error)
+	assert.Error(t, err)
+	var noChangesErr NoChangesError
+	assert.ErrorAs(t, err, &noChangesErr)
+	assert.Equal(t, "test-stack", noChangesErr.StackName)
+
+	// Verify mocks were called as expected
+	mockCfnOps.AssertExpectations(t)
+}

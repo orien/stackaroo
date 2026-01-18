@@ -198,6 +198,13 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 
 	// Check if changeset generation failed
 	if diffResult.ChangeSetError != nil {
+		// Check if this is a "no infrastructure changes" scenario (metadata-only changes)
+		var noChangesErr aws.NoChangesError
+		if errors.As(diffResult.ChangeSetError, &noChangesErr) {
+			// Treat metadata-only changes the same as no changes - no deployment needed
+			fmt.Printf("No infrastructure changes for stack %s (metadata-only changes detected)\n", stack.Name)
+			return NoChangesError{StackName: stack.Name}
+		}
 		return fmt.Errorf("cannot deploy: changeset generation failed: %w", diffResult.ChangeSetError)
 	}
 

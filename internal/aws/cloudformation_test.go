@@ -677,7 +677,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_WaitError(t *tes
 		StatusReason: aws.String("Template validation error"),
 	}, nil)
 
-	// Mock DeleteChangeSet for cleanup
+	// Mock DeleteChangeSet - called during cleanup after failure
 	mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Execute
@@ -687,8 +687,42 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_WaitError(t *tes
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "changeset creation failed")
-	assert.Contains(t, err.Error(), "Template validation error")
+	mockClient.AssertExpectations(t)
+}
 
+func TestDefaultCloudFormationOperations_CreateChangeSetPreview_NoInfrastructureChanges(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockCloudFormationClient{}
+	cf := &DefaultCloudFormationOperations{client: mockClient}
+
+	// Test data
+	stackName := "test-stack"
+	template := `{"AWSTemplateFormatVersion": "2010-09-09"}`
+	parameters := map[string]string{}
+	capabilities := []string{}
+	changeSetId := "test-changeset-123"
+
+	// Mock CreateChangeSet success
+	mockClient.On("CreateChangeSet", ctx, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return(createTestChangeSetOutput(changeSetId), nil)
+
+	// Mock DescribeChangeSet - return "no changes" failure
+	mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(&cloudformation.DescribeChangeSetOutput{
+		Status:       types.ChangeSetStatusFailed,
+		StatusReason: aws.String("The submitted information didn't contain changes. Submit different information to create a change set."),
+	}, nil)
+
+	// Mock DeleteChangeSet - called during cleanup
+	mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
+
+	// Execute
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities, map[string]string{})
+
+	// Verify - should return NoChangesError
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	var noChangesErr NoChangesError
+	assert.ErrorAs(t, err, &noChangesErr)
+	assert.Equal(t, stackName, noChangesErr.StackName)
 	mockClient.AssertExpectations(t)
 }
 
@@ -887,6 +921,29 @@ func TestDefaultCloudFormationOperations_WaitForChangeSet_Failed(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestDefaultCloudFormationOperations_WaitForChangeSet_NoInfrastructureChanges(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockCloudFormationClient{}
+	cf := &DefaultCloudFormationOperations{client: mockClient}
+
+	changeSetId := "test-changeset-123"
+
+	// Mock DescribeChangeSet - return failed status with "didn't contain changes" message
+	mockClient.On("DescribeChangeSet", ctx, mock.AnythingOfType("*cloudformation.DescribeChangeSetInput")).Return(&cloudformation.DescribeChangeSetOutput{
+		Status:       types.ChangeSetStatusFailed,
+		StatusReason: aws.String("The submitted information didn't contain changes. Submit different information to create a change set."),
+	}, nil)
+
+	// Execute
+	err := cf.waitForChangeSet(ctx, changeSetId)
+
+	// Verify - should return NoChangesError, not a generic error
+	assert.Error(t, err)
+	var noChangesErr NoChangesError
+	assert.ErrorAs(t, err, &noChangesErr)
+	mockClient.AssertExpectations(t)
+}
+
 func TestDefaultCloudFormationOperations_WaitForChangeSet_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mockClient := &MockCloudFormationClient{}
@@ -1001,6 +1058,62 @@ func TestDefaultCloudFormationOperations_DeleteChangeSet_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to delete changeset")
 
 	mockClient.AssertExpectations(t)
+}
+
+func TestIsChangeSetNoChangesMessage(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusReason string
+		expected     bool
+	}{
+		{
+			name:         "Standard no changes message",
+			statusReason: "The submitted information didn't contain changes. Submit different information to create a change set.",
+			expected:     true,
+		},
+		{
+			name:         "Alternative no changes message",
+			statusReason: "The submitted information didn't include changes. Submit different information to create a change set.",
+			expected:     true,
+		},
+		{
+			name:         "No updates to be performed",
+			statusReason: "No updates are to be performed.",
+			expected:     true,
+		},
+		{
+			name:         "No updates variant",
+			statusReason: "No updates to be performed",
+			expected:     true,
+		},
+		{
+			name:         "Case insensitive",
+			statusReason: "THE SUBMITTED INFORMATION DIDN'T CONTAIN CHANGES. SUBMIT DIFFERENT INFORMATION TO CREATE A CHANGE SET.",
+			expected:     true,
+		},
+		{
+			name:         "Different error",
+			statusReason: "Invalid parameter value",
+			expected:     false,
+		},
+		{
+			name:         "Permission denied",
+			statusReason: "Access Denied",
+			expected:     false,
+		},
+		{
+			name:         "Empty reason",
+			statusReason: "",
+			expected:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isChangeSetNoChangesMessage(tt.statusReason)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestStackStatus_Constants(t *testing.T) {

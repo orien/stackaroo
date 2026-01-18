@@ -5,8 +5,11 @@ SPDX-License-Identifier: BSD-3-Clause
 package diff
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/orien/stackaroo/internal/aws"
 )
 
 // toText returns a human-readable text representation of the diff results
@@ -66,7 +69,13 @@ func (r *Result) toText() string {
 	if r.ChangeSet != nil {
 		r.formatChangeSetText(&output, styles)
 	} else if r.ChangeSetError != nil {
-		r.formatChangeSetErrorText(&output, styles)
+		// Check if this is a "no infrastructure changes" scenario
+		var noChangesErr aws.NoChangesError
+		if errors.As(r.ChangeSetError, &noChangesErr) {
+			r.formatNoInfrastructureChangesText(&output, styles)
+		} else {
+			r.formatChangeSetErrorText(&output, styles)
+		}
 	}
 
 	return output.String()
@@ -213,6 +222,29 @@ func (r *Result) formatChangeSetText(output *strings.Builder, styles *Styles) {
 		}
 	}
 	output.WriteString("\n")
+}
+
+// formatNoInfrastructureChangesText formats output when template changes don't affect infrastructure
+func (r *Result) formatNoInfrastructureChangesText(output *strings.Builder, styles *Styles) {
+	output.WriteString(styles.SectionHeader.Render("PLAN"))
+	output.WriteString("\n\n")
+
+	// Display as informational, not an error
+	infoHeader := styles.StatusNoChange.Render("No Infrastructure Changes")
+	fmt.Fprintf(output, "%s\n\n", infoHeader)
+
+	// Explain what this means
+	output.WriteString(styles.SubSection.Render("The template changes shown above are metadata-only and do not affect infrastructure."))
+	output.WriteString("\n\n")
+
+	output.WriteString(styles.SubSection.Render("Examples of metadata-only changes:"))
+	output.WriteString("\n")
+	output.WriteString("  • Template Description field\n")
+	output.WriteString("  • Metadata section\n")
+	output.WriteString("  • Comments or formatting\n\n")
+
+	output.WriteString(styles.SubSection.Render("No deployment is required for these changes."))
+	output.WriteString("\n\n")
 }
 
 // formatChangeSetErrorText formats changeset generation errors

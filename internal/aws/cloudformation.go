@@ -6,7 +6,9 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -644,6 +646,11 @@ func (cf *DefaultCloudFormationOperations) CreateChangeSetPreview(ctx context.Co
 	if err != nil {
 		// Clean up the changeset if it failed
 		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		// Check if this is a "no changes" error and propagate it with the stack name
+		var noChangesErr NoChangesError
+		if errors.As(err, &noChangesErr) {
+			return nil, NoChangesError{StackName: stackName}
+		}
 		return nil, fmt.Errorf("changeset creation failed: %w", err)
 	}
 
@@ -729,6 +736,11 @@ func (cf *DefaultCloudFormationOperations) CreateChangeSetForDeployment(ctx cont
 	if err != nil {
 		// Clean up the changeset if it failed
 		_ = cf.DeleteChangeSet(ctx, changeSetID)
+		// Check if this is a "no changes" error and propagate it with the stack name
+		var noChangesErr NoChangesError
+		if errors.As(err, &noChangesErr) {
+			return nil, NoChangesError{StackName: stackName}
+		}
 		return nil, fmt.Errorf("changeset creation failed: %w", err)
 	}
 
@@ -775,6 +787,10 @@ func (cf *DefaultCloudFormationOperations) waitForChangeSet(ctx context.Context,
 			if reason == "" {
 				reason = "unknown reason"
 			}
+			// Check if this is a "no changes" scenario (metadata-only changes)
+			if isChangeSetNoChangesMessage(reason) {
+				return NoChangesError{StackName: "unknown"} // Stack name will be set by caller
+			}
 			return fmt.Errorf("changeset creation failed: %s", reason)
 		case types.ChangeSetStatusCreatePending, types.ChangeSetStatusCreateInProgress:
 			// Still creating, wait a bit more
@@ -786,6 +802,26 @@ func (cf *DefaultCloudFormationOperations) waitForChangeSet(ctx context.Context,
 	}
 
 	return fmt.Errorf("timeout waiting for changeset to be created")
+}
+
+// isChangeSetNoChangesMessage checks if a changeset status reason indicates no infrastructure changes
+func isChangeSetNoChangesMessage(statusReason string) bool {
+	// CloudFormation returns this specific message when changeset contains no infrastructure changes
+	// This happens when only metadata (Description, Metadata section, etc.) changes
+	noChangePhrases := []string{
+		"didn't contain changes",
+		"didn't include changes",
+		"no updates are to be performed",
+		"no updates to be performed",
+	}
+	
+	lowerReason := strings.ToLower(statusReason)
+	for _, phrase := range noChangePhrases {
+		if strings.Contains(lowerReason, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // describeChangeSetInternal gets the detailed information about a changeset
