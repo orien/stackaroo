@@ -544,7 +544,7 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 		assert.NotEmpty(t, result, "Result should not be empty")
 
 		lines := strings.Split(result, "\n")
-		assert.Len(t, lines, 5, "Should have 5 lines")
+		assert.Len(t, lines, 6, "Should have 6 lines (5 content + 1 empty from trailing newline)")
 
 		// Verify content is preserved (even if colors aren't applied in test env)
 		assert.Contains(t, lines[0], "@@", "Should contain hunk header")
@@ -552,6 +552,7 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 		assert.Contains(t, lines[2], "removed line", "Should contain removed text")
 		assert.Contains(t, lines[3], "added line", "Should contain added text")
 		assert.Contains(t, lines[4], "another context", "Should contain second context text")
+		assert.Equal(t, "", lines[5], "Last line should be empty from trailing newline")
 
 		// Verify line prefixes are preserved
 		assert.True(t, strings.Contains(lines[0], "@@"), "Hunk header should contain @@")
@@ -587,22 +588,22 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 
 		// Test hunk header
 		hunkResult := ColorizeUnifiedDiff("@@ -1,2 +1,3 @@", styles)
-		expectedHunk := styles.DiffHunk.Render("@@ -1,2 +1,3 @@")
+		expectedHunk := styles.DiffHunk.Render("@@ -1,2 +1,3 @@") + "\n"
 		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use DiffHunk style")
 
 		// Test added line
 		addedResult := ColorizeUnifiedDiff("+added content", styles)
-		expectedAdded := styles.Added.Render("+added content")
+		expectedAdded := styles.Added.Render("+added content") + "\n"
 		assert.Equal(t, expectedAdded, addedResult, "Added line should use added style")
 
 		// Test removed line
 		removedResult := ColorizeUnifiedDiff("-removed content", styles)
-		expectedRemoved := styles.Removed.Render("-removed content")
+		expectedRemoved := styles.Removed.Render("-removed content") + "\n"
 		assert.Equal(t, expectedRemoved, removedResult, "Removed line should use removed style")
 
 		// Test context line
 		contextResult := ColorizeUnifiedDiff(" context content", styles)
-		expectedContext := styles.DiffContext.Render(" context content")
+		expectedContext := styles.DiffContext.Render(" context content") + "\n"
 		assert.Equal(t, expectedContext, contextResult, "Context line should use DiffContext style")
 	})
 }

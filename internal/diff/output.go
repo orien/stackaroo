@@ -279,6 +279,11 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 
 	lines := strings.Split(diff, "\n")
 
+	// Drop final empty line from trailing newline artifact
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
 	// Find the maximum line length for padding
 	maxLen := 0
 	for _, line := range lines {
@@ -289,7 +294,7 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 
 	var colorized strings.Builder
 
-	for i, line := range lines {
+	for _, line := range lines {
 		if len(line) == 0 {
 			colorized.WriteString("\n")
 			continue
@@ -316,10 +321,8 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 			colorized.WriteString(styles.DiffContext.Render(paddedLine))
 		}
 
-		// Add newline except for the last line if it was empty
-		if i < len(lines)-1 {
-			colorized.WriteString("\n")
-		}
+		// Add newline after each line
+		colorized.WriteString("\n")
 	}
 
 	return colorized.String()
