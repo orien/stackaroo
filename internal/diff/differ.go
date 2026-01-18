@@ -209,7 +209,7 @@ func (d *StackDiffer) generateChangeSet(ctx context.Context, stack *model.Stack,
 		)
 	} else {
 		// Use standard changeset that auto-deletes for preview only
-		changeSetInfo, err = cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters, capabilities)
+		changeSetInfo, err = cfClient.CreateChangeSetPreview(ctx, stack.Name, templateContent, stack.Parameters, capabilities, stack.Tags)
 	}
 
 	if err != nil {

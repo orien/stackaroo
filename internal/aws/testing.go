@@ -187,8 +187,8 @@ func (m *MockCloudFormationOperations) WaitForStackOperation(ctx context.Context
 	return args.Error(0)
 }
 
-func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string) (*ChangeSetInfo, error) {
-	args := m.Called(ctx, stackName, template, parameters, capabilities)
+func (m *MockCloudFormationOperations) CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error) {
+	args := m.Called(ctx, stackName, template, parameters, capabilities, tags)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

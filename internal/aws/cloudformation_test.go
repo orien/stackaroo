@@ -610,7 +610,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_Success(t *testi
 	})).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities, map[string]string{})
 
 	// Verify
 	require.NoError(t, err)
@@ -646,7 +646,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_CreateError(t *t
 	mockClient.On("CreateChangeSet", ctx, mock.AnythingOfType("*cloudformation.CreateChangeSetInput")).Return((*cloudformation.CreateChangeSetOutput)(nil), errors.New("access denied"))
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities, map[string]string{})
 
 	// Verify
 	assert.Error(t, err)
@@ -681,7 +681,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetPreview_WaitError(t *tes
 	mockClient.On("DeleteChangeSet", ctx, mock.AnythingOfType("*cloudformation.DeleteChangeSetInput")).Return(&cloudformation.DeleteChangeSetOutput{}, nil)
 
 	// Execute
-	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities)
+	result, err := cf.CreateChangeSetPreview(ctx, stackName, template, parameters, capabilities, map[string]string{})
 
 	// Verify
 	assert.Error(t, err)

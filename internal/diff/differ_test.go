@@ -151,7 +151,7 @@ func TestStackDiffer_DiffStack_ExistingStack_WithChanges(t *testing.T) {
 			{Action: "Modify", ResourceType: "AWS::S3::Bucket", LogicalID: "MyBucket"},
 		},
 	}
-	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters, mock.Anything).Return(changeSet, nil)
+	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters, mock.Anything, stack.Tags).Return(changeSet, nil)
 
 	// Execute
 	result, err := differ.DiffStack(ctx, stack, options)
@@ -404,7 +404,7 @@ func TestStackDiffer_DiffStack_ChangeSetError(t *testing.T) {
 	tagComp.On("Compare", currentStack.Tags, stack.Tags).Return([]TagDiff{}, nil)
 
 	// Mock changeset creation failure
-	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters, mock.Anything).Return((*aws.ChangeSetInfo)(nil), errors.New("changeset failed"))
+	cfClient.On("CreateChangeSetPreview", ctx, "test-stack", stack.TemplateBody, stack.Parameters, mock.Anything, stack.Tags).Return((*aws.ChangeSetInfo)(nil), errors.New("changeset failed"))
 
 	// Execute
 	result, err := differ.DiffStack(ctx, stack, options)

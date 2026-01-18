@@ -53,7 +53,7 @@ type CloudFormationOperations interface {
 	DeleteChangeSet(ctx context.Context, changeSetID string) error
 	DescribeStackEvents(ctx context.Context, stackName string) ([]StackEvent, error)
 	WaitForStackOperation(ctx context.Context, stackName string, startTime time.Time, eventCallback func(StackEvent)) error
-	CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string) (*ChangeSetInfo, error)
+	CreateChangeSetPreview(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 	CreateChangeSetForDeployment(ctx context.Context, stackName string, template string, parameters map[string]string, capabilities []string, tags map[string]string) (*ChangeSetInfo, error)
 }
 
