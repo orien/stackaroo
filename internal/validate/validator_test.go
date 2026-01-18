@@ -114,7 +114,7 @@ func TestTemplateValidator_ValidateSingleStack_ResolveFailure(t *testing.T) {
 
 	// Verify
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack")
+	assert.Contains(t, err.Error(), "stack not found in configuration")
 	mockResolver.AssertExpectations(t)
 }
 
@@ -265,7 +265,7 @@ func TestTemplateValidator_ValidateAllStacks_ListStacksError(t *testing.T) {
 
 	// Verify
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to list stacks")
+	assert.Contains(t, err.Error(), "context not found")
 	mockConfigProvider.AssertExpectations(t)
 }
 

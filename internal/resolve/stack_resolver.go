@@ -54,19 +54,19 @@ func (r *StackResolver) ResolveStack(ctx context.Context, context string, stackN
 	// Load configuration
 	cfg, err := r.configProvider.LoadConfig(ctx, context)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, err
 	}
 
 	// Get stack configuration
 	stackConfig, err := r.configProvider.GetStack(stackName, context)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stack %s: %w", stackName, err)
+		return nil, err
 	}
 
 	// Read raw template content
 	rawTemplate, err := r.fileSystemResolver.Resolve(stackConfig.Template)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read template: %w", err)
+		return nil, err
 	}
 
 	// Process template with variables (parameters and context)

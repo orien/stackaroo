@@ -72,7 +72,7 @@ func describeSingleStack(ctx context.Context, stackName, contextName, configFile
 	// Resolve the target stack configuration
 	stack, err := resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+		return err
 	}
 
 	// Get describer instance
@@ -81,7 +81,7 @@ func describeSingleStack(ctx context.Context, stackName, contextName, configFile
 	// Retrieve stack information from AWS
 	stackDesc, err := d.DescribeStack(ctx, stack)
 	if err != nil {
-		return fmt.Errorf("failed to describe stack %s: %w", stackName, err)
+		return err
 	}
 
 	// Format and display the information

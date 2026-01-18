@@ -96,7 +96,7 @@ func (v *TemplateValidator) ValidateSingleStack(ctx context.Context, stackName, 
 	// Resolve the stack (handles template loading and processing)
 	stack, err := v.resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+		return err
 	}
 
 	// Validate the template
@@ -114,7 +114,7 @@ func (v *TemplateValidator) ValidateAllStacks(ctx context.Context, contextName s
 	// Get list of all stacks in the context
 	stackNames, err := v.configProvider.ListStacks(contextName)
 	if err != nil {
-		return fmt.Errorf("failed to list stacks for context %s: %w", contextName, err)
+		return err
 	}
 
 	if len(stackNames) == 0 {

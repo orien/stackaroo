@@ -397,7 +397,7 @@ func TestStackResolver_ResolveStack_ConfigLoadError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
-	assert.Contains(t, err.Error(), "failed to load config")
+	assert.Contains(t, err.Error(), "assert.AnError general error for testing")
 
 	mockConfigProvider.AssertExpectations(t)
 	mockFileSystemResolver.AssertExpectations(t)
@@ -423,7 +423,7 @@ func TestStackResolver_ResolveStack_StackNotFoundError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
-	assert.Contains(t, err.Error(), "failed to get stack")
+	assert.Contains(t, err.Error(), "assert.AnError general error for testing")
 
 	mockConfigProvider.AssertExpectations(t)
 	mockFileSystemResolver.AssertExpectations(t)
@@ -454,7 +454,7 @@ func TestStackResolver_ResolveStack_TemplateReadError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resolved)
-	assert.Contains(t, err.Error(), "failed to read template")
+	assert.Contains(t, err.Error(), "assert.AnError general error for testing")
 
 	mockConfigProvider.AssertExpectations(t)
 	mockFileSystemResolver.AssertExpectations(t)

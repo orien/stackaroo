@@ -276,7 +276,7 @@ func TestDeleteSingleStack_ResolverFailure(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
+	assert.Contains(t, err.Error(), "stack not found")
 	mockResolver.AssertExpectations(t)
 }
 
@@ -408,7 +408,7 @@ func TestDeleteAllStacks_ListStacksFailure(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get stacks for context dev")
+	assert.Contains(t, err.Error(), "context not found")
 	mockConfigProvider.AssertExpectations(t)
 }
 
@@ -431,7 +431,7 @@ func TestDeleteAllStacks_GetDependencyOrderFailure(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to calculate dependency order")
+	assert.Contains(t, err.Error(), "circular dependency")
 	mockConfigProvider.AssertExpectations(t)
 	mockResolver.AssertExpectations(t)
 }
@@ -458,7 +458,7 @@ func TestDeleteAllStacks_ResolveStackFailure(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack vpc")
+	assert.Contains(t, err.Error(), "stack resolution failed")
 	mockConfigProvider.AssertExpectations(t)
 	mockResolver.AssertExpectations(t)
 }

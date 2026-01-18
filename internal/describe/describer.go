@@ -36,7 +36,7 @@ func (d *StackDescriber) DescribeStack(ctx context.Context, stack *model.Stack) 
 	// Use existing AWS operations to get stack information
 	stackInfo, err := cfOps.DescribeStack(ctx, stack.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to describe stack %s: %w", stack.Name, err)
+		return nil, err
 	}
 
 	// Convert AWS StackInfo to our StackDescription format

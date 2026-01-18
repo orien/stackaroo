@@ -127,7 +127,6 @@ func TestStackDescriber_DescribeStack_AWSError(t *testing.T) {
 	// Verify
 	assert.Error(t, err, "DescribeStack should return error when AWS operations fail")
 	assert.Nil(t, result, "Result should be nil on error")
-	assert.Contains(t, err.Error(), "failed to describe stack failing-stack")
 	assert.Contains(t, err.Error(), "AWS CloudFormation error: stack not found")
 
 	mockCFOps.AssertExpectations(t)

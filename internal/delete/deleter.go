@@ -123,7 +123,7 @@ func (d *StackDeleter) DeleteSingleStack(ctx context.Context, stackName, context
 	// Resolve single stack
 	stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+		return err
 	}
 
 	return d.deleteStackWithFeedback(ctx, stack, contextName)
@@ -134,7 +134,7 @@ func (d *StackDeleter) DeleteAllStacks(ctx context.Context, contextName string) 
 	// Get list of stacks to delete
 	stackNames, err := d.configProvider.ListStacks(contextName)
 	if err != nil {
-		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+		return err
 	}
 	if len(stackNames) == 0 {
 		fmt.Printf("No stacks found in context %s\n", contextName)
@@ -144,7 +144,7 @@ func (d *StackDeleter) DeleteAllStacks(ctx context.Context, contextName string) 
 	// Get dependency order without resolving stacks
 	deploymentOrder, err := d.resolver.GetDependencyOrder(contextName, stackNames)
 	if err != nil {
-		return fmt.Errorf("failed to calculate dependency order: %w", err)
+		return err
 	}
 
 	// Reverse the deployment order for safe deletion
@@ -159,7 +159,7 @@ func (d *StackDeleter) DeleteAllStacks(ctx context.Context, contextName string) 
 		// Resolve this specific stack
 		stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
 		if err != nil {
-			return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+			return err
 		}
 
 		err = d.deleteStackWithFeedback(ctx, stack, contextName)

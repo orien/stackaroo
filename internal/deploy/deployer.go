@@ -341,7 +341,7 @@ func (d *StackDeployer) DeploySingleStack(ctx context.Context, stackName, contex
 	// Resolve single stack
 	stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack dependencies: %w", err)
+		return err
 	}
 
 	return d.deployStackWithFeedback(ctx, stack, contextName)
@@ -370,7 +370,7 @@ func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string)
 		// Resolve this specific stack to get fresh parameter values
 		stack, err := d.resolver.ResolveStack(ctx, contextName, stackName)
 		if err != nil {
-			return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+			return err
 		}
 
 		err = d.deployStackWithFeedback(ctx, stack, contextName)

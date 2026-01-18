@@ -164,7 +164,6 @@ func TestDeploySingleStack_ResolverError(t *testing.T) {
 
 	// Verify error is propagated correctly
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack dependencies")
 	assert.Contains(t, err.Error(), "config load failed")
 
 	mockProvider.AssertExpectations(t)
@@ -201,7 +200,6 @@ func TestDeployAllStacks_ConfigLoadError(t *testing.T) {
 
 	// Should fail during config loading for individual stack resolution
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to resolve stack")
 	assert.Contains(t, err.Error(), "config resolution failed")
 
 	mockProvider.AssertExpectations(t)

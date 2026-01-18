@@ -234,7 +234,7 @@ stacks:
 
 	// Verify error handling
 	assert.Error(t, err, "describe command should return error when describer fails")
-	assert.Contains(t, err.Error(), "failed to describe stack nonexistent-stack")
+	assert.Contains(t, err.Error(), "stack not found")
 
 	// Verify mock expectations
 	mockDescriber.AssertExpectations(t)
@@ -257,7 +257,7 @@ func TestDescribeCommand_HandlesResolverError(t *testing.T) {
 
 	// Verify error handling
 	assert.Error(t, err, "describe command should return error when resolver fails")
-	assert.Contains(t, err.Error(), "failed to resolve stack")
+	assert.Contains(t, err.Error(), "failed to read config file")
 
 	// Verify no describer calls were made since resolver failed
 	mockDescriber.AssertNotCalled(t, "DescribeStack")

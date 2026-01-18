@@ -74,7 +74,7 @@ func diffSingleStack(ctx context.Context, stackName, contextName, configFile str
 	// Resolve the target stack
 	targetStack, err := resolver.ResolveStack(ctx, contextName, stackName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve stack %s: %w", stackName, err)
+		return err
 	}
 
 	// Create diff options based on command flags
@@ -90,7 +90,7 @@ func diffSingleStack(ctx context.Context, stackName, contextName, configFile str
 	// Perform the diff
 	result, err := d.DiffStack(ctx, targetStack, options)
 	if err != nil {
-		return fmt.Errorf("failed to diff stack %s: %w", stackName, err)
+		return err
 	}
 
 	// Output the results using plain text
