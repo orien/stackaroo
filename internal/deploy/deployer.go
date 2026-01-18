@@ -73,13 +73,13 @@ func (d *StackDeployer) DeployStack(ctx context.Context, stack *model.Stack) err
 	// Get region-specific CloudFormation operations
 	cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, stack.Context.Region)
 	if err != nil {
-		return fmt.Errorf("failed to get CloudFormation operations for region %s: %w", stack.Context.Region, err)
+		return err
 	}
 
 	// Check if stack exists to determine deployment approach
 	exists, err := cfnOps.StackExists(ctx, stack.Name)
 	if err != nil {
-		return fmt.Errorf("failed to check if stack exists: %w", err)
+		return err
 	}
 
 	if !exists {
@@ -125,7 +125,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 	message := fmt.Sprintf("Do you want to create stack %s?", stack.Name)
 	confirmed, err := d.prompter.Confirm(message)
 	if err != nil {
-		return fmt.Errorf("failed to get user confirmation: %w", err)
+		return err
 	}
 	if !confirmed {
 		fmt.Printf("\nStack creation cancelled for %s\n", diff.Highlight(stack.Name))
@@ -172,7 +172,7 @@ func (d *StackDeployer) deployNewStack(ctx context.Context, stack *model.Stack, 
 	// Deploy the stack with event streaming
 	err = cfnOps.DeployStackWithCallback(ctx, deployInput, eventCallback)
 	if err != nil {
-		return fmt.Errorf("failed to create stack: %w", err)
+		return err
 	}
 
 	fmt.Printf("Stack %s create completed successfully\n", diff.Highlight(stack.Name))
@@ -189,7 +189,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	diffOptions := diff.Options{KeepChangeSet: true}
 	diffResult, err := differ.DiffStack(ctx, stack, diffOptions)
 	if err != nil {
-		return fmt.Errorf("failed to calculate changes: %w", err)
+		return err
 	}
 
 	// Show preview
@@ -205,7 +205,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 			fmt.Printf("No infrastructure changes for stack %s (metadata-only changes detected)\n", diff.Highlight(stack.Name))
 			return NoChangesError{StackName: stack.Name}
 		}
-		return fmt.Errorf("cannot deploy: changeset generation failed: %w", diffResult.ChangeSetError)
+		return diffResult.ChangeSetError
 	}
 
 	// Check for changes
@@ -222,7 +222,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 		if diffResult.ChangeSet != nil {
 			_ = cfnOps.DeleteChangeSet(ctx, diffResult.ChangeSet.ChangeSetID)
 		}
-		return fmt.Errorf("failed to get user confirmation: %w", err)
+		return err
 	}
 	if !confirmed {
 		// Clean up changeset when user cancels
@@ -249,7 +249,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 	if err != nil {
 		// Clean up changeset on failure
 		_ = cfnOps.DeleteChangeSet(ctx, changeSetInfo.ChangeSetID)
-		return fmt.Errorf("failed to execute changeset: %w", err)
+		return err
 	}
 
 	// Wait for deployment to complete with progress updates
@@ -266,7 +266,7 @@ func (d *StackDeployer) deployWithChangeSet(ctx context.Context, stack *model.St
 
 	err = cfnOps.WaitForStackOperation(ctx, stack.Name, startTime, eventCallback)
 	if err != nil {
-		return fmt.Errorf("stack deployment failed: %w", err)
+		return err
 	}
 
 	// Clean up changeset after successful deployment
@@ -282,7 +282,7 @@ func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile strin
 	// Read the template file
 	templateContent, err := d.readTemplateFile(templateFile)
 	if err != nil {
-		return fmt.Errorf("failed to read template: %w", err)
+		return err
 	}
 
 	// For template validation, we need a region. Use default from base config.
@@ -294,13 +294,13 @@ func (d *StackDeployer) ValidateTemplate(ctx context.Context, templateFile strin
 
 	cfnOps, err := d.clientFactory.GetCloudFormationOperations(ctx, baseConfig.Region)
 	if err != nil {
-		return fmt.Errorf("failed to get CloudFormation operations for template validation: %w", err)
+		return err
 	}
 
 	// Validate the template
 	err = cfnOps.ValidateTemplate(ctx, templateContent)
 	if err != nil {
-		return fmt.Errorf("template validation failed: %w", err)
+		return err
 	}
 
 	return nil
@@ -329,7 +329,7 @@ func (d *StackDeployer) deployStackWithFeedback(ctx context.Context, stack *mode
 		if errors.As(err, &cancellationErr) {
 			return nil
 		}
-		return fmt.Errorf("error deploying stack %s: %w", stack.Name, err)
+		return err
 	}
 
 	fmt.Printf("Successfully deployed stack %s in context %s\n", diff.Highlight(stack.Name), diff.Highlight(contextName))
@@ -352,7 +352,7 @@ func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string)
 	// Get list of stacks to deploy
 	stackNames, err := d.provider.ListStacks(contextName)
 	if err != nil {
-		return fmt.Errorf("failed to get stacks for context %s: %w", contextName, err)
+		return err
 	}
 	if len(stackNames) == 0 {
 		fmt.Printf("No stacks found in context %s\n", diff.Highlight(contextName))
@@ -362,7 +362,7 @@ func (d *StackDeployer) DeployAllStacks(ctx context.Context, contextName string)
 	// Get dependency order without resolving stacks
 	deploymentOrder, err := d.resolver.GetDependencyOrder(contextName, stackNames)
 	if err != nil {
-		return fmt.Errorf("failed to calculate dependency order: %w", err)
+		return err
 	}
 
 	// Deploy each stack in dependency order, resolving individually to get fresh parameters

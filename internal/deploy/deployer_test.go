@@ -246,7 +246,6 @@ func TestDeployAllStacks_ProviderError(t *testing.T) {
 	// Execute - should propagate provider error
 	err := deployer.DeployAllStacks(ctx, "error-context")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get stacks for context error-context")
 	assert.Contains(t, err.Error(), "failed to list stacks")
 
 	mockProvider.AssertExpectations(t)
@@ -292,7 +291,6 @@ func TestStackDeployer_DeployStack_AWSError(t *testing.T) {
 
 	// Verify
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create stack")
 	assert.Contains(t, err.Error(), "AWS deployment error")
 
 	mockCfnOps.AssertExpectations(t)
@@ -759,7 +757,6 @@ func TestDeployStack_ExistingStack_ChangeSetGenerationFails(t *testing.T) {
 
 	// Verify that deployment fails with changeset error
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot deploy: changeset generation failed")
 	assert.Contains(t, err.Error(), "Parameter values specified for a template which does not require them")
 
 	// Verify that we never prompted the user (the prompter should not have been called)
