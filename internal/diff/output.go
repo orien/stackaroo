@@ -7,8 +7,10 @@ package diff
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/orien/stackaroo/internal/aws"
 )
 
@@ -114,8 +116,7 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 	output.WriteString("\n\n")
 
 	if r.TemplateChange.HasChanges && r.TemplateChange.Diff != "" {
-		indentedDiff := indentLines(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles), "  ")
-		output.WriteString(indentedDiff)
+		output.WriteString(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles))
 	} else {
 		crossmark := styles.StatusNoChange.Render("✗")
 		fmt.Fprintf(output, "%s No template changes\n", crossmark)
@@ -281,28 +282,6 @@ func (r *Result) formatChangeSetErrorText(output *strings.Builder, styles *Style
 	output.WriteString("\n\n")
 }
 
-// indentLines adds the specified indentation to each line of text
-func indentLines(text string, indent string) string {
-	if text == "" {
-		return text
-	}
-
-	lines := strings.Split(text, "\n")
-	var indented strings.Builder
-
-	for i, line := range lines {
-		if len(line) > 0 {
-			indented.WriteString(indent)
-		}
-		indented.WriteString(line)
-		if i < len(lines)-1 {
-			indented.WriteString("\n")
-		}
-	}
-
-	return indented.String()
-}
-
 // ColorizeUnifiedDiff applies color formatting to unified diff output
 func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 	if !styles.UseColour || diff == "" {
@@ -316,8 +295,14 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 		lines = lines[:len(lines)-1]
 	}
 
-	// Find the maximum line length for padding
-	maxLen := 0
+	// Get terminal width, default to 80 if not available
+	termWidth := 80
+	if width, _, err := term.GetSize(os.Stdout.Fd()); err == nil && width > 0 {
+		termWidth = width
+	}
+
+	// Use terminal width for padding (indent will be included in colored output)
+	maxLen := termWidth
 	for _, line := range lines {
 		if len(line) > maxLen {
 			maxLen = len(line)
@@ -332,10 +317,10 @@ func ColorizeUnifiedDiff(diff string, styles *Styles) string {
 			continue
 		}
 
-		// Pad line to max length for uniform background
-		paddedLine := line
-		if len(line) < maxLen {
-			paddedLine = line + strings.Repeat(" ", maxLen-len(line))
+		// Pad line to max length for uniform background (accounting for 2-char indent)
+		paddedLine := "  " + line
+		if len(paddedLine) < maxLen {
+			paddedLine = paddedLine + strings.Repeat(" ", maxLen-len(paddedLine))
 		}
 
 		switch line[0] {

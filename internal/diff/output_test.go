@@ -11,6 +11,7 @@ import (
 
 	"errors"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/orien/stackaroo/internal/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -586,24 +587,40 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 	t.Run("each line type colored correctly", func(t *testing.T) {
 		styles := NewStyles(true)
 
+		// Get terminal width for padding calculation (same as ColorizeUnifiedDiff)
+		termWidth := 80
+		if width, _, err := term.GetSize(os.Stdout.Fd()); err == nil && width > 0 {
+			termWidth = width
+		}
+		maxLen := termWidth // Use full terminal width
+
+		// Helper to pad a line to maxLen (with 2-char indent)
+		padLine := func(line string) string {
+			paddedLine := "  " + line
+			if len(paddedLine) < maxLen {
+				return paddedLine + strings.Repeat(" ", maxLen-len(paddedLine))
+			}
+			return paddedLine
+		}
+
 		// Test hunk header
 		hunkResult := ColorizeUnifiedDiff("@@ -1,2 +1,3 @@", styles)
-		expectedHunk := styles.DiffHunk.Render("@@ -1,2 +1,3 @@") + "\n"
+		expectedHunk := styles.DiffHunk.Render(padLine("@@ -1,2 +1,3 @@")) + "\n"
 		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use DiffHunk style")
 
 		// Test added line
 		addedResult := ColorizeUnifiedDiff("+added content", styles)
-		expectedAdded := styles.Added.Render("+added content") + "\n"
+		expectedAdded := styles.Added.Render(padLine("+added content")) + "\n"
 		assert.Equal(t, expectedAdded, addedResult, "Added line should use added style")
 
 		// Test removed line
 		removedResult := ColorizeUnifiedDiff("-removed content", styles)
-		expectedRemoved := styles.Removed.Render("-removed content") + "\n"
+		expectedRemoved := styles.Removed.Render(padLine("-removed content")) + "\n"
 		assert.Equal(t, expectedRemoved, removedResult, "Removed line should use removed style")
 
 		// Test context line
 		contextResult := ColorizeUnifiedDiff(" context content", styles)
-		expectedContext := styles.DiffContext.Render(" context content") + "\n"
+		expectedContext := styles.DiffContext.Render(padLine(" context content")) + "\n"
 		assert.Equal(t, expectedContext, contextResult, "Context line should use DiffContext style")
 	})
 }
