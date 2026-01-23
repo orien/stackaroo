@@ -1,0 +1,52 @@
+when:
+  - event: [push, pull_request, manual]
+
+steps:
+  test:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - make tidy
+      - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Go mod tidy changed files"
+          git diff
+          exit 1
+        fi
+      - make test
+
+  lint:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - make install-golangci-lint
+      - make lint
+
+  security:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - govulncheck ./...
+
+  build-linux-amd64:
+    image: golang:1-alpine
+    depends_on: [test, lint, security]
+    commands:
+      - apk add --no-cache git make
+      - make build
+      - mv bin/stackaroo stackaroo-linux-amd64
+
+  integration-test:
+    image: golang:1-alpine
+    depends_on: [build-linux-amd64]
+    commands:
+      - ./stackaroo-linux-amd64 --help
+      - ./stackaroo-linux-amd64 --version
+      - ./stackaroo-linux-amd64 deploy --help
+
+  final-status:
+    image: alpine:latest
+    depends_on: [test, lint, security, build-linux-amd64, integration-test]
+    commands:
+      - echo "✅ All CI checks passed!"

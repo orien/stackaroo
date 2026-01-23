@@ -32,7 +32,8 @@ docs/user/reference/cli/*.md
 .*
 
 # But allow specific dotfiles we want to track
-!.github
+!.github/
+!.woodpecker/
 !.gitignore
 !.goreleaser.yml
 !docs/user/.vitepress/
