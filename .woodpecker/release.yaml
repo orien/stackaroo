@@ -1,6 +1,6 @@
 when:
   - event: tag
-    tag: v*
+    ref: refs/tags/v*
 
 steps:
   test:
@@ -79,57 +79,4 @@ steps:
     environment:
       - GITEA_TOKEN=${CODEBERG_RELEASE_TOKEN}
     commands:
-      - |
-        # Create .goreleaser.yml if it doesn't exist for Codeberg/Gitea
-        if [ ! -f .goreleaser.yml ]; then
-          echo "Creating default .goreleaser.yml for Gitea/Codeberg"
-          cat > .goreleaser.yml <<'EOF'
-        project_name: stackaroo
-
-        before:
-          hooks:
-            - go mod tidy
-
-        builds:
-          - env:
-              - CGO_ENABLED=0
-            goos:
-              - linux
-              - windows
-              - darwin
-            goarch:
-              - amd64
-              - arm64
-            ldflags:
-              - -s -w
-              - -X codeberg.org/orien/stackaroo/internal/version.Version={{.Version}}
-              - -X codeberg.org/orien/stackaroo/internal/version.GitCommit={{.ShortCommit}}
-              - -X codeberg.org/orien/stackaroo/internal/version.BuildDate={{.Date}}
-
-        archives:
-          - format: tar.gz
-            name_template: >-
-              {{ .ProjectName }}_
-              {{- .Version }}_
-              {{- title .Os }}_
-              {{- if eq .Arch "amd64" }}x86_64
-              {{- else if eq .Arch "386" }}i386
-              {{- else }}{{ .Arch }}{{ end }}
-            format_overrides:
-              - goos: windows
-                format: zip
-
-        checksum:
-          name_template: 'checksums.txt'
-
-        gitea_urls:
-          api: https://codeberg.org/api/v1/
-          download: https://codeberg.org
-
-        release:
-          gitea:
-            owner: orien
-            name: stackaroo
-        EOF
-        fi
       - goreleaser release --clean
