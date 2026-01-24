@@ -54,7 +54,7 @@ export default defineConfig({
       ]
     },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/orien/stackaroo' }
+      { icon: 'git', link: 'https://codeberg.org/orien/stackaroo' }
     ],
     footer: {
       message: 'Released under the BSD 3-Clause licence.',
