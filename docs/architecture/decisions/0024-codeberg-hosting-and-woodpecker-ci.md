@@ -1,6 +1,6 @@
 # 24. Codeberg hosting and Woodpecker CI migration
 
-Date: 2026-01-08
+Date: 2026-01-24
 
 ## Status
 
