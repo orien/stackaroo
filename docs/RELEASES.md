@@ -126,7 +126,7 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
-      - -X 'github.com/orien/stackaroo/internal/version.Version={{.Version}}'
+      - -X 'codeberg.org/orien/stackaroo/internal/version.Version={{.Version}}'
 
 archives:
   - files: [README.md, LICENSE, docs/**/*]
@@ -166,7 +166,7 @@ cd .. && rm -rf stackaroo-1.2.3-linux-x86_64
 #### 2. Using Go Install
 
 ```bash
-go install github.com/orien/stackaroo@v1.2.3
+go install codeberg.org/orien/stackaroo@v1.2.3
 ```
 
 #### 3. Using Checksums

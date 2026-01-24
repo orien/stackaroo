@@ -9,8 +9,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

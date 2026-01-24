@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/describe"
+	"codeberg.org/orien/stackaroo/internal/describe"
 	"github.com/spf13/cobra"
 )
 

@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/model"
 )
 
 // StackDiffer implements the Differ interface using AWS CloudFormation

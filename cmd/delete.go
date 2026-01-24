@@ -7,7 +7,7 @@ package cmd
 import (
 	"context"
 
-	"github.com/orien/stackaroo/internal/delete"
+	"codeberg.org/orien/stackaroo/internal/delete"
 	"github.com/spf13/cobra"
 )
 

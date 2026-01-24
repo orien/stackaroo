@@ -7,7 +7,7 @@ package diff
 import (
 	"testing"
 
-	"github.com/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/aws"
 	"github.com/stretchr/testify/assert"
 )
 

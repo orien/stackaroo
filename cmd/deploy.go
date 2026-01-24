@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/orien/stackaroo/internal/deploy"
+	"codeberg.org/orien/stackaroo/internal/deploy"
 	"github.com/spf13/cobra"
 )
 

@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config"
-	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/prompt"
-	"github.com/orien/stackaroo/internal/resolve"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/config"
+	"codeberg.org/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/prompt"
+	"codeberg.org/orien/stackaroo/internal/resolve"
 )
 
 // Deleter defines the interface for stack deletion operations

@@ -10,7 +10,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/fang"
-	"github.com/orien/stackaroo/internal/version"
+	"codeberg.org/orien/stackaroo/internal/version"
 	"github.com/spf13/cobra"
 )
 

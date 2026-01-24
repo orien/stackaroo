@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config/file"
-	"github.com/orien/stackaroo/internal/resolve"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/config/file"
+	"codeberg.org/orien/stackaroo/internal/resolve"
 )
 
 // createResolver creates a configuration provider and resolver

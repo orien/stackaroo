@@ -38,7 +38,7 @@ sudo mv "${DIR}/stackaroo" /usr/local/bin/
 rm -rf "${DIR}"
 ```
 
-> 💡 Prefer installing from source? Use `go install github.com/orien/stackaroo@latest` instead.
+> 💡 Prefer installing from source? Use `go install codeberg.org/orien/stackaroo@latest` instead.
 
 Verify the installation:
 

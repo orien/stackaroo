@@ -181,7 +181,7 @@ When deployed to the `development` context, this generates a bucket named `my-ap
 ### Using Go Install
 
 ```bash
-go install github.com/orien/stackaroo@latest
+go install codeberg.org/orien/stackaroo@latest
 ```
 
 ### Download Binary

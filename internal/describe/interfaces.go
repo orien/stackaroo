@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/model"
 )
 
 // Describer defines the interface for retrieving detailed stack information

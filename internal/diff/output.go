@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/term"
-	"github.com/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/aws"
 )
 
 // toText returns a human-readable text representation of the diff results

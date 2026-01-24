@@ -7,8 +7,8 @@ package diff
 import (
 	"context"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/model"
 )
 
 // Differ defines the interface for performing stack diffs

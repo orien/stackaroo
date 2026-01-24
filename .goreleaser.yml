@@ -17,9 +17,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X 'github.com/orien/stackaroo/internal/version.Version={{.Version}}'
-      - -X 'github.com/orien/stackaroo/internal/version.GitCommit={{.Commit}}'
-      - -X 'github.com/orien/stackaroo/internal/version.BuildDate={{.Date}}'
+      - -X 'codeberg.org/orien/stackaroo/internal/version.Version={{.Version}}'
+      - -X 'codeberg.org/orien/stackaroo/internal/version.GitCommit={{.Commit}}'
+      - -X 'codeberg.org/orien/stackaroo/internal/version.BuildDate={{.Date}}'
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
@@ -87,7 +87,7 @@ release:
   mode: replace
 
   footer: |
-    **Full Changelog**: https://github.com/orien/stackaroo/compare/{{.PreviousTag}}...{{.Tag}}
+    **Full Changelog**: https://codeberg.org/orien/stackaroo/compare/{{.PreviousTag}}...{{.Tag}}
 
 git:
   ignore_tags:

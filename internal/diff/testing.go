@@ -7,7 +7,7 @@ package diff
 import (
 	"context"
 
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/mock"
 )
 

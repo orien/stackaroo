@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/config"
+	"codeberg.org/orien/stackaroo/internal/model"
 )
 
 // Resolver defines the interface for stack resolution operations

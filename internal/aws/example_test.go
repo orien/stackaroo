@@ -7,7 +7,7 @@ package aws_test
 import (
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/aws"
 )
 
 // ExampleClientFactory demonstrates how to create and use the AWS client factory

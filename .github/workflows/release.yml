@@ -171,7 +171,7 @@ jobs:
           echo ""
           echo "Installation instructions:"
           echo "- Download from GitHub releases"
-          echo "- Or use: go install github.com/orien/stackaroo@$TAG"
+          echo "- Or use: go install codeberg.org/orien/stackaroo@$TAG"
         else
           echo "❌ Release $TAG failed"
           echo "Test: ${{ needs.test.result }}"

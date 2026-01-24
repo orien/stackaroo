@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/orien/stackaroo/internal/config"
+	"codeberg.org/orien/stackaroo/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

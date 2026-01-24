@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	stackcmd "github.com/orien/stackaroo/cmd"
+	stackcmd "codeberg.org/orien/stackaroo/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )

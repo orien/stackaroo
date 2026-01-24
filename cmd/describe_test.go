@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/orien/stackaroo/internal/describe"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/describe"
+	"codeberg.org/orien/stackaroo/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

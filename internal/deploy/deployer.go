@@ -11,12 +11,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/config"
-	"github.com/orien/stackaroo/internal/diff"
-	"github.com/orien/stackaroo/internal/model"
-	"github.com/orien/stackaroo/internal/prompt"
-	"github.com/orien/stackaroo/internal/resolve"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/config"
+	"codeberg.org/orien/stackaroo/internal/diff"
+	"codeberg.org/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/prompt"
+	"codeberg.org/orien/stackaroo/internal/resolve"
 )
 
 // CancellationError indicates that a stack operation was cancelled by the user

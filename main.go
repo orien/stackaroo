@@ -4,7 +4,7 @@ SPDX-License-Identifier: BSD-3-Clause
 */
 package main
 
-import "github.com/orien/stackaroo/cmd"
+import "codeberg.org/orien/stackaroo/cmd"
 
 func main() {
 	cmd.Execute()

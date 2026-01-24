@@ -47,7 +47,7 @@ We will implement a **consolidated mock architecture** using dedicated `testing.
    - `MockCloudFormationOperations` - High-level business operations
    - `MockCloudFormationClient` - Low-level AWS SDK interface
 
-6. **Import Pattern**: Tests import mocks using standard Go import syntax: `import "github.com/orien/stackaroo/internal/aws"`
+6. **Import Pattern**: Tests import mocks using standard Go import syntax: `import "codeberg.org/orien/stackaroo/internal/aws"`
 
 **Implementation Approach:**
 - Migrate all duplicate mock code into appropriate `testing.go` files

@@ -10,7 +10,7 @@ package file
 import (
 	"fmt"
 
-	"github.com/orien/stackaroo/internal/config"
+	"codeberg.org/orien/stackaroo/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

@@ -1,4 +1,4 @@
-module github.com/orien/stackaroo
+module codeberg.org/orien/stackaroo
 
 go 1.25
 

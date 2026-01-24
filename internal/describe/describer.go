@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/orien/stackaroo/internal/aws"
-	"github.com/orien/stackaroo/internal/model"
+	"codeberg.org/orien/stackaroo/internal/aws"
+	"codeberg.org/orien/stackaroo/internal/model"
 )
 
 // StackDescriber implements the Describer interface using AWS CloudFormation operations

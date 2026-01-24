@@ -9,7 +9,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/orien/stackaroo/internal/validate"
+	"codeberg.org/orien/stackaroo/internal/validate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
