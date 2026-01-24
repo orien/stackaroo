@@ -94,6 +94,9 @@ run_pre_release_checks() {
     if ! make lint >/dev/null 2>&1; then
         log_error "Linting failed. Please fix before releasing."
     fi
+    if [[ -n "$(git status --porcelain)" ]]; then
+        log_error "Linting modified files. Please commit the changes before releasing."
+    fi
     log_success "Linting passed"
 
     # Check for security vulnerabilities
