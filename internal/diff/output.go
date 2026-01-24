@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/x/term"
 	"codeberg.org/orien/stackaroo/internal/aws"
+	"github.com/charmbracelet/x/term"
 )
 
 // toText returns a human-readable text representation of the diff results

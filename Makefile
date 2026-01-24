@@ -26,9 +26,9 @@ VERSION := $(if $(and $(GIT_TAG),$(filter v$(BASE_VERSION),$(GIT_TAG))),v$(BASE_
 
 # Build flags
 LDFLAGS := -ldflags="-w -s \
-	-X 'github.com/orien/stackaroo/internal/version.Version=$(VERSION)' \
-	-X 'github.com/orien/stackaroo/internal/version.GitCommit=$(GIT_COMMIT)' \
-	-X 'github.com/orien/stackaroo/internal/version.BuildDate=$(BUILD_DATE)'"
+	-X 'codeberg.org/orien/stackaroo/internal/version.Version=$(VERSION)' \
+	-X 'codeberg.org/orien/stackaroo/internal/version.GitCommit=$(GIT_COMMIT)' \
+	-X 'codeberg.org/orien/stackaroo/internal/version.BuildDate=$(BUILD_DATE)'"
 
 # Default target
 help: ## Show this help message

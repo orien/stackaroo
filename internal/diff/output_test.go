@@ -11,8 +11,8 @@ import (
 
 	"errors"
 
-	"github.com/charmbracelet/x/term"
 	"codeberg.org/orien/stackaroo/internal/aws"
+	"github.com/charmbracelet/x/term"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/fang"
 	"codeberg.org/orien/stackaroo/internal/version"
+	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 )
 
