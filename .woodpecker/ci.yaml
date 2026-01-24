@@ -44,9 +44,3 @@ steps:
       - ./stackaroo-linux-amd64 --help
       - ./stackaroo-linux-amd64 --version
       - ./stackaroo-linux-amd64 deploy --help
-
-  final-status:
-    image: alpine:latest
-    depends_on: [test, lint, security, build-linux-amd64, integration-test]
-    commands:
-      - echo "✅ All CI checks passed!"
