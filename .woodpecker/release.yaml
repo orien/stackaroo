@@ -75,8 +75,8 @@ steps:
   goreleaser:
     image: goreleaser/goreleaser:latest
     depends_on: [test, lint, security, validate-tag, check-version]
-    secrets: [codeberg_token]
     environment:
-      - GITEA_TOKEN=${CODEBERG_RELEASE_TOKEN}
+      GITEA_TOKEN:
+        from_secret: CODEBERG_RELEASE_TOKEN
     commands:
       - goreleaser release --clean
