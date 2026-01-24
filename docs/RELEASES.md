@@ -154,13 +154,13 @@ changelog:
 
 ```bash
 # Download and extract (Linux/macOS)
-curl -sL https://github.com/orien/stackaroo/releases/download/v1.2.3/stackaroo-1.2.3-linux-x86_64.tar.gz | tar -xz
+curl -sL https://codeberg.org/orien/stackaroo/releases/download/v1.2.3/stackaroo-1.2.3-linux-x86_64.tar.gz | tar -xz
 cd stackaroo-1.2.3-linux-x86_64
 sudo mv stackaroo /usr/local/bin/
 cd .. && rm -rf stackaroo-1.2.3-linux-x86_64
 
 # Or download manually from:
-# https://github.com/orien/stackaroo/releases
+# https://codeberg.org/orien/stackaroo/releases
 ```
 
 #### 2. Using Go Install
@@ -175,7 +175,7 @@ Always verify downloads using the provided checksums:
 
 ```bash
 # Download checksum file
-curl -sL https://github.com/orien/stackaroo/releases/download/v1.2.3/checksums.txt
+curl -sL https://codeberg.org/orien/stackaroo/releases/download/v1.2.3/checksums.txt
 
 # Verify binary
 sha256sum -c checksums.txt --ignore-missing

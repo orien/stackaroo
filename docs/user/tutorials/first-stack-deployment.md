@@ -25,12 +25,12 @@ Make sure AWS credentials for a development account are configured. For example,
 
 ## Step 1 – Install the Stackaroo CLI
 
-Download the latest release for your operating system from the [Stackaroo Releases](https://github.com/orien/stackaroo/releases) page and place the binary on your `PATH`. On macOS or Linux you can fetch and extract it like this:
+Download the latest release for your operating system from the [Stackaroo Releases](https://codeberg.org/orien/stackaroo/releases) page and place the binary on your `PATH`. On macOS or Linux you can fetch and extract it like this:
 
 ```bash
 VERSION=1.0.0
 ARCH=darwin-arm64  # Replace with linux-arm64, linux-amd64, etc.
-URL="https://github.com/orien/stackaroo/releases/download/v${VERSION}/stackaroo-${VERSION}-${ARCH}.tar.gz"
+URL="https://codeberg.org/orien/stackaroo/releases/download/v${VERSION}/stackaroo-${VERSION}-${ARCH}.tar.gz"
 DIR="stackaroo-${VERSION}-${ARCH}"
 
 curl -sL "$URL" | tar -xz

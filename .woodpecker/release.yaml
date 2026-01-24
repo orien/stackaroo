@@ -1,0 +1,135 @@
+when:
+  - event: tag
+    tag: v*
+
+steps:
+  test:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - make tidy
+      - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Go mod tidy changed files"
+          git diff
+          exit 1
+        fi
+      - make test
+
+  lint:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - make install-golangci-lint
+      - make lint
+
+  security:
+    image: golang:1-alpine
+    commands:
+      - apk add --no-cache git make
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - govulncheck ./...
+
+  validate-tag:
+    image: alpine:latest
+    commands:
+      - apk add --no-cache bash
+      - |
+        TAG="${CI_COMMIT_TAG}"
+        echo "Release tag: $TAG"
+
+        # Validate tag format (should be v*.*.* or similar)
+        if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)*$'; then
+          echo "❌ Invalid tag format: $TAG"
+          echo "Expected format: v1.2.3 or v1.2.3-rc1"
+          exit 1
+        fi
+
+        echo "✅ Tag format is valid: $TAG"
+
+  check-version:
+    image: alpine:latest
+    depends_on: [validate-tag]
+    commands:
+      - apk add --no-cache bash
+      - |
+        TAG="${CI_COMMIT_TAG}"
+        VERSION_FROM_FILE=$(cat VERSION)
+        VERSION_FROM_TAG="${TAG#v}"
+
+        echo "Tag version: $VERSION_FROM_TAG"
+        echo "VERSION file: $VERSION_FROM_FILE"
+
+        # Extract major version from tag
+        MAJOR_VERSION=$(echo "$VERSION_FROM_TAG" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+
+        if [ -n "$MAJOR_VERSION" ]; then
+          if [ "$VERSION_FROM_FILE" != "$MAJOR_VERSION" ]; then
+            echo "⚠️  Warning: VERSION file ($VERSION_FROM_FILE) doesn't match tag version ($MAJOR_VERSION)"
+            echo "This is acceptable for pre-release tags, but should be updated for final releases."
+          else
+            echo "✅ VERSION file matches tag version"
+          fi
+        fi
+
+  goreleaser:
+    image: goreleaser/goreleaser:latest
+    depends_on: [test, lint, security, validate-tag, check-version]
+    secrets: [codeberg_token]
+    environment:
+      - GITEA_TOKEN=${CODEBERG_RELEASE_TOKEN}
+    commands:
+      - |
+        # Create .goreleaser.yml if it doesn't exist for Codeberg/Gitea
+        if [ ! -f .goreleaser.yml ]; then
+          echo "Creating default .goreleaser.yml for Gitea/Codeberg"
+          cat > .goreleaser.yml <<'EOF'
+        project_name: stackaroo
+
+        before:
+          hooks:
+            - go mod tidy
+
+        builds:
+          - env:
+              - CGO_ENABLED=0
+            goos:
+              - linux
+              - windows
+              - darwin
+            goarch:
+              - amd64
+              - arm64
+            ldflags:
+              - -s -w
+              - -X codeberg.org/orien/stackaroo/internal/version.Version={{.Version}}
+              - -X codeberg.org/orien/stackaroo/internal/version.GitCommit={{.ShortCommit}}
+              - -X codeberg.org/orien/stackaroo/internal/version.BuildDate={{.Date}}
+
+        archives:
+          - format: tar.gz
+            name_template: >-
+              {{ .ProjectName }}_
+              {{- .Version }}_
+              {{- title .Os }}_
+              {{- if eq .Arch "amd64" }}x86_64
+              {{- else if eq .Arch "386" }}i386
+              {{- else }}{{ .Arch }}{{ end }}
+            format_overrides:
+              - goos: windows
+                format: zip
+
+        checksum:
+          name_template: 'checksums.txt'
+
+        gitea_urls:
+          api: https://codeberg.org/api/v1/
+          download: https://codeberg.org
+
+        release:
+          gitea:
+            owner: orien
+            name: stackaroo
+        EOF
+        fi
+      - goreleaser release --clean

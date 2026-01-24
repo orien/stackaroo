@@ -186,7 +186,7 @@ go install codeberg.org/orien/stackaroo@latest
 
 ### Download Binary
 
-Download the latest release from the [releases page](https://github.com/orien/stackaroo/releases).
+Download the latest release from the [releases page](https://codeberg.org/orien/stackaroo/releases).
 
 #### Linux/macOS
 
@@ -194,7 +194,7 @@ Download the latest release from the [releases page](https://github.com/orien/st
 # Download and install (replace VERSION and ARCH as needed)
 VERSION=1.0.0
 ARCH=linux-x86_64
-URL="https://github.com/orien/stackaroo/releases/download/v${VERSION}/stackaroo-${VERSION}-${ARCH}.tar.gz"
+URL="https://codeberg.org/orien/stackaroo/releases/download/v${VERSION}/stackaroo-${VERSION}-${ARCH}.tar.gz"
 DIR="stackaroo-${VERSION}-${ARCH}"
 
 curl -sL "$URL" | tar -xz

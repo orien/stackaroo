@@ -56,7 +56,7 @@ snapshot:
 
 changelog:
   sort: asc
-  use: github
+  use: gitea
   filters:
     exclude:
       - '^docs:'
@@ -79,15 +79,16 @@ changelog:
       order: 999
 
 release:
-  github:
+  gitea:
     owner: orien
     name: stackaroo
-  draft: false
-  prerelease: auto
   mode: replace
-
   footer: |
     **Full Changelog**: https://codeberg.org/orien/stackaroo/compare/{{.PreviousTag}}...{{.Tag}}
+
+gitea_urls:
+  api: https://codeberg.org/api/v1/
+  download: https://codeberg.org
 
 git:
   ignore_tags:

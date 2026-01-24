@@ -254,7 +254,7 @@ main() {
 
         log_success "Release v$version completed!"
         log_info "GitHub Actions will now build and publish the release."
-        log_info "Monitor the release at: https://github.com/orien/stackaroo/actions"
+        log_info "Monitor the release at: https://codeberg.org/orien/stackaroo/actions"
     fi
 }
 

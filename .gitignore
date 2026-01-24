@@ -35,7 +35,7 @@ docs/user/reference/cli/*.md
 !.github/
 !.woodpecker/
 !.gitignore
-!.goreleaser.yml
+!.goreleaser.yaml
 !docs/user/.vitepress/
 
 # Temporary files
