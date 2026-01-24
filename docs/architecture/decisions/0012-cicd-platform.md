@@ -4,7 +4,7 @@ Date: 2025-08-24
 
 ## Status
 
-Accepted
+Superseded by [24. Codeberg hosting and Woodpecker CI migration](0024-codeberg-hosting-and-woodpecker-ci.md)
 
 ## Context
 
