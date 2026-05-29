@@ -7,8 +7,10 @@ package file
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"codeberg.org/orien/stackaroo/internal/config"
 	"gopkg.in/yaml.v3"
@@ -147,8 +149,10 @@ func (fp *FileConfigProvider) Validate() error {
 	// Check that template files exist (basic validation)
 	for stackName, stack := range fp.rawConfig.Stacks {
 		if stack.Template != "" {
-			// Make template path relative to config file directory
-			templatePath := fp.resolveTemplatePath(stack.Template)
+			templatePath, err := fp.resolveTemplatePath(stack.Template)
+			if err != nil {
+				return fmt.Errorf("invalid template path for stack '%s': %w", stackName, err)
+			}
 			if _, err := os.Stat(templatePath); err != nil && os.IsNotExist(err) {
 				return fmt.Errorf("template file not found for stack '%s': %s", stackName, templatePath)
 			}
@@ -232,9 +236,14 @@ func (fp *FileConfigProvider) resolveStack(stackName string, rawStack *Stack, co
 		return nil, fmt.Errorf("failed to convert parameters for stack '%s': %w", stackName, err)
 	}
 
+	templateURI, err := fp.resolveTemplateURI(rawStack.Template)
+	if err != nil {
+		return nil, fmt.Errorf("invalid template path for stack '%s': %w", stackName, err)
+	}
+
 	resolved := &config.StackConfig{
 		Name:         stackName,
-		Template:     fp.resolveTemplateURI(rawStack.Template),
+		Template:     templateURI,
 		Parameters:   parameters,
 		Tags:         fp.copyStringMap(rawStack.Tags),
 		Dependencies: fp.copyStringSlice(rawStack.Dependencies),
@@ -282,31 +291,78 @@ func (fp *FileConfigProvider) resolveStack(stackName string, rawStack *Stack, co
 	return resolved, nil
 }
 
-// resolveTemplatePath resolves template path relative to global template directory or config file directory
-func (fp *FileConfigProvider) resolveTemplatePath(templatePath string) string {
+// resolveTemplatePath resolves a relative template path against the allowed root
+// (templates.directory if set, otherwise the config file's directory).
+// Absolute paths and traversal outside the root are rejected.
+func (fp *FileConfigProvider) resolveTemplatePath(templatePath string) (string, error) {
 	if filepath.IsAbs(templatePath) {
-		return templatePath
+		return "", fmt.Errorf("template path must be relative: %s", templatePath)
 	}
 
-	configDir := filepath.Dir(fp.filename)
-
-	// Use global template directory if specified
+	// Ensure configDir is absolute so candidate paths are always absolute.
+	configDir, err := filepath.Abs(filepath.Dir(fp.filename))
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve config directory: %w", err)
+	}
+	var root string
 	if fp.rawConfig != nil && fp.rawConfig.Templates != nil && fp.rawConfig.Templates.Directory != "" {
 		templateDir := fp.rawConfig.Templates.Directory
 		if !filepath.IsAbs(templateDir) {
 			templateDir = filepath.Join(configDir, templateDir)
 		}
-		return filepath.Join(templateDir, templatePath)
+		root = filepath.Clean(templateDir)
+
+		// Validate that templates.directory is confined to configDir — it sets the
+		// root that all template path confinement is anchored to, so it must be
+		// within the config tree.
+		rootRel, rootRelErr := filepath.Rel(configDir, root)
+		if rootRelErr != nil || rootRel == ".." || strings.HasPrefix(rootRel, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("templates directory escapes config directory: %s", fp.rawConfig.Templates.Directory)
+		}
+		if realRoot, sErr := filepath.EvalSymlinks(root); sErr == nil {
+			realConfigDir := configDir
+			if r, sErr := filepath.EvalSymlinks(configDir); sErr == nil {
+				realConfigDir = r
+			}
+			rootRel, rootRelErr := filepath.Rel(realConfigDir, realRoot)
+			if rootRelErr != nil || rootRel == ".." || strings.HasPrefix(rootRel, ".."+string(filepath.Separator)) {
+				return "", fmt.Errorf("templates directory escapes config directory via symlink: %s", fp.rawConfig.Templates.Directory)
+			}
+		}
+	} else {
+		root = filepath.Clean(configDir)
 	}
 
-	// Fall back to config directory (current behaviour)
-	return filepath.Join(configDir, templatePath)
+	candidate := filepath.Clean(filepath.Join(root, templatePath))
+
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("template path escapes allowed directory: %s", templatePath)
+	}
+
+	// If the file already exists, resolve symlinks and re-verify confinement.
+	if real, err := filepath.EvalSymlinks(candidate); err == nil {
+		realRoot := root
+		if r, err := filepath.EvalSymlinks(root); err == nil {
+			realRoot = r
+		}
+		rel, err := filepath.Rel(realRoot, real)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return "", fmt.Errorf("template path escapes allowed directory via symlink: %s", templatePath)
+		}
+		return real, nil
+	}
+
+	return candidate, nil
 }
 
-// resolveTemplateURI resolves template path to file:// URI relative to global template directory or config file directory
-func (fp *FileConfigProvider) resolveTemplateURI(templatePath string) string {
-	resolvedPath := fp.resolveTemplatePath(templatePath)
-	return "file://" + resolvedPath
+// resolveTemplateURI resolves template path to file:// URI relative to the allowed root.
+func (fp *FileConfigProvider) resolveTemplateURI(templatePath string) (string, error) {
+	resolvedPath, err := fp.resolveTemplatePath(templatePath)
+	if err != nil {
+		return "", err
+	}
+	return (&url.URL{Scheme: "file", Path: resolvedPath}).String(), nil
 }
 
 // Helper methods for copying maps and slices to avoid shared references

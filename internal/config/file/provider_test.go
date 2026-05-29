@@ -6,7 +6,9 @@ package file
 
 import (
 	"context"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -362,8 +364,59 @@ stacks:
 	assert.True(t, strings.Contains(stack.Template, "templates/vpc.yaml"))
 }
 
-func TestFileProvider_LoadConfig_AbsolutePathsBypassGlobalDirectory(t *testing.T) {
-	// Test that absolute template paths bypass global template directory
+func TestFileProvider_LoadConfig_TemplatesDirAbsoluteEscape(t *testing.T) {
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: /etc
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  evil:
+    template: shadow
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	_, err := provider.LoadConfig(ctx, "dev")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "templates directory escapes config directory")
+}
+
+func TestFileProvider_LoadConfig_TemplatesDirRelativeTraversal(t *testing.T) {
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: ../escaped
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  evil:
+    template: shadow
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	_, err := provider.LoadConfig(ctx, "dev")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "templates directory escapes config directory")
+}
+
+func TestFileProvider_LoadConfig_AbsolutePathsRejected(t *testing.T) {
 	configContent := `
 project: test-project
 region: us-east-1
@@ -385,15 +438,141 @@ stacks:
 	provider := NewFileConfigProvider(tmpFile)
 	ctx := context.Background()
 
+	_, err := provider.LoadConfig(ctx, "dev")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "template path must be relative")
+}
+
+func TestFileProvider_LoadConfig_SymlinkEscapingTemplateDirRejected(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Place a file outside the templates directory.
+	err := os.WriteFile(tmpDir+"/secret.yaml", []byte("secret"), 0644)
+	require.NoError(t, err)
+
+	// Create a templates subdirectory with a symlink pointing to that outside file.
+	templatesDir := tmpDir + "/templates"
+	err = os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+	err = os.Symlink(tmpDir+"/secret.yaml", templatesDir+"/link.yaml")
+	require.NoError(t, err)
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: templates
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  evil:
+    template: link.yaml
+`
+	tmpFile := tmpDir + "/stackaroo.yaml"
+	err = os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	_, err = provider.LoadConfig(ctx, "dev")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes allowed directory via symlink")
+}
+
+func TestFileProvider_LoadConfig_SymlinkWithinTemplateDirAllowed(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A regular file and a symlink to it, both inside the templates directory.
+	templatesDir := tmpDir + "/templates"
+	err := os.MkdirAll(templatesDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(templatesDir+"/actual.yaml", []byte("template content"), 0644)
+	require.NoError(t, err)
+	err = os.Symlink(templatesDir+"/actual.yaml", templatesDir+"/link.yaml")
+	require.NoError(t, err)
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+templates:
+  directory: templates
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  vpc:
+    template: link.yaml
+`
+	tmpFile := tmpDir + "/stackaroo.yaml"
+	err = os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	// resolveTemplatePath follows the symlink and returns the real target path.
 	cfg, err := provider.LoadConfig(ctx, "dev")
 	require.NoError(t, err)
-	require.NotNil(t, cfg)
-
-	// Verify absolute path bypasses global template directory
 	require.Len(t, cfg.Stacks, 1)
-	stack := cfg.Stacks[0]
-	assert.Equal(t, "vpc", stack.Name)
-	assert.Equal(t, "file:///absolute/path/vpc.yaml", stack.Template)
+	// The stored URI should point to the real file, not the symlink.
+	assert.True(t, strings.HasSuffix(cfg.Stacks[0].Template, "actual.yaml"), "URI should resolve to the symlink target: %s", cfg.Stacks[0].Template)
+}
+
+func TestFileProvider_LoadConfig_TraversalPathRejected(t *testing.T) {
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  evil:
+    template: ../../etc/shadow
+`
+
+	tmpFile := createTempConfigFile(t, configContent)
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	_, err := provider.LoadConfig(ctx, "dev")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes allowed directory")
+}
+
+func TestFileProvider_Validate_TraversalPathRejected(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/stackaroo.yaml"
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  evil:
+    template: ../../etc/shadow
+`
+
+	err := os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	provider := NewFileConfigProvider(tmpFile)
+	err = provider.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes allowed directory")
 }
 
 func TestFileProvider_Validate_ChecksGlobalTemplateDirectoryExists(t *testing.T) {
@@ -501,12 +680,61 @@ stacks:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	// Verify template resolves to absolute directory
+	// Verify template resolves to absolute directory (EvalSymlinks may change the prefix on macOS)
 	require.Len(t, cfg.Stacks, 1)
 	stack := cfg.Stacks[0]
-	assert.Equal(t, "file://"+templatesDir+"/vpc.yaml", stack.Template)
+	assert.True(t, strings.HasPrefix(stack.Template, "file://"), "template should be a file URI")
+	assert.True(t, strings.HasSuffix(stack.Template, "absolute-templates/vpc.yaml"), "template should point to vpc.yaml in the templates dir")
+	parsedURI, parseErr := url.Parse(stack.Template)
+	require.NoError(t, parseErr)
+	assert.True(t, filepath.IsAbs(parsedURI.Path), "resolved template path should be absolute: %s", stack.Template)
 
 	// Test validation
 	err = provider.Validate()
 	assert.NoError(t, err)
+}
+
+func TestFileProvider_LoadConfig_SpecialCharsInTemplatePath(t *testing.T) {
+	// Paths containing #, ?, or % are valid POSIX filenames. The file:// URI must
+	// round-trip through url.Parse correctly — "file://" + path concatenation
+	// would truncate at # (treated as fragment) or ? (treated as query).
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/stackaroo.yaml"
+
+	specialDir := tmpDir + "/templates"
+	err := os.MkdirAll(specialDir, 0755)
+	require.NoError(t, err)
+	specialTemplate := specialDir + "/has#hash.yaml"
+	err = os.WriteFile(specialTemplate, []byte("template content"), 0644)
+	require.NoError(t, err)
+
+	configContent := `
+project: test-project
+region: us-east-1
+
+contexts:
+  dev:
+    region: us-east-1
+
+stacks:
+  vpc:
+    template: templates/has#hash.yaml
+`
+
+	err = os.WriteFile(tmpFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	provider := NewFileConfigProvider(tmpFile)
+	ctx := context.Background()
+
+	cfg, err := provider.LoadConfig(ctx, "dev")
+	require.NoError(t, err)
+	require.Len(t, cfg.Stacks, 1)
+
+	templateURI := cfg.Stacks[0].Template
+	assert.True(t, strings.HasPrefix(templateURI, "file://"), "should be a file URI")
+	// Verify the URI survives a url.Parse round-trip without path truncation.
+	parsed, parseErr := url.Parse(templateURI)
+	require.NoError(t, parseErr)
+	assert.True(t, strings.HasSuffix(parsed.Path, "has#hash.yaml"), "path should survive url.Parse round-trip, got URI: %s", templateURI)
 }

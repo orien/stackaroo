@@ -7,7 +7,6 @@ package resolve
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,78 +14,25 @@ import (
 )
 
 func TestDefaultFileSystemResolver_ReadTemplate_Success(t *testing.T) {
-	tests := []struct {
-		name        string
-		templateURI string
-		content     string
-	}{
-		{
-			name:        "file URI with simple template",
-			templateURI: "file://templates/vpc.yaml",
-			content: `AWSTemplateFormatVersion: '2010-09-09'
+	content := `AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/16`,
-		},
+      CidrBlock: 10.0.0.0/16`
 
-		{
-			name:        "absolute file URI",
-			templateURI: "file:///tmp/absolute-template.yaml",
-			content: `AWSTemplateFormatVersion: '2010-09-09'
-Description: Absolute path template
-Resources: {}`,
-		},
-	}
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "templates", "vpc.yaml")
+	err := os.MkdirAll(filepath.Dir(filePath), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filePath, []byte(content), 0644)
+	require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary directory and file
-			tmpDir := t.TempDir()
+	resolver := &DefaultFileSystemResolver{}
+	result, err := resolver.Resolve("file://" + filePath)
 
-			var filePath string
-			if tt.templateURI == "file:///tmp/absolute-template.yaml" {
-				// Special case for absolute path test
-				filePath = filepath.Join(tmpDir, "absolute-template.yaml")
-				// Update the URI to use the actual temp directory
-				tt.templateURI = "file://" + filePath
-			} else if strings.HasPrefix(tt.templateURI, "file://") {
-				// Extract relative path from file:// URI
-				relPath := tt.templateURI[7:] // Remove "file://"
-				filePath = filepath.Join(tmpDir, relPath)
-			} else {
-				// Relative path
-				filePath = filepath.Join(tmpDir, tt.templateURI)
-			}
-
-			// Create directory if needed
-			err := os.MkdirAll(filepath.Dir(filePath), 0755)
-			require.NoError(t, err)
-
-			// Write test content to file
-			err = os.WriteFile(filePath, []byte(tt.content), 0644)
-			require.NoError(t, err)
-
-			// Change to temp directory for relative path resolution
-			originalWd, err := os.Getwd()
-			require.NoError(t, err)
-			defer func() {
-				err := os.Chdir(originalWd)
-				require.NoError(t, err)
-			}()
-			err = os.Chdir(tmpDir)
-			require.NoError(t, err)
-
-			// Test the resolver
-			resolver := &DefaultFileSystemResolver{}
-			result, err := resolver.Resolve(tt.templateURI)
-
-			// Assertions
-			assert.NoError(t, err)
-			assert.Equal(t, tt.content, result)
-		})
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, content, result)
 }
 
 func TestDefaultFileSystemResolver_ReadTemplate_Errors(t *testing.T) {
@@ -138,6 +84,39 @@ func TestDefaultFileSystemResolver_ReadTemplate_Errors(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.expectedErr)
 		})
 	}
+}
+
+func TestDefaultFileSystemResolver_RejectsSymlinks(t *testing.T) {
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "real.yaml")
+	link := filepath.Join(tmpDir, "link.yaml")
+
+	err := os.WriteFile(target, []byte("content"), 0644)
+	require.NoError(t, err)
+	err = os.Symlink(target, link)
+	require.NoError(t, err)
+
+	resolver := &DefaultFileSystemResolver{}
+	result, err := resolver.Resolve("file://" + link)
+
+	assert.Error(t, err)
+	assert.Empty(t, result)
+	assert.Contains(t, err.Error(), "must not be a symlink")
+}
+
+func TestDefaultFileSystemResolver_RejectsDanglingSymlinks(t *testing.T) {
+	tmpDir := t.TempDir()
+	link := filepath.Join(tmpDir, "dangling.yaml")
+
+	err := os.Symlink(filepath.Join(tmpDir, "nonexistent.yaml"), link)
+	require.NoError(t, err)
+
+	resolver := &DefaultFileSystemResolver{}
+	result, err := resolver.Resolve("file://" + link)
+
+	assert.Error(t, err)
+	assert.Empty(t, result)
+	assert.Contains(t, err.Error(), "must not be a symlink")
 }
 
 func TestDefaultFileSystemResolver_RejectsNonFileURIs(t *testing.T) {
@@ -208,19 +187,19 @@ func TestParseFileURI(t *testing.T) {
 		expectedErr  string
 	}{
 		{
-			name:         "file:// URI with relative path",
-			uri:          "file://templates/vpc.yaml",
-			expectedPath: "templates/vpc.yaml",
-		},
-		{
-			name:         "file:// URI with absolute path",
+			name:         "absolute path with triple slash",
 			uri:          "file:///usr/local/templates/app.yaml",
 			expectedPath: "/usr/local/templates/app.yaml",
 		},
 		{
-			name:         "file:// URI with Windows-style path",
-			uri:          "file://C:/templates/database.yaml",
-			expectedPath: "C:/templates/database.yaml",
+			name:        "non-empty host is rejected",
+			uri:         "file://host/path/template.yaml",
+			expectedErr: "must not contain a host",
+		},
+		{
+			name:        "Windows-style authority is rejected",
+			uri:         "file://C:/templates/database.yaml",
+			expectedErr: "must not contain a host",
 		},
 		{
 			name:        "relative path without scheme",
@@ -246,6 +225,21 @@ func TestParseFileURI(t *testing.T) {
 			name:        "empty URI",
 			uri:         "",
 			expectedErr: "URI must start with file://",
+		},
+		{
+			name:        "scheme only — no path",
+			uri:         "file:",
+			expectedErr: "absolute path",
+		},
+		{
+			name:        "double-slash with no path",
+			uri:         "file://",
+			expectedErr: "absolute path",
+		},
+		{
+			name:        "opaque relative path after scheme",
+			uri:         "file:relative/path.yaml",
+			expectedErr: "absolute path",
 		},
 	}
 
@@ -274,15 +268,11 @@ func TestFileSystemResolver_Interface(t *testing.T) {
 }
 
 func TestDefaultFileSystemResolver_Integration(t *testing.T) {
-	// Integration test with actual file system operations
 	tmpDir := t.TempDir()
-
-	// Create a complex directory structure
 	templatesDir := filepath.Join(tmpDir, "templates", "nested")
 	err := os.MkdirAll(templatesDir, 0755)
 	require.NoError(t, err)
 
-	// Create test template with complex content
 	templateContent := `AWSTemplateFormatVersion: '2010-09-09'
 Description: Integration test template
 Parameters:
@@ -304,21 +294,8 @@ Outputs:
 	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
 	require.NoError(t, err)
 
-	// Change to temp directory
-	originalWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() {
-		err := os.Chdir(originalWd)
-		require.NoError(t, err)
-	}()
-	err = os.Chdir(tmpDir)
-	require.NoError(t, err)
-
-	// Test with file:// URI
 	resolver := &DefaultFileSystemResolver{}
-
-	// Test file:// URI
-	result, err := resolver.Resolve("file://templates/nested/integration-template.yaml")
+	result, err := resolver.Resolve("file://" + templatePath)
 	assert.NoError(t, err)
 	assert.Equal(t, templateContent, result)
 }
