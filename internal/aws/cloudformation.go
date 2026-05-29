@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	smithy "github.com/aws/smithy-go"
 )
 
 // StackStatus represents the status of a CloudFormation stack
@@ -213,14 +214,19 @@ func (cf *DefaultCloudFormationOperations) DeployStackWithCallback(ctx context.C
 	return nil
 }
 
-// isNoChangesError checks if the error indicates no changes are needed
+// isNoChangesError checks if the error indicates no changes are needed.
+// Requires both the ValidationError code and the specific message to avoid
+// swallowing IAM, capability, or template errors that also surface as ValidationError.
 func isNoChangesError(err error) bool {
 	if err == nil {
 		return false
 	}
-	errorStr := err.Error()
-	return contains(errorStr, "No updates are to be performed") ||
-		contains(errorStr, "ValidationError")
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "ValidationError" &&
+			strings.Contains(apiErr.ErrorMessage(), "No updates are to be performed")
+	}
+	return false
 }
 
 // UpdateStack updates an existing CloudFormation stack
@@ -379,11 +385,28 @@ func (cf *DefaultCloudFormationOperations) StackExists(ctx context.Context, stac
 	return true, nil
 }
 
-// isStackNotFoundError checks if the error indicates the stack doesn't exist
+// isStackNotFoundError checks if the error indicates the stack doesn't exist.
+// Uses the typed StackNotFoundException first, then falls back to requiring both
+// the ValidationError code and a stack-not-found message, so that credential
+// errors, IAM denials, and throttling are not misclassified as "not found".
+// Note: DescribeStacks (the current call site) never returns StackNotFoundException —
+// AWS surfaces missing stacks as ValidationError there. The typed branch is defensive
+// for other CFN operations (e.g. DescribeStackResource, GetStackPolicy) that do model
+// the typed exception if this function is reused at those call sites.
 func isStackNotFoundError(err error) bool {
-	// This is a simplified check - in practice you might want to check the specific AWS error codes
-	return err != nil && (contains(err.Error(), "does not exist") ||
-		contains(err.Error(), "ValidationError"))
+	if err == nil {
+		return false
+	}
+	var notFound *types.StackNotFoundException
+	if errors.As(err, &notFound) {
+		return true
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "ValidationError" &&
+			strings.Contains(apiErr.ErrorMessage(), "does not exist")
+	}
+	return false
 }
 
 // GetTemplate retrieves the template for a CloudFormation stack
@@ -573,25 +596,6 @@ func isStackOperationSuccessful(status StackStatus) bool {
 	default:
 		return false
 	}
-}
-
-// contains is a simple string contains check
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || s[len(s)-len(substr):] == substr || s[:len(substr)] == substr || indexString(s, substr) >= 0)
-}
-
-// indexString returns the index of substr in s, or -1 if not present
-func indexString(s, substr string) int {
-	n := len(substr)
-	if n == 0 {
-		return 0
-	}
-	for i := 0; i <= len(s)-n; i++ {
-		if s[i:i+n] == substr {
-			return i
-		}
-	}
-	return -1
 }
 
 // CreateChangeSetPreview creates a CloudFormation changeset for preview, describes it, then deletes it

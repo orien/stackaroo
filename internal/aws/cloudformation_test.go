@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func TestDeployStack_CreateNewStack_Success(t *testing.T) {
 
 	// Mock StackExists to return false (new stack) - first call only
 	mockClient.On("DescribeStacks", ctx, mock.AnythingOfType("*cloudformation.DescribeStacksInput")).
-		Return(nil, errors.New("ValidationError: Stack does not exist")).Once()
+		Return(nil, &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack does not exist"}).Once()
 
 	// Mock CreateStack
 	mockClient.On("CreateStack", ctx, mock.AnythingOfType("*cloudformation.CreateStackInput")).
@@ -173,7 +174,7 @@ func TestDeployStack_UpdateNoChanges_Success(t *testing.T) {
 
 	// Mock UpdateStack to return "no changes" error
 	mockClient.On("UpdateStack", ctx, mock.AnythingOfType("*cloudformation.UpdateStackInput")).
-		Return(nil, errors.New("ValidationError: No updates are to be performed"))
+		Return(nil, &smithy.GenericAPIError{Code: "ValidationError", Message: "No updates are to be performed"})
 
 	err := cfOps.DeployStack(ctx, input)
 
@@ -181,6 +182,41 @@ func TestDeployStack_UpdateNoChanges_Success(t *testing.T) {
 	var noChangesErr NoChangesError
 	require.ErrorAs(t, err, &noChangesErr)
 	assert.Equal(t, "no-change-stack", noChangesErr.StackName)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDeployStack_Update_IAMDenial_NotSwallowed(t *testing.T) {
+	ctx := context.Background()
+	mockClient := &MockCloudFormationClient{}
+	cfOps := NewCloudFormationOperationsWithClient(mockClient)
+
+	input := DeployStackInput{
+		StackName:    "iam-test-stack",
+		TemplateBody: `{"AWSTemplateFormatVersion": "2010-09-09"}`,
+	}
+
+	existingStack := &cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{
+			{
+				StackName:   aws.String("iam-test-stack"),
+				StackStatus: types.StackStatusCreateComplete,
+			},
+		},
+	}
+	mockClient.On("DescribeStacks", ctx, mock.AnythingOfType("*cloudformation.DescribeStacksInput")).
+		Return(existingStack, nil)
+
+	mockClient.On("UpdateStack", ctx, mock.AnythingOfType("*cloudformation.UpdateStackInput")).
+		Return(nil, &smithy.GenericAPIError{
+			Code:    "ValidationError",
+			Message: "User: arn:aws:iam::123456789012:user/test is not authorized to perform: cloudformation:UpdateStack",
+		})
+
+	err := cfOps.DeployStack(ctx, input)
+
+	require.Error(t, err)
+	var noChangesErr NoChangesError
+	assert.False(t, errors.As(err, &noChangesErr), "IAM denial should not be classified as NoChangesError")
 	mockClient.AssertExpectations(t)
 }
 
@@ -196,11 +232,11 @@ func TestDeployStack_CreateStack_Failure(t *testing.T) {
 
 	// Mock StackExists to return false (new stack)
 	mockClient.On("DescribeStacks", ctx, mock.AnythingOfType("*cloudformation.DescribeStacksInput")).
-		Return(nil, errors.New("ValidationError: Stack does not exist"))
+		Return(nil, &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack does not exist"})
 
 	// Mock CreateStack to fail
 	mockClient.On("CreateStack", ctx, mock.AnythingOfType("*cloudformation.CreateStackInput")).
-		Return(nil, errors.New("ValidationError: Invalid template"))
+		Return(nil, errors.New("failed to create: invalid template"))
 
 	err := cfOps.DeployStack(ctx, input)
 
@@ -327,13 +363,13 @@ func TestIsNoChangesError(t *testing.T) {
 		},
 		{
 			name:     "no changes error",
-			err:      errors.New("ValidationError: No updates are to be performed"),
+			err:      &smithy.GenericAPIError{Code: "ValidationError", Message: "No updates are to be performed"},
 			expected: true,
 		},
 		{
-			name:     "validation error",
-			err:      errors.New("ValidationError: Template format error"),
-			expected: true,
+			name:     "validation error without no-changes message",
+			err:      &smithy.GenericAPIError{Code: "ValidationError", Message: "Template format error"},
+			expected: false,
 		},
 		{
 			name:     "other error",
@@ -345,11 +381,72 @@ func TestIsNoChangesError(t *testing.T) {
 			err:      errors.New("RequestTimeout: Connection timeout"),
 			expected: false,
 		},
+		{
+			name:     "wrapped ValidationError with no-changes message",
+			err:      fmt.Errorf("update failed: %w", &smithy.GenericAPIError{Code: "ValidationError", Message: "No updates are to be performed"}),
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isNoChangesError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsStackNotFoundError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "typed StackNotFoundException",
+			err:      &types.StackNotFoundException{Message: aws.String("Stack does not exist")},
+			expected: true,
+		},
+		{
+			name:     "ValidationError with does not exist message",
+			err:      &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack with id test-stack does not exist"},
+			expected: true,
+		},
+		{
+			name:     "ValidationError with IAM denial message",
+			err:      &smithy.GenericAPIError{Code: "ValidationError", Message: "User: arn:aws:iam::123:user/test is not authorized to perform: cloudformation:DescribeStacks"},
+			expected: false,
+		},
+		{
+			name:     "AccessDenied error",
+			err:      &smithy.GenericAPIError{Code: "AccessDenied", Message: "Access Denied"},
+			expected: false,
+		},
+		{
+			name:     "Throttling error",
+			err:      &smithy.GenericAPIError{Code: "Throttling", Message: "Rate exceeded"},
+			expected: false,
+		},
+		{
+			name:     "plain error containing does not exist",
+			err:      errors.New("Stack does not exist"),
+			expected: false,
+		},
+		{
+			name:     "wrapped ValidationError with does not exist message",
+			err:      fmt.Errorf("describe failed: %w", &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack with id test-stack does not exist"}),
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isStackNotFoundError(tt.err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -444,7 +541,7 @@ func TestDeployStackWithCallback_Success(t *testing.T) {
 
 	// Mock StackExists to return false (new stack)
 	mockClient.On("DescribeStacks", ctx, mock.AnythingOfType("*cloudformation.DescribeStacksInput")).
-		Return(nil, errors.New("ValidationError: Stack does not exist")).Once()
+		Return(nil, &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack does not exist"}).Once()
 
 	// Mock CreateStack
 	mockClient.On("CreateStack", ctx, mock.AnythingOfType("*cloudformation.CreateStackInput")).
@@ -742,7 +839,7 @@ func TestDefaultCloudFormationOperations_CreateChangeSetForDeployment_NewStack(t
 	// Mock DescribeStacks to return error (stack doesn't exist)
 	mockClient.On("DescribeStacks", ctx, mock.MatchedBy(func(input *cloudformation.DescribeStacksInput) bool {
 		return aws.ToString(input.StackName) == stackName
-	})).Return((*cloudformation.DescribeStacksOutput)(nil), errors.New("ValidationError: Stack with id test-stack does not exist"))
+	})).Return((*cloudformation.DescribeStacksOutput)(nil), &smithy.GenericAPIError{Code: "ValidationError", Message: "Stack with id test-stack does not exist"})
 
 	// Mock CreateChangeSet with CREATE type
 	mockClient.On("CreateChangeSet", ctx, mock.MatchedBy(func(input *cloudformation.CreateChangeSetInput) bool {
@@ -1413,113 +1510,6 @@ func TestCapabilityConversion_ToAWSTypes(t *testing.T) {
 	assert.Equal(t, types.Capability("CAPABILITY_IAM"), awsCapabilities[0])
 	assert.Equal(t, types.Capability("CAPABILITY_NAMED_IAM"), awsCapabilities[1])
 	assert.Equal(t, types.Capability("CAPABILITY_AUTO_EXPAND"), awsCapabilities[2])
-}
-
-// Test utility functions used in CloudFormation error handling
-func TestContains(t *testing.T) {
-	tests := []struct {
-		name     string
-		s        string
-		substr   string
-		expected bool
-	}{
-		{
-			name:     "contains substring",
-			s:        "hello world",
-			substr:   "world",
-			expected: true,
-		},
-		{
-			name:     "does not contain substring",
-			s:        "hello world",
-			substr:   "foo",
-			expected: false,
-		},
-		{
-			name:     "empty substring",
-			s:        "hello world",
-			substr:   "",
-			expected: true,
-		},
-		{
-			name:     "exact match",
-			s:        "hello",
-			substr:   "hello",
-			expected: true,
-		},
-		{
-			name:     "substring at beginning",
-			s:        "hello world",
-			substr:   "hello",
-			expected: true,
-		},
-		{
-			name:     "substring at end",
-			s:        "hello world",
-			substr:   "world",
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := contains(tt.s, tt.substr)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestIndexString(t *testing.T) {
-	tests := []struct {
-		name     string
-		s        string
-		substr   string
-		expected int
-	}{
-		{
-			name:     "substring found",
-			s:        "hello world",
-			substr:   "world",
-			expected: 6,
-		},
-		{
-			name:     "substring not found",
-			s:        "hello world",
-			substr:   "foo",
-			expected: -1,
-		},
-		{
-			name:     "empty substring",
-			s:        "hello world",
-			substr:   "",
-			expected: 0,
-		},
-		{
-			name:     "substring at beginning",
-			s:        "hello world",
-			substr:   "hello",
-			expected: 0,
-		},
-		{
-			name:     "substring at end",
-			s:        "hello world",
-			substr:   "world",
-			expected: 6,
-		},
-		{
-			name:     "exact match",
-			s:        "hello",
-			substr:   "hello",
-			expected: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := indexString(tt.s, tt.substr)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestNewCloudFormationOperationsWithClient(t *testing.T) {
