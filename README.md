@@ -21,33 +21,19 @@ Stackaroo simplifies CloudFormation stack management through declarative YAML co
 
 ### Change Preview
 
-- **Comprehensive Change Analysis**: Shows template, parameter, tag, and resource changes
-- **Unified Template Diff**: Line-by-line template comparison in unified diff format (similar to `git diff`)
-- **CloudFormation ChangeSet Integration**: Uses AWS ChangeSet API for accurate previews
-- **Rich Diff Output**: Detailed comparison of current vs proposed infrastructure
-- **Resource Impact Assessment**: Identifies which resources will be created, modified, or deleted
-- **Replacement Warnings**: Highlights resources that require replacement during updates
-- **Consistent Formatting**: Same preview format as the dedicated `diff` command
+- Shows template, parameter, tag, and resource changes in a unified diff format (similar to `git diff`).
+- Uses the AWS ChangeSet API to identify which resources will be created, modified, deleted, or replaced.
+- Highlights resources that require replacement and uses the same format as the dedicated `diff` command.
 
 ### Stack Information
 
-- **Comprehensive Stack Details**: View complete information about deployed CloudFormation stacks
-- **Status and Metadata**: Shows stack status, creation time, last update, and description
-- **Parameter Display**: Current parameter values sorted alphabetically
-- **Output Information**: Stack outputs with their current values
-- **Tag Management**: All stack tags displayed in organised format
-- **Human-Readable Format**: Clean, consistent formatting with proper indentation
-- **Real-time Data**: Retrieves current information directly from AWS CloudFormation
+- Displays status, creation time, last update, description, parameters, outputs, and tags for a deployed stack.
+- Retrieves current data directly from AWS CloudFormation in a clean, consistently formatted layout.
 
 ### Template Validation
 
-- **Fast Feedback**: Validate CloudFormation templates without deployment
-- **AWS API Integration**: Uses CloudFormation ValidateTemplate API for accurate validation
-- **Syntax Checking**: Catches template syntax errors and invalid resource types
-- **Batch Validation**: Validate all stacks in a context with a single command
-- **CI/CD Ready**: Perfect for pre-deployment checks in automated pipelines
-- **Regional Validation**: Validates templates in the context's target region
-- **Clear Output**: Progress indicators and summary reports for validation results
+- Validates templates against the CloudFormation API in the target region without deploying, catching syntax errors and invalid resource types.
+- Supports single-stack and whole-context validation, making it suitable for pre-deployment checks in CI/CD pipelines.
 
 Validate templates early in your development workflow:
 
@@ -130,12 +116,7 @@ contexts:
       InstanceType: t3.large  # Production override
 ```
 
-**Benefits:**
-- **Automatic Resolution**: Stack outputs resolved at deployment time
-- **Cross-Stack Dependencies**: Reference outputs from other stacks seamlessly
-- **Environment Flexibility**: Different values per context without template changes
-- **Type Safety**: Comprehensive validation and error handling
-- **Backwards Compatible**: Existing literal parameter configurations work unchanged
+Stack outputs are resolved at deployment time, so cross-stack dependencies always reflect the current live state. Different values per context are supported without modifying templates, and existing literal parameter configurations continue to work unchanged.
 
 ### CloudFormation Template Templating
 
@@ -162,19 +143,12 @@ Resources:
 
 When deployed to the `development` context, this generates a bucket named `my-app-bucket-development`. When deployed to `production`, it generates `my-app-bucket-production` with an additional backup tag.
 
-**Available features:**
-- **Context variables**: Access `{{ .Context }}` (the context name like "development" or "production") and `{{ .StackName }}` (the stack name) in templates
-- **Sprig functions**: Use `upper`, `lower`, `title`, and other text transformations
-- **Conditionals**: `{{- if eq .Context "production" }}` for environment-specific resources
-- **Automatic processing**: All templates are processed automatically, backwards compatible with static templates
+Templates have access to `{{ .Context }}` and `{{ .StackName }}` variables, the full [Sprig](https://masterminds.github.io/sprig/) function library, and standard Go template conditionals for environment-specific resources. Processing is automatic and backwards compatible with static templates.
 
 ### Real-time Event Streaming
 
-- See exactly what will change before applying
-- Live CloudFormation events during deployment operations
-- See resource creation, updates, and completion status in real-time
-- Smart detection of create vs update operations
-- Graceful handling of "no changes" scenarios
+- Streams live CloudFormation events during deployments, showing resource creation, updates, and completion status as they happen.
+- Automatically detects create vs update operations and handles "no changes" scenarios gracefully.
 
 ## Installation
 
