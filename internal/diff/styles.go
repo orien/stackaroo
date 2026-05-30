@@ -360,7 +360,7 @@ func ShouldUseColour() bool {
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
-// Highlight returns the text highlighted in the accent color if colours are enabled
+// Highlight returns the text highlighted in the accent colour if colours are enabled
 func Highlight(text string) string {
 	if !ShouldUseColour() {
 		return text

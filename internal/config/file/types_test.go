@@ -749,7 +749,7 @@ func TestParameterValue_MarshalYAML_List(t *testing.T) {
 }
 
 func TestConfig_EmptyMaps(t *testing.T) {
-	// Test behavior with empty maps vs nil maps
+	// Test behaviour with empty maps vs nil maps
 	config1 := Config{
 		Tags: map[string]string{},
 	}

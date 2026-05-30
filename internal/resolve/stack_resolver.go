@@ -129,7 +129,7 @@ func (r *StackResolver) GetDependencyOrder(context string, stackNames []string) 
 	inDegree := make(map[string]int)
 	adjList := make(map[string][]string)
 
-	// Initialize
+	// Initialise
 	for _, stackConfig := range stackConfigs {
 		inDegree[stackConfig.Name] = 0
 		adjList[stackConfig.Name] = []string{}

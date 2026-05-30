@@ -407,7 +407,7 @@ func TestMockConfigProvider_Validate(t *testing.T) {
 }
 
 func TestConfig_EmptyMapsVsNilMaps(t *testing.T) {
-	// Test behavior difference between empty maps and nil maps
+	// Test behaviour difference between empty maps and nil maps
 	config1 := Config{
 		Tags: map[string]string{},
 	}

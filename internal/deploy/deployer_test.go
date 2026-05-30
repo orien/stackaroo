@@ -45,7 +45,7 @@ func TestNewStackDeployer(t *testing.T) {
 	deployer := createMockDeployer(mockFactory)
 
 	assert.NotNil(t, deployer)
-	// We can't directly test the internal clientFactory field, but we can test behavior
+	// We can't directly test the internal clientFactory field, but we can test behaviour
 }
 
 func TestStackDeployer_DeployStack_Success(t *testing.T) {

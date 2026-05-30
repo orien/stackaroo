@@ -333,7 +333,7 @@ stacks:
 }
 
 func TestFileProvider_LoadConfig_FallbackWithoutGlobalTemplateDirectory(t *testing.T) {
-	// Test that without global template directory, behavior remains the same (backward compatibility)
+	// Test that without global template directory, behaviour remains the same (backward compatibility)
 	configContent := `
 project: test-project
 region: us-east-1
@@ -356,7 +356,7 @@ stacks:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	// Verify stack template path resolves relative to config directory (current behavior)
+	// Verify stack template path resolves relative to config directory (current behaviour)
 	require.Len(t, cfg.Stacks, 1)
 	stack := cfg.Stacks[0]
 	assert.Equal(t, "vpc", stack.Name)

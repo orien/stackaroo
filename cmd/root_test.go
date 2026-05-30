@@ -125,7 +125,7 @@ func TestRootCmd_NoArgs(t *testing.T) {
 }
 
 func TestRootCmd_InvalidFlag(t *testing.T) {
-	// Test behavior with invalid flag
+	// Test behaviour with invalid flag
 	var buf bytes.Buffer
 	rootCmd.SetOut(&buf)
 	rootCmd.SetErr(&buf)

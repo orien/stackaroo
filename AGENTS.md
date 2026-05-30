@@ -69,23 +69,25 @@ func TestFunction_Scenario_Expected(t *testing.T) {
 }
 ```
 
-**AWS Mocking Pattern:**
-```go
-type mockCloudFormationAPI struct {
-    mock.Mock
-}
+**AWS Mocking Pattern (ADR 0016):**
 
-func (m *mockCloudFormationAPI) CreateStack(ctx context.Context, input *cloudformation.CreateStackInput, opts ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
-    args := m.Called(ctx, input)
-    return args.Get(0).(*cloudformation.CreateStackOutput), args.Error(1)
-}
+Mocks live in `testing.go` files co-located with their interfaces (e.g. `internal/aws/testing.go`). Use `Mock[InterfaceName]` naming and import them from their package:
+
+```go
+// In your test file — import and use the shared mock directly:
+mockOps := &aws.MockCloudFormationOperations{}
+mockOps.On("DeployStack", mock.Anything, mock.AnythingOfType("aws.DeployStackInput")).Return(nil)
+
+factory := aws.NewMockClientFactoryWithOperations("us-east-1", mockOps)
 ```
+
+Do **not** define new inline mock structs — add them to the appropriate `testing.go` file instead.
 
 ### Language Standards
 - Use British English throughout (colour, organisation, optimise)
 - Apply to code comments, errors, variables, and documentation
 - Use Mermaid for diagrams (flowcharts, sequence, state, class)
-- ISO 8601 dates (YYYY/MM/DD)
+- ISO 8601 dates (YYYY-MM-DD)
 
 ## AWS Development
 
@@ -184,14 +186,14 @@ stacks:
 
 ## CI/CD Pipeline
 
-GitHub Actions runs:
-1. **Test** - Unit tests with race detection
-2. **Lint** - golangci-lint
-3. **Security** - govulncheck
-4. **Build** - Cross-platform (Linux/macOS/Windows, AMD64/ARM64)
-5. **Integration** - Basic CLI functionality
+Woodpecker CI (`.woodpecker/ci.yaml`) runs on push and pull request:
+1. **test** - `go mod tidy` idempotency check + unit tests
+2. **lint** - golangci-lint
+3. **security** - govulncheck
+4. **build-linux-amd64** - Binary build (depends on test, lint, security)
+5. **integration-test** - Basic CLI functionality (depends on build)
 
-All checks must pass before merge.
+All steps must pass before merge. See ADR 0024 for the Codeberg/Woodpecker hosting decision.
 
 ## Security
 - Never commit credentials

@@ -116,7 +116,7 @@ func (r *Result) formatTemplateChangesText(output *strings.Builder, styles *Styl
 	output.WriteString("\n\n")
 
 	if r.TemplateChange.HasChanges && r.TemplateChange.Diff != "" {
-		output.WriteString(ColorizeUnifiedDiff(r.TemplateChange.Diff, styles))
+		output.WriteString(ColouriseUnifiedDiff(r.TemplateChange.Diff, styles))
 	} else {
 		crossmark := styles.StatusNoChange.Render("✗")
 		fmt.Fprintf(output, "%s No template changes\n", crossmark)
@@ -283,8 +283,8 @@ func (r *Result) formatChangeSetErrorText(output *strings.Builder, styles *Style
 	output.WriteString("\n\n")
 }
 
-// ColorizeUnifiedDiff applies color formatting to unified diff output
-func ColorizeUnifiedDiff(diff string, styles *Styles) string {
+// ColouriseUnifiedDiff applies colour formatting to unified diff output
+func ColouriseUnifiedDiff(diff string, styles *Styles) string {
 	if !styles.UseColour || diff == "" {
 		return diff
 	}

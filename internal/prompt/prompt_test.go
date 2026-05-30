@@ -222,5 +222,5 @@ func TestGetDefaultPrompter_ReturnsPrompter(t *testing.T) {
 }
 
 // Note: The MockPrompter allows full testing of confirmation flows without requiring
-// actual user input. Tests can configure expected responses and verify behavior.
+// actual user input. Tests can configure expected responses and verify behaviour.
 // For interactive testing of the StdinPrompter, manual testing is recommended.

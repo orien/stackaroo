@@ -1,6 +1,6 @@
 # 21. Consistent YAML schema structure
 
-Date: 2025/01/13
+Date: 2025-01-13
 
 ## Status
 

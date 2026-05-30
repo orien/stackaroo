@@ -1,6 +1,6 @@
 # 23. Layer-based error wrapping strategy
 
-Date: 2026/01/18
+Date: 2026-01-18
 
 ## Status
 

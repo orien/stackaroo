@@ -1,6 +1,6 @@
 # 19. User documentation site with VitePress and GitHub Pages
 
-Date: 2025/10/19
+Date: 2025-10-19
 
 ## Status
 

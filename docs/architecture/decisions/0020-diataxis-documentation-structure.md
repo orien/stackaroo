@@ -1,6 +1,6 @@
 # 20. Adopt the Diátaxis documentation framework
 
-Date: 2025/10/20
+Date: 2025-10-20
 
 ## Status
 

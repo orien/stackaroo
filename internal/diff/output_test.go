@@ -538,8 +538,8 @@ func TestResult_ToText_WithChangeSetError(t *testing.T) {
 	assert.Contains(t, output, "parameter InvalidParam does not exist in template")
 }
 
-func TestColorizeUnifiedDiff(t *testing.T) {
-	t.Run("with colors enabled", func(t *testing.T) {
+func TestColouriseUnifiedDiff(t *testing.T) {
+	t.Run("with colours enabled", func(t *testing.T) {
 		diff := `@@ -1,3 +1,4 @@
  context line
 -removed line
@@ -547,7 +547,7 @@ func TestColorizeUnifiedDiff(t *testing.T) {
  another context`
 
 		styles := NewStyles(true)
-		result := ColorizeUnifiedDiff(diff, styles)
+		result := ColouriseUnifiedDiff(diff, styles)
 
 		// Verify result is not empty and has correct structure
 		assert.NotEmpty(t, result, "Result should not be empty")
@@ -577,7 +577,7 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 +added line`
 
 		styles := NewStyles(false)
-		result := ColorizeUnifiedDiff(diff, styles)
+		result := ColouriseUnifiedDiff(diff, styles)
 
 		// Should not contain ANSI color codes
 		assert.NotContains(t, result, "\x1b[", "Should not contain ANSI escape sequences")
@@ -588,14 +588,14 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 
 	t.Run("empty diff", func(t *testing.T) {
 		styles := NewStyles(true)
-		result := ColorizeUnifiedDiff("", styles)
+		result := ColouriseUnifiedDiff("", styles)
 		assert.Equal(t, "", result, "Empty diff should return empty string")
 	})
 
 	t.Run("each line type colored correctly", func(t *testing.T) {
 		styles := NewStyles(true)
 
-		// Get terminal width for padding calculation (same as ColorizeUnifiedDiff)
+		// Get terminal width for padding calculation (same as ColouriseUnifiedDiff)
 		termWidth := 80
 		if width, _, err := term.GetSize(os.Stdout.Fd()); err == nil && width > 0 {
 			termWidth = width
@@ -612,22 +612,22 @@ func TestColorizeUnifiedDiff(t *testing.T) {
 		}
 
 		// Test hunk header
-		hunkResult := ColorizeUnifiedDiff("@@ -1,2 +1,3 @@", styles)
+		hunkResult := ColouriseUnifiedDiff("@@ -1,2 +1,3 @@", styles)
 		expectedHunk := styles.DiffHunk.Render(padLine("@@ -1,2 +1,3 @@")) + "\n"
 		assert.Equal(t, expectedHunk, hunkResult, "Hunk header should use DiffHunk style")
 
 		// Test added line
-		addedResult := ColorizeUnifiedDiff("+added content", styles)
+		addedResult := ColouriseUnifiedDiff("+added content", styles)
 		expectedAdded := styles.Added.Render(padLine("+added content")) + "\n"
 		assert.Equal(t, expectedAdded, addedResult, "Added line should use added style")
 
 		// Test removed line
-		removedResult := ColorizeUnifiedDiff("-removed content", styles)
+		removedResult := ColouriseUnifiedDiff("-removed content", styles)
 		expectedRemoved := styles.Removed.Render(padLine("-removed content")) + "\n"
 		assert.Equal(t, expectedRemoved, removedResult, "Removed line should use removed style")
 
 		// Test context line
-		contextResult := ColorizeUnifiedDiff(" context content", styles)
+		contextResult := ColouriseUnifiedDiff(" context content", styles)
 		expectedContext := styles.DiffContext.Render(padLine(" context content")) + "\n"
 		assert.Equal(t, expectedContext, contextResult, "Context line should use DiffContext style")
 	})
